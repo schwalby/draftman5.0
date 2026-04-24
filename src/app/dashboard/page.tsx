@@ -197,7 +197,7 @@ export default function DashboardPage() {
           <Link href="/rules" style={navLink()}>
             <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#8801;</span> Rules
           </Link>
-          <Link href="/rules/new" style={navLink()}>
+          <Link href="/rules/edit" style={navLink()}>
             <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>+</span> New Rule
           </Link>
           <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
