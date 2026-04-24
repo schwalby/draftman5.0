@@ -102,7 +102,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/')
-    if (status === 'authenticated') fetchAll()
+    if (status === 'authenticated') { setTimeout(() => fetchAll(), 500) }
   }, [status, fetchAll, router])
 
   // ── Realtime ─────────────────────────────────────────────────
