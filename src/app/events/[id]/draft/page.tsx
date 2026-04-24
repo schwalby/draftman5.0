@@ -73,6 +73,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const [classFilter, setClassFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [picking, setPicking] = useState(false)
+  const [confirmPlayer, setConfirmPlayer] = useState<Signup | null>(null)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
   const [darkMode, setDarkMode] = useState(true)
   const [timerOn, setTimerOn] = useState(true)
@@ -93,9 +94,9 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       fetch(`/api/events/${eventId}/signups`),
     ])
     if (evRes.ok) setEvent(await evRes.json())
-    if (teamsRes.ok) { const d = await teamsRes.json(); setTeams(Array.isArray(d.teams) ? d.teams : Array.isArray(d) ? d : []) }
-    if (picksRes.ok) { const d = await picksRes.json(); setPicks(Array.isArray(d) ? d : []) }
-    if (signupsRes.ok) { const d = await signupsRes.json(); setSignups(Array.isArray(d) ? d : []) }
+    if (teamsRes.ok) setTeams(await teamsRes.json())
+    if (picksRes.ok) setPicks(await picksRes.json())
+    if (signupsRes.ok) setSignups(await signupsRes.json())
     setLoading(false)
   }, [eventId])
 
@@ -163,12 +164,12 @@ export default function DraftPage({ params }: { params: { id: string } }) {
 
   // Captain name helper
   function captainName(team: Team) {
-    return ((team as any).captain?.ingame_name || (team as any).captain?.discord_username || team.name)
+    return team.captain?.ingame_name || team.captain?.discord_username || team.name
   }
 
   // Player display name
   function playerName(s: Signup) {
-    return ((s as any).users?.ingame_name || (s as any).users?.discord_username || s.user_id)
+    return s.user?.ingame_name || s.user?.discord_username || s.user_id
   }
 
   function pickedUserIds() {
@@ -317,7 +318,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             return (
               <div
                 key={s.user_id}
-                onClick={() => canPick && setSelected(isSel ? null : s.user_id)}
+                onClick={() => { if (!canPick) return; if (isSel) { setSelected(null) } else { setSelected(s.user_id); setConfirmPlayer(s) } }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 7,
                   padding: '6px 10px', borderRadius: 3, fontSize: 14,
@@ -432,15 +433,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
 
             {/* Admin actions */}
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-              {selected && canPick && !isDraftDone && (
-                <button
-                  onClick={confirmPick}
-                  disabled={picking}
-                  style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 14px', borderRadius: 3, border: '1px solid var(--green)', color: 'var(--green)', background: 'rgba(90,156,90,0.12)', cursor: 'pointer', opacity: picking ? 0.6 : 1 }}
-                >
-                  ✓ Pick {signups.find(s => s.user_id === selected) ? playerName(signups.find(s => s.user_id === selected)!) : ''}
-                </button>
-              )}
+
               {isOrganizer && picks.length > 0 && (
                 <button onClick={undoPick} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--rust)', color: 'var(--rust)', background: 'rgba(192,57,43,0.08)', cursor: 'pointer' }}>↩ Undo</button>
               )}
@@ -507,6 +500,33 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       <style>{`
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
       `}</style>
+
+      {/* CONFIRM PICK MODAL */}
+      {confirmPlayer && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={() => { setConfirmPlayer(null); setSelected(null) }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '28px 32px', minWidth: 300, maxWidth: 400 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Confirm Pick</div>
+            <div style={{ fontSize: 20, fontFamily: 'var(--font-heading)', fontWeight: 300, color: 'var(--text)', marginBottom: 6 }}>{playerName(confirmPlayer)}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 24 }}>
+              {confirmPlayer.class.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' / ')}
+              {activeTeam && <span> &nbsp;→&nbsp; {captainName(activeTeam)}</span>}
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { setConfirmPlayer(null); setSelected(null) }}
+                style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}
+              >Cancel</button>
+              <button
+                onClick={() => { setConfirmPlayer(null); confirmPick() }}
+                disabled={picking}
+                style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--green)', color: 'var(--green)', background: 'rgba(90,156,90,0.12)', cursor: 'pointer', opacity: picking ? 0.6 : 1 }}
+              >✓ Confirm Pick</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
