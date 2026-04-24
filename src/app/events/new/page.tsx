@@ -167,7 +167,7 @@ export default function NewEventPage() {
   };
 
   const setFormat = (fmt: string) => {
-    updateForm({ format: fmt, slots: { ...FORMAT_DEFAULTS[fmt] } });
+    updateForm({ format: fmt, slots: FORMAT_DEFAULTS[fmt] as { rifle: number; third: number; heavy: number; sniper: number } });
   };
 
   const fmtDatetime = (v: string) =>

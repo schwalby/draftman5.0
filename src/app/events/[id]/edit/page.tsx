@@ -156,12 +156,12 @@ export default function EditEventPage() {
 
   const adjustSlot = (key: string, dir: number) => {
     if (!form) return;
-    const next = { ...form.slots, [key]: Math.max(0, form.slots[key] + dir) };
+    const next = { ...form.slots, [key]: Math.max(0, (form.slots as any)[key] + dir) };
     updateForm({ slots: next });
   };
 
   const setFormat = (fmt: string) => {
-    updateForm({ format: fmt, slots: { ...FORMAT_DEFAULTS[fmt] } });
+    updateForm({ format: fmt, slots: { ...FORMAT_DEFAULTS[fmt] } as any });
   };
 
   const fmtDate = (v: string) =>
