@@ -154,7 +154,7 @@ export default function EditEventPage() {
     updateForm({ maps: next });
   };
 
-  const adjustSlot = (key: keyof typeof form.slots, dir: number) => {
+  const adjustSlot = (key: keyof typeof form!.slots, dir: number) => {
     if (!form) return;
     const next = { ...form.slots, [key]: Math.max(0, form.slots[key] + dir) };
     updateForm({ slots: next });
