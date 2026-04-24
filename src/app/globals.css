@@ -1,0 +1,106 @@
+/* ============================================================
+   DRAFT MAN 5.0 — globals.css
+   ============================================================ */
+
+/* --- Local Fonts --- */
+@font-face {
+  font-family: 'Fraktion Mono';
+  src: url('/fonts/PP Fraktion Mono Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'KH Interference';
+  src: url('/fonts/KH Interference Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'KH Interference';
+  src: url('/fonts/KHInterference-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* --- CSS Variables --- */
+:root {
+  --khaki: #c8b87a;
+  --cream: #f0ead8;
+  --bg: #1a1a14;
+  --surface: #222218;
+  --surface2: #2a2a1f;
+  --border: rgba(200,184,122,0.18);
+  --border-strong: rgba(200,184,122,0.35);
+  --text: #e8e0c8;
+  --text-dim: #a09880;
+  --green-light: #5a9c5a;
+  --rust: #c0392b;
+
+  --rifle: #c8a050;
+  --light: #4a9c6a;
+  --heavy: #9c5a4a;
+  --sniper: #5a6a9c;
+  --flex: #888888;
+
+  --font-heading: 'KH Interference', sans-serif;
+  --font-heading-weight: 300;
+  --font-body: 'Fraktion Mono', monospace;
+  --font-accent: 'KH Interference', sans-serif;
+}
+
+/* --- Slate theme overrides --- */
+[data-theme="slate"] {
+  --bg: #111218;
+  --surface: #1a1b22;
+  --surface2: #22232d;
+}
+
+/* --- Reset --- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* --- Grid background --- */
+html {
+  background: var(--bg);
+  background-image:
+    linear-gradient(rgba(200,184,122,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200,184,122,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-attachment: fixed;
+}
+
+body {
+  background: transparent;
+  font-family: var(--font-body);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Heading defaults --- */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  letter-spacing: 0.04em;
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--khaki); }
+
+/* --- Selection --- */
+::selection {
+  background: rgba(200,184,122,0.25);
+  color: var(--cream);
+}
