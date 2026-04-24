@@ -7,11 +7,14 @@ import Link from 'next/link'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function LandingPage() {
-  const { status } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
 
   useEffect(() => {
-    if (status === 'authenticated') router.push('/dashboard')
+    if (status === 'authenticated') {
+      const isAdmin = session?.user?.isOrganizer || session?.user?.isSuperUser
+      router.push(isAdmin ? '/dashboard' : '/portal')
+    }
   }, [status, router])
 
   return (
