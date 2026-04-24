@@ -42,12 +42,12 @@ const CLASS_COLORS: Record<string, string> = {
 }
 
 function formatDate(iso: string | null) {
-  if (!iso) return 'Ã¢â‚¬â€'
+  if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function formatDateTime(iso: string | null) {
-  if (!iso) return 'Ã¢â‚¬â€'
+  if (!iso) return '—'
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
@@ -119,7 +119,7 @@ export default function PortalPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'var(--font-body)' }}>
 
-      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â SIDEBAR Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
+      {/* ═══ SIDEBAR ═══════════════════════════════════════════════ */}
       <aside style={{
         width: 220, flexShrink: 0, background: 'var(--surface)',
         borderRight: '1px solid var(--border)', display: 'flex',
@@ -140,15 +140,9 @@ export default function PortalPage() {
           <div style={{ fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300, letterSpacing: '0.18em', color: 'var(--text-dim)', textTransform: 'uppercase', padding: '0 10px', marginBottom: 6 }}>
             NAVIGATION
           </div>
-          <Link href="/portal" style={navLink(true)}>
-            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>Ã¢â€”Ë†</span> Portal
-          </Link>
-          <Link href="/events" style={navLink()}>
-            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>Ã¢â€”â€°</span> Events
-          </Link>
-          <Link href="/rules" style={navLink()}>
-            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>Ã¢â€°Â¡</span> Rules
-          </Link>
+          <Link href="/portal" style={navLink(true)}>Portal</Link>
+          <Link href="/events" style={navLink()}>Events</Link>
+          <Link href="/rules" style={navLink()}>Rules</Link>
         </div>
 
         {/* Bottom utility zone */}
@@ -156,7 +150,7 @@ export default function PortalPage() {
           {/* Theme toggle */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)' }}>
-              <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>Ã¢â€”â€˜</span> Dark Mode
+              <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>◑</span> Dark Mode
             </span>
             <div
               onClick={toggleTheme}
@@ -201,7 +195,7 @@ export default function PortalPage() {
         </div>
       </aside>
 
-      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â MAIN Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
+      {/* ═══ MAIN ══════════════════════════════════════════════════ */}
       <main style={{ marginLeft: 220, flex: 1, padding: '36px 40px 80px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ width: '100%', maxWidth: 760 }}>
 
@@ -211,7 +205,7 @@ export default function PortalPage() {
               Welcome back, {displayName}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>
-              Day of Defeat 1.3 Ã‚Â· Draft Events
+              Day of Defeat 1.3 · Draft Events
             </div>
           </div>
 
@@ -221,7 +215,7 @@ export default function PortalPage() {
               fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em',
               color: 'var(--text-dim)', textTransform: 'uppercase',
               paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 12
-            }}>Open Events Ã¢â‚¬â€ Sign Up Now</div>
+            }}>Open Events — Sign Up Now</div>
 
             {events.length === 0 ? (
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: 28, textAlign: 'center' }}>
@@ -254,9 +248,9 @@ export default function PortalPage() {
 
                       {/* Meta */}
                       <div style={{ fontSize: 11, color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        {event.starts_at && <span>Ã°Å¸â€œâ€¦ {formatDateTime(event.starts_at)}</span>}
-                        <span>Ã¢Å¡â€ {event.format} Ã‚Â· {typeLabel} Ã‚Â· {event.half_length} min halves</span>
-                        <span>Ã°Å¸â€˜Â¥ {event.signup_count ?? 0} / {event.capacity} signed up</span>
+                        {event.starts_at && <span>📅 {formatDateTime(event.starts_at)}</span>}
+                        <span>⚔ {event.format} · {typeLabel} · {event.half_length} min halves</span>
+                        <span>👥 {event.signup_count ?? 0} / {event.capacity} signed up</span>
                       </div>
 
                       {/* Signup status */}
@@ -310,7 +304,7 @@ export default function PortalPage() {
             }}>My Stats</div>
 
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: 28, textAlign: 'center' }}>
-              <div style={{ fontSize: 24, marginBottom: 10, opacity: 0.3 }}>Ã°Å¸â€œÅ </div>
+              <div style={{ fontSize: 24, marginBottom: 10, opacity: 0.3 }}>📊</div>
               <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.6 }}>
                 Stats are coming soon.<br />
                 This section will show your win/loss record, classes played, and draft history.
