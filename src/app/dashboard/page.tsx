@@ -195,6 +195,9 @@ export default function DashboardPage() {
           <Link href="/events/new" style={navLink()}>
             <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>＋</span> New Event
           </Link>
+          <Link href="/portal" style={navLink()}>
+            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>◉</span> Portal
+          </Link>
           <Link href="/rules" style={navLink()}>
             <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>≡</span> Rules
           </Link>
