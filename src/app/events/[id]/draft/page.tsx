@@ -93,7 +93,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       fetch(`/api/events/${eventId}/signups`),
     ])
     if (evRes.ok) setEvent(await evRes.json())
-    if (teamsRes.ok) { const d = await teamsRes.json(); setTeams(Array.isArray(d) ? d : []) }
+    if (teamsRes.ok) { const d = await teamsRes.json(); setTeams(Array.isArray(d.teams) ? d.teams : Array.isArray(d) ? d : []) }
     if (picksRes.ok) { const d = await picksRes.json(); setPicks(Array.isArray(d) ? d : []) }
     if (signupsRes.ok) { const d = await signupsRes.json(); setSignups(Array.isArray(d) ? d : []) }
     setLoading(false)
@@ -163,12 +163,12 @@ export default function DraftPage({ params }: { params: { id: string } }) {
 
   // Captain name helper
   function captainName(team: Team) {
-    return team.captain?.ingame_name || team.captain?.discord_username || team.name
+    return ((team as any).captain?.ingame_name || (team as any).captain?.discord_username || team.name)
   }
 
   // Player display name
   function playerName(s: Signup) {
-    return s.user?.ingame_name || s.user?.discord_username || s.user_id
+    return ((s as any).users?.ingame_name || (s as any).users?.discord_username || s.user_id)
   }
 
   function pickedUserIds() {
