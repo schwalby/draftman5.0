@@ -63,6 +63,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/')
+    if (status === 'authenticated' && !session?.user?.isOrganizer && !session?.user?.isSuperUser) router.replace('/portal')
   }, [status, router])
 
   // Sync dark mode state with html attribute (set by layout.tsx inline script)
