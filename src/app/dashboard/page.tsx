@@ -63,7 +63,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/')
-    if (status === 'authenticated' && !session?.user?.isOrganizer && !session?.user?.isSuperUser) router.replace('/portal')
   }, [status, router])
 
   // Sync dark mode state with html attribute (set by layout.tsx inline script)
@@ -193,13 +192,17 @@ export default function DashboardPage() {
             <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>◈</span> Events
           </Link>
           <Link href="/events/new" style={navLink()}>
-            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>＋</span> New Event
-          </Link>
-          <Link href="/portal" style={navLink()}>
-            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>◉</span> Portal
+            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>+</span> New Event
           </Link>
           <Link href="/rules" style={navLink()}>
-            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>≡</span> Rules
+            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#8801;</span> Rules
+          </Link>
+          <Link href="/rules/new" style={navLink()}>
+            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>+</span> New Rule
+          </Link>
+          <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+          <Link href="/portal" style={navLink()}>
+            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#9673;</span> Portal
           </Link>
         </div>
 
