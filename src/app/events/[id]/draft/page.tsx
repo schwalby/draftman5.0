@@ -138,7 +138,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   }, [picks.length])
 
   // ── Draft state ──────────────────────────────────────────────
-  const sortedTeams = [...teams].sort((a, b) => a.pick_order - b.pick_order)
+  const sortedTeams = Array.isArray(teams) ? [...teams].sort((a, b) => a.pick_order - b.pick_order) : []
   const totalPicks = sortedTeams.length * SLOTS_PER_TEAM
   const currentPickNum = picks.length + 1
   const isDraftDone = picks.length >= totalPicks
