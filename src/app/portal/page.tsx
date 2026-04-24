@@ -140,9 +140,17 @@ export default function PortalPage() {
           <div style={{ fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300, letterSpacing: '0.18em', color: 'var(--text-dim)', textTransform: 'uppercase', padding: '0 10px', marginBottom: 6 }}>
             NAVIGATION
           </div>
-          <Link href="/portal" style={navLink(true)}>Portal</Link>
-          <Link href="/events" style={navLink()}>Events</Link>
-          <Link href="/rules" style={navLink()}>Rules</Link>
+          {(user?.isOrganizer || user?.isSuperUser) && (
+            <Link href="/dashboard" style={navLink()}>
+              <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#9642;</span> Dashboard
+            </Link>
+          )}
+          <Link href="/events" style={navLink()}>
+            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#9675;</span> Events
+          </Link>
+          <Link href="/rules" style={navLink()}>
+            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#8801;</span> Rules
+          </Link>
         </div>
 
         {/* Bottom utility zone */}

@@ -97,14 +97,16 @@ export default function EventsPage() {
         </div>
         <div style={{ padding: '16px 6px 0' }}>
           <div style={{ fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300, letterSpacing: '0.18em', color: 'var(--text-dim)', textTransform: 'uppercase', padding: '0 10px', marginBottom: 6 }}>NAVIGATION</div>
+          {(user?.isOrganizer || user?.isSuperUser) && (
+            <Link href="/dashboard" style={navLink()}>
+              <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#9642;</span> Dashboard
+            </Link>
+          )}
           <Link href="/portal" style={navLink()}>
-            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>◈</span> Portal
-          </Link>
-          <Link href="/events" style={navLink(true)}>
-            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>◉</span> Events
+            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#9673;</span> Portal
           </Link>
           <Link href="/rules" style={navLink()}>
-            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>≡</span> Rules
+            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#8801;</span> Rules
           </Link>
         </div>
         <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 9 }}>
