@@ -143,7 +143,7 @@ export default function PortalPage() {
           <Link href="/portal" style={navLink(true)}>
             <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>◈</span> Portal
           </Link>
-          <Link href="/events" style={navLink()}>
+          <Link href="/portal" style={navLink()}>
             <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>◉</span> Events
           </Link>
           <Link href="/rules" style={navLink()}>
