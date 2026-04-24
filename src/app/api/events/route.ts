@@ -38,7 +38,7 @@ export async function GET() {
   }
 
   // Attach signup_count to each event
-  const eventsWithCounts = events.map(e => ({
+  const eventsWithCounts = events.map((e: any) => ({
     ...e,
     signup_count: countMap[e.id] ?? 0,
   }))
