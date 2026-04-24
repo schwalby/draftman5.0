@@ -24,7 +24,7 @@ export async function GET() {
   }
 
   // Fetch signup counts for all events in one query
-  const eventIds = events.map(e => e.id)
+  const eventIds = events.map((e: any) => e.id)
   const { data: signupCounts } = await supabaseAdmin
     .from('signups')
     .select('event_id')
