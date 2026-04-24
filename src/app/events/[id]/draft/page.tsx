@@ -93,9 +93,9 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       fetch(`/api/events/${eventId}/signups`),
     ])
     if (evRes.ok) setEvent(await evRes.json())
-    if (teamsRes.ok) setTeams(await teamsRes.json())
-    if (picksRes.ok) setPicks(await picksRes.json())
-    if (signupsRes.ok) setSignups(await signupsRes.json())
+    if (teamsRes.ok) { const d = await teamsRes.json(); setTeams(Array.isArray(d) ? d : []) }
+    if (picksRes.ok) { const d = await picksRes.json(); setPicks(Array.isArray(d) ? d : []) }
+    if (signupsRes.ok) { const d = await signupsRes.json(); setSignups(Array.isArray(d) ? d : []) }
     setLoading(false)
   }, [eventId])
 
