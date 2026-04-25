@@ -54,6 +54,7 @@ interface ContextMenu {
   name: string
   isDrafted: boolean
   pickId?: string
+  pickNumber?: number
   currentClass?: string | null
   isRinger: boolean
 }
@@ -108,6 +109,8 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null)
   const [editingTeamName, setEditingTeamName] = useState('')
   const [teamNames, setTeamNames] = useState<Record<string, string>>({})
+  // FIX: track if "End Draft" confirm is showing
+  const [endDraftConfirm, setEndDraftConfirm] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const timerSecsRef = useRef(90)
 
@@ -217,19 +220,62 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     else { const d = await res.json(); showToast(d.error || 'Pick failed', true) }
   }
 
+  // FIX: undoPick always removes the last pick in DB order.
+  // selected and confirmPlayer are cleared so no phantom extra pick button appears.
   async function undoPick() {
     if (!isAdmin || picks.length === 0) return
     const res = await fetch(`/api/draft/${eventId}/undo`, { method: 'DELETE' })
-    if (res.ok) { setSelected(null); resetTimer(); showToast('Pick undone') }
-    else showToast('Undo failed', true)
+    if (res.ok) {
+      setSelected(null)
+      setConfirmPlayer(null)  // FIX: clear confirm modal state
+      resetTimer()
+      showToast('Pick undone')
+      // fetchAll is triggered by realtime subscription, but call it explicitly as fallback
+      fetchAll()
+    } else {
+      showToast('Undo failed', true)
+    }
   }
 
-  async function undoSpecificPick(pickId: string) {
+  // FIX: undoSpecificPick from context menu.
+  // Only allowed if the right-clicked pick IS the last pick.
+  // If it's not the last pick, warn the admin instead of silently undoing the wrong one.
+  async function undoSpecificPick(pickId: string, pickNumber: number) {
     if (!isAdmin) return
     setContextMenu(null)
+
+    const lastPick = picks.reduce((max, p) => p.pick_number > max.pick_number ? p : max, picks[0])
+    if (lastPick.id !== pickId) {
+      showToast('Can only undo the last pick. Use the ↩ Undo button.', true)
+      return
+    }
+
     const res = await fetch(`/api/draft/${eventId}/undo`, { method: 'DELETE' })
-    if (res.ok) { resetTimer(); showToast('Pick undone'); fetchAll() }
-    else showToast('Undo failed', true)
+    if (res.ok) {
+      setSelected(null)
+      setConfirmPlayer(null)
+      resetTimer()
+      showToast('Pick undone')
+      fetchAll()
+    } else {
+      showToast('Undo failed', true)
+    }
+  }
+
+  // FIX: End Draft — PATCH event status to 'completed'
+  async function endDraft() {
+    setEndDraftConfirm(false)
+    const res = await fetch(`/api/events/${eventId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'completed' }),
+    })
+    if (res.ok) {
+      showToast('Draft ended')
+      fetchAll()
+    } else {
+      showToast('Failed to end draft', true)
+    }
   }
 
   async function changePickClass(pickId: string, newClasses: string[]) {
@@ -290,9 +336,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   function getTeamDisplayName(team: Team): string {
     const overridden = teamNames[team.id]
     if (overridden) return overridden
-    // If name is a NATO name (default), show captain name instead
     if (NATO.includes(team.name)) return captainDisplayName(team)
-    // Otherwise it was custom renamed
     return team.name || captainDisplayName(team)
   }
 
@@ -320,6 +364,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     name: string,
     isDrafted: boolean,
     pickId?: string,
+    pickNumber?: number,
     currentClass?: string | null,
     isRinger?: boolean
   ) {
@@ -334,6 +379,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       name,
       isDrafted,
       pickId,
+      pickNumber,
       currentClass,
       isRinger: isRinger ?? signup?.ringer ?? false,
     })
@@ -359,6 +405,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     return <div style={{ display: 'flex', gap: 6 }}>{sortedTeams.map((t, i) => renderTeamCol(t, i))}</div>
   }
 
+  // FIX: pass pickNumber into context menu handler so undoSpecificPick can validate
   function renderTeamCol(team: Team, idx: number) {
     const isActive = idx === activeTeamIdx
     const tp = teamPicks(team.id)
@@ -426,7 +473,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               return (
                 <div
                   key={si}
-                  onContextMenu={e => handleContextMenu(e, pick.user_id, pickDisplayName(pick), true, pick.id, pick.class)}
+                  onContextMenu={e => handleContextMenu(e, pick.user_id, pickDisplayName(pick), true, pick.id, pick.pick_number, pick.class)}
                   style={{ height: 26, borderRadius: 3, display: 'flex', alignItems: 'center', padding: '0 8px', gap: 6, fontSize: 13, background: 'var(--surface2)', border: '1px solid var(--border)', cursor: isAdmin ? 'context-menu' : 'default' }}>
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: CLS_COLOR[cls] || 'var(--flex)', flexShrink: 0 }} />
                   <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pickDisplayName(pick)}</span>
@@ -464,7 +511,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               <div
                 key={s.user_id}
                 onClick={() => { if (!canPick) return; setSelected(isSel ? null : s.user_id); if (!isSel) setConfirmPlayer(s) }}
-                onContextMenu={e => handleContextMenu(e, s.user_id, playerDisplayName(s), false, undefined, undefined, s.ringer)}
+                onContextMenu={e => handleContextMenu(e, s.user_id, playerDisplayName(s), false, undefined, undefined, undefined, s.ringer)}
                 style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 3, fontSize: 14, background: isSel ? 'rgba(200,184,122,0.1)' : 'var(--surface2)', border: `1px solid ${isSel ? 'var(--khaki)' : 'var(--border)'}`, cursor: canPick ? 'pointer' : 'default', transition: 'all 0.15s' }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: CLS_COLOR[cls], flexShrink: 0 }} />
                 <span style={{ color: 'var(--text)' }}>{playerDisplayName(s)}</span>
@@ -486,6 +533,11 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const timerUrgent = timerSecs <= 20
   const timerPct = (timerSecs / 90) * 100
   const round = sortedTeams.length > 0 ? Math.floor(picks.length / sortedTeams.length) + 1 : 1
+
+  // FIX: "Undo Pick" in context menu shows dimmed label if it's not the last pick
+  const lastPickId = picks.length > 0
+    ? picks.reduce((max, p) => p.pick_number > max.pick_number ? p : max, picks[0]).id
+    : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: 'var(--font-body)' }}>
@@ -559,14 +611,21 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             {isDraftDone && <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 13, color: 'var(--green-light)', letterSpacing: '0.04em' }}>Draft complete</span>}
             {sortedTeams.length === 0 && !isDraftDone && <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No teams set up yet</span>}
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-              {isAdmin && picks.length > 0 && (
+              {/* FIX: Undo only shows when picks exist and draft not done */}
+              {isAdmin && picks.length > 0 && !isDraftDone && (
                 <button onClick={undoPick} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--rust)', color: 'var(--rust)', background: 'rgba(192,57,43,0.08)', cursor: 'pointer' }}>↩ Undo</button>
               )}
               <button onClick={() => setTimerOn(!timerOn)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>
                 {timerOn ? '⏸ Pause' : '▶ Resume'}
               </button>
+              {/* FIX: End Draft now has onClick that shows confirm modal */}
               {isAdmin && (
-                <button style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>End Draft</button>
+                <button
+                  onClick={() => setEndDraftConfirm(true)}
+                  style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}
+                >
+                  End Draft
+                </button>
               )}
             </div>
           </div>
@@ -662,7 +721,6 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           </div>
           <CtxItem label="Change Class" icon="◎" onClick={() => {
             setClassPickerFor({ userId: contextMenu.userId, pickId: contextMenu.pickId || '', name: contextMenu.name })
-            // Pre-select current class(es)
             if (contextMenu.isDrafted && contextMenu.currentClass) {
               setPickerSelected([contextMenu.currentClass])
             } else {
@@ -671,8 +729,15 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             }
             setContextMenu(null)
           }} />
+          {/* FIX: "Undo Pick" in context menu — only active if this IS the last pick */}
           {contextMenu.isDrafted && (
-            <CtxItem label="Undo Pick" icon="↩" danger onClick={() => undoSpecificPick(contextMenu.pickId!)} />
+            <CtxItem
+              label={contextMenu.pickId === lastPickId ? 'Undo Pick' : 'Undo Pick (use ↩ button)'}
+              icon="↩"
+              danger
+              dimmed={contextMenu.pickId !== lastPickId}
+              onClick={() => undoSpecificPick(contextMenu.pickId!, contextMenu.pickNumber!)}
+            />
           )}
           <CtxItem
             label={contextMenu.isRinger ? 'Remove Ringer' : 'Mark as Ringer'}
@@ -761,6 +826,23 @@ export default function DraftPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {/* FIX: End Draft confirm modal */}
+      {endDraftConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setEndDraftConfirm(false)}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '28px 32px', minWidth: 300, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>End Draft</div>
+            <div style={{ fontSize: 15, color: 'var(--text)', marginBottom: 8 }}>Are you sure you want to end the draft?</div>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 24 }}>
+              This will mark the event as completed. You can still make changes after.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setEndDraftConfirm(false)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={endDraft} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--rust)', color: 'var(--rust)', background: 'rgba(192,57,43,0.12)', cursor: 'pointer' }}>End Draft</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, right: 24, background: 'var(--surface)', border: `1px solid var(--border-strong)`, borderLeft: `3px solid ${toast.err ? 'var(--rust)' : 'var(--green-light)'}`, color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12, padding: '10px 16px', borderRadius: 3, zIndex: 999 }}>{toast.msg}</div>
       )}
@@ -770,7 +852,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   )
 }
 
-function CtxItem({ label, icon, onClick, danger }: { label: string; icon: string; onClick: () => void; danger?: boolean }) {
+function CtxItem({ label, icon, onClick, danger, dimmed }: { label: string; icon: string; onClick: () => void; danger?: boolean; dimmed?: boolean }) {
   const [hovered, setHovered] = useState(false)
   return (
     <div
@@ -779,14 +861,15 @@ function CtxItem({ label, icon, onClick, danger }: { label: string; icon: string
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
-        padding: '9px 12px', cursor: 'pointer',
-        background: hovered ? 'var(--surface2)' : 'transparent',
+        padding: '9px 12px', cursor: dimmed ? 'not-allowed' : 'pointer',
+        background: hovered && !dimmed ? 'var(--surface2)' : 'transparent',
         borderBottom: '1px solid var(--border)',
-        color: danger ? 'var(--rust)' : 'var(--text)',
+        color: dimmed ? 'var(--text-dim)' : danger ? 'var(--rust)' : 'var(--text)',
         fontSize: 12,
+        opacity: dimmed ? 0.5 : 1,
       }}
     >
-      <span style={{ width: 16, textAlign: 'center', color: danger ? 'var(--rust)' : 'var(--text-dim)', fontSize: 13 }}>{icon}</span>
+      <span style={{ width: 16, textAlign: 'center', color: dimmed ? 'var(--text-dim)' : danger ? 'var(--rust)' : 'var(--text-dim)', fontSize: 13 }}>{icon}</span>
       {label}
     </div>
   )
