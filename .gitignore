@@ -12,3 +12,5 @@ out/
 # misc
 .DS_Store
 *.pem
+src/app/api/users/[userId]
+src/app/portal/[userId]
