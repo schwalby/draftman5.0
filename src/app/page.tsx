@@ -9,7 +9,15 @@ import Link from 'next/link'
 export default function LandingPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [theme, setTheme] = useState<'light' | 'slate'>('light')
+
+  // Load saved theme on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('draftman-theme') as 'light' | 'slate' | null
+      if (saved === 'slate') setTheme('slate')
+    } catch(e) {}
+  }, [])
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -18,9 +26,11 @@ export default function LandingPage() {
     }
   }, [session, status, router])
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-  }, [theme])
+  const handleTheme = (t: 'light' | 'slate') => {
+    setTheme(t)
+    document.documentElement.setAttribute('data-theme', t === 'slate' ? 'slate' : '')
+    try { localStorage.setItem('draftman-theme', t) } catch(e) {}
+  }
 
   return (
     <div style={{
@@ -166,10 +176,10 @@ export default function LandingPage() {
 
       {/* Light / Dark toggle */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24 }}>
-        {(['light', 'dark'] as const).map((t) => (
+        {(['light', 'slate'] as const).map((t) => (
           <button
             key={t}
-            onClick={() => setTheme(t)}
+            onClick={() => handleTheme(t)}
             style={{
               padding: '4px 14px',
               fontSize: 10,
@@ -183,7 +193,7 @@ export default function LandingPage() {
               fontFamily: 'var(--font-body)',
             }}
           >
-            {t}
+            {t === 'light' ? 'LIGHT' : 'DARK'}
           </button>
         ))}
       </div>

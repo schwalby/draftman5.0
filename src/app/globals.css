@@ -27,7 +27,7 @@
   font-display: swap;
 }
 
-/* --- CSS Variables --- */
+/* --- CSS Variables (light / olive — default) --- */
 :root {
   --khaki: #c8b87a;
   --cream: #f0ead8;
@@ -53,7 +53,7 @@
   --font-accent: 'KH Interference', sans-serif;
 }
 
-/* --- Slate theme overrides --- */
+/* --- Slate theme (dark) --- */
 [data-theme="slate"] {
   --bg: #111218;
   --surface: #1a1b22;

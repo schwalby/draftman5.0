@@ -18,6 +18,20 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            (function() {
+              try {
+                var theme = localStorage.getItem('draftman-theme');
+                if (theme === 'slate') {
+                  document.documentElement.setAttribute('data-theme', 'slate');
+                }
+              } catch(e) {}
+            })();
+          `
+        }} />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>
