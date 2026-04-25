@@ -273,7 +273,7 @@ export default function DashboardPage() {
             <div style={{ fontSize: 9, fontFamily: 'var(--font-heading)', letterSpacing: '0.18em', color: 'var(--text-dim)', textTransform: 'uppercase', padding: '0 10px', marginBottom: 6 }}>
               ORGANIZER DASHBOARD
             </div>
-            <Link href="/dashboard" style={navLink(true)}>
+            <Link href="/events" style={navLink()}>
               <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>◈</span> Events
             </Link>
             <Link href="/events/new" style={navLink()}>
