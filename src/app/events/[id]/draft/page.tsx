@@ -18,8 +18,7 @@ interface Team {
   color: string
   captain_id: string | null
   pick_order: number
-  captain?: { ingame_name: string | null; discord_username: string }
-  picks?: DraftPick[]
+  captain?: { ingame_name: string | null; discord_username: string } | null
 }
 
 interface DraftPick {
@@ -29,7 +28,7 @@ interface DraftPick {
   pick_number: number
   class: string | null
   picked_at: string
-  user?: { ingame_name: string | null; discord_username: string }
+  user?: { ingame_name: string | null; discord_username: string } | null
 }
 
 interface Signup {
@@ -37,7 +36,7 @@ interface Signup {
   user_id: string
   class: string[]
   priority: number
-  user?: { ingame_name: string | null; discord_username: string }
+  users?: { ingame_name: string | null; discord_username: string } | null
 }
 
 interface Event {
@@ -59,6 +58,19 @@ const CLS_LABEL: Record<string, string> = {
 }
 const SLOTS_PER_TEAM = 5
 
+function playerDisplayName(s: Signup): string {
+  return (s as any).users?.ingame_name || (s as any).users?.discord_username || s.user_id
+}
+
+function captainDisplayName(team: Team): string {
+  const cap = (team as any).captain
+  return cap?.ingame_name || cap?.discord_username || team.name
+}
+
+function pickDisplayName(pick: DraftPick): string {
+  return pick.user?.ingame_name || pick.user?.discord_username || '?'
+}
+
 export default function DraftPage({ params }: { params: { id: string } }) {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -69,52 +81,67 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const [picks, setPicks] = useState<DraftPick[]>([])
   const [signups, setSignups] = useState<Signup[]>([])
   const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<string | null>(null) // user_id
+  const [selected, setSelected] = useState<string | null>(null)
+  const [confirmPlayer, setConfirmPlayer] = useState<Signup | null>(null)
   const [classFilter, setClassFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [picking, setPicking] = useState(false)
-  const [confirmPlayer, setConfirmPlayer] = useState<Signup | null>(null)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
   const [darkMode, setDarkMode] = useState(true)
   const [timerOn, setTimerOn] = useState(true)
   const [timerSecs, setTimerSecs] = useState(90)
-  const [twoCol, setTwoCol] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const timerSecsRef = useRef(90)
 
-  const isOrganizer = session?.user?.isOrganizer || session?.user?.isSuperUser
+  const isAdmin = !!(session?.user?.isOrganizer || session?.user?.isSuperUser)
   const myUserId = session?.user?.userId
 
-  // ── Fetch ────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
-    const [evRes, teamsRes, picksRes, signupsRes] = await Promise.all([
-      fetch(`/api/events/${eventId}`),
-      fetch(`/api/events/${eventId}/teams`),
-      fetch(`/api/draft/${eventId}/picks`),
-      fetch(`/api/events/${eventId}/signups`),
-    ])
-    if (evRes.ok) setEvent(await evRes.json())
-    if (teamsRes.ok) setTeams(await teamsRes.json())
-    if (picksRes.ok) setPicks(await picksRes.json())
-    if (signupsRes.ok) setSignups(await signupsRes.json())
-    setLoading(false)
+    try {
+      const [evRes, teamsRes, picksRes, signupsRes] = await Promise.all([
+        fetch(`/api/events/${eventId}`),
+        fetch(`/api/events/${eventId}/teams`),
+        fetch(`/api/draft/${eventId}/picks`),
+        fetch(`/api/events/${eventId}/signups`),
+      ])
+
+      if (evRes.ok) {
+        const d = await evRes.json()
+        setEvent(d.event ?? d)
+      }
+      if (teamsRes.ok) {
+        const d = await teamsRes.json()
+        const arr = d?.teams ?? d
+        setTeams(Array.isArray(arr) ? arr : [])
+      }
+      if (picksRes.ok) {
+        const d = await picksRes.json()
+        setPicks(Array.isArray(d) ? d : [])
+      }
+      if (signupsRes.ok) {
+        const d = await signupsRes.json()
+        setSignups(Array.isArray(d) ? d : [])
+      }
+    } catch (e) {
+      console.error('fetchAll error', e)
+    } finally {
+      setLoading(false)
+    }
   }, [eventId])
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/')
-    if (status === 'authenticated') { setTimeout(() => fetchAll(), 500) }
+    if (status === 'authenticated') setTimeout(fetchAll, 300)
   }, [status, fetchAll, router])
 
-  // ── Realtime ─────────────────────────────────────────────────
   useEffect(() => {
     const channel = supabase
       .channel(`draft-${eventId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'draft_picks', filter: `event_id=eq.${eventId}` }, () => fetchAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'draft_picks', filter: `event_id=eq.${eventId}` }, fetchAll)
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [eventId, fetchAll])
 
-  // ── Timer ────────────────────────────────────────────────────
   useEffect(() => {
     if (timerOn) {
       timerRef.current = setInterval(() => {
@@ -127,65 +154,38 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [timerOn])
 
-  function resetTimer() {
-    timerSecsRef.current = 90
-    setTimerSecs(90)
-  }
-
-  // ── Two-col logic ────────────────────────────────────────────
-  useEffect(() => {
-    setTwoCol(picks.length >= 20)
-  }, [picks.length])
+  function resetTimer() { timerSecsRef.current = 90; setTimerSecs(90) }
 
   // ── Draft state ──────────────────────────────────────────────
-  const sortedTeams = Array.isArray(teams) ? [...teams].sort((a, b) => (a.pick_order ?? 0) - (b.pick_order ?? 0)) : []
+  const sortedTeams = Array.isArray(teams)
+    ? [...teams].sort((a, b) => (a.pick_order ?? 0) - (b.pick_order ?? 0))
+    : []
+
   const totalPicks = sortedTeams.length * SLOTS_PER_TEAM
   const currentPickNum = picks.length + 1
-  const isDraftDone = picks.length >= totalPicks
+  const isDraftDone = picks.length >= totalPicks && totalPicks > 0
 
-  // Snake order: round = floor(picks / teams), if odd round reverse
   function getActiveTeamIdx(): number {
     if (isDraftDone || sortedTeams.length === 0) return -1
     const round = Math.floor(picks.length / sortedTeams.length)
-    const posInRound = picks.length % sortedTeams.length
-    return round % 2 === 0 ? posInRound : sortedTeams.length - 1 - posInRound
+    const pos = picks.length % sortedTeams.length
+    return round % 2 === 0 ? pos : sortedTeams.length - 1 - pos
   }
 
   const activeTeamIdx = getActiveTeamIdx()
   const activeTeam = activeTeamIdx >= 0 ? sortedTeams[activeTeamIdx] : null
+  const canPick = isAdmin || (activeTeam?.captain_id === myUserId)
 
-  // Can current user pick?
-  const canPick = isOrganizer || (activeTeam && activeTeam.captain_id === myUserId)
-
-  // Picks per team
   function teamPicks(teamId: string) {
     return picks.filter(p => p.team_id === teamId).sort((a, b) => a.pick_number - b.pick_number)
   }
 
-  // Captain name helper
-  function captainName(team: Team) {
-    return team.captain?.ingame_name || team.captain?.discord_username || team.name
-  }
+  const pickedIds = new Set(picks.map(p => p.user_id))
+  const captainIds = new Set(sortedTeams.map(t => t.captain_id).filter(Boolean))
 
-  // Player display name
-  function playerName(s: Signup) {
-    return s.user?.ingame_name || s.user?.discord_username || s.user_id
-  }
-
-  function pickedUserIds() {
-    return new Set(picks.map(p => p.user_id))
-  }
-
-  function captainUserIds() {
-    return new Set(teams.map(t => t.captain_id).filter(Boolean))
-  }
-
-  // Available players (not picked, not captain)
   const available = signups.filter(s => {
-    const picked = pickedUserIds()
-    const captains = captainUserIds()
-    if (picked.has(s.user_id) || captains.has(s.user_id)) return false
-    const name = playerName(s).toLowerCase()
+    if (pickedIds.has(s.user_id) || captainIds.has(s.user_id)) return false
+    const name = playerDisplayName(s).toLowerCase()
     if (search && !name.includes(search.toLowerCase())) return false
     if (classFilter !== 'all' && !s.class.includes(classFilter)) return false
     return true
@@ -201,19 +201,12 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       body: JSON.stringify({ user_id: selected, team_id: activeTeam.id, pick_number: currentPickNum }),
     })
     setPicking(false)
-    if (res.ok) {
-      setSelected(null)
-      resetTimer()
-      showToast('Pick confirmed')
-    } else {
-      const d = await res.json()
-      showToast(d.error || 'Pick failed', true)
-    }
+    if (res.ok) { setSelected(null); resetTimer(); showToast('Pick confirmed') }
+    else { const d = await res.json(); showToast(d.error || 'Pick failed', true) }
   }
 
-  // ── Undo ─────────────────────────────────────────────────────
   async function undoPick() {
-    if (!isOrganizer || picks.length === 0) return
+    if (!isAdmin || picks.length === 0) return
     const res = await fetch(`/api/draft/${eventId}/undo`, { method: 'DELETE' })
     if (res.ok) { setSelected(null); resetTimer(); showToast('Pick undone') }
     else showToast('Undo failed', true)
@@ -231,8 +224,12 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     setDarkMode(!darkMode)
   }
 
-  // ── Render helpers ───────────────────────────────────────────
+  // ── Two-col pick log ─────────────────────────────────────────
+  const twoCol = picks.length >= 20
+
+  // ── Render team rows ─────────────────────────────────────────
   function renderTeamRows() {
+    if (sortedTeams.length === 0) return null
     if (twoCol) {
       const half = Math.ceil(sortedTeams.length / 2)
       return (
@@ -252,8 +249,6 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   function renderTeamCol(team: Team, idx: number) {
     const isActive = idx === activeTeamIdx
     const tp = teamPicks(team.id)
-    const capName = captainName(team)
-
     return (
       <div key={team.id} style={{
         flex: 1, minWidth: 90, background: 'var(--surface)',
@@ -261,17 +256,16 @@ export default function DraftPage({ params }: { params: { id: string } }) {
         boxShadow: isActive ? '0 0 0 1px rgba(200,184,122,0.12)' : 'none',
         borderRadius: 4, overflow: 'hidden', transition: 'border-color 0.2s',
       }}>
-        {/* Header */}
         <div style={{ padding: '6px 8px 5px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ height: 2, borderRadius: 1, background: team.color, marginBottom: 4 }} />
           <div style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            <span style={{ color: 'var(--khaki)', fontSize: 9, marginRight: 4 }}>♛</span>{capName}
+            <span style={{ color: 'var(--khaki)', fontSize: 9, marginRight: 4 }}>♛</span>
+            {captainDisplayName(team)}
           </div>
           <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: isActive ? 'var(--khaki)' : 'var(--text-dim)', marginTop: 1 }}>
             {isActive ? 'Picking now ▸' : `Pick ${team.pick_order}`}
           </div>
         </div>
-        {/* Slots */}
         <div style={{ padding: '4px 5px', display: 'flex', flexDirection: 'column', gap: 3 }}>
           {Array.from({ length: SLOTS_PER_TEAM }).map((_, si) => {
             const pick = tp[si]
@@ -280,16 +274,14 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               return (
                 <div key={si} style={{ height: 26, borderRadius: 3, display: 'flex', alignItems: 'center', padding: '0 8px', gap: 6, fontSize: 13, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: CLS_COLOR[cls] || 'var(--flex)', flexShrink: 0 }} />
-                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {pick.user?.ingame_name || pick.user?.discord_username || '?'}
-                  </span>
+                  <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pickDisplayName(pick)}</span>
                   <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>{CLS_SHORT[cls] || 'Fx'}</span>
                 </div>
               )
             }
             return (
               <div key={si} style={{ height: 26, borderRadius: 3, display: 'flex', alignItems: 'center', padding: '0 8px', border: '1px dashed rgba(200,184,122,0.08)' }}>
-                <span style={{ fontSize: 11, color: 'rgba(160,152,128,0.25)', letterSpacing: '0.04em' }}>empty</span>
+                <span style={{ fontSize: 11, color: 'rgba(160,152,128,0.25)' }}>empty</span>
               </div>
             )
           })}
@@ -298,10 +290,10 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     )
   }
 
+  // ── Render pool ──────────────────────────────────────────────
   function renderPool() {
     const classes = ['rifle', 'light', 'heavy', 'sniper', 'flex']
     const filtered = classFilter === 'all' ? classes : [classFilter]
-
     return filtered.map(cls => {
       const players = available.filter(s => s.class.includes(cls))
       if (!players.length) return null
@@ -313,23 +305,12 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             <span style={{ color: 'var(--text-dim)', fontSize: 9 }}>{players.length}</span>
           </div>
           {players.map(s => {
-            const name = playerName(s)
             const isSel = selected === s.user_id
             return (
-              <div
-                key={s.user_id}
-                onClick={() => { if (!canPick) return; if (isSel) { setSelected(null) } else { setSelected(s.user_id); setConfirmPlayer(s) } }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  padding: '6px 10px', borderRadius: 3, fontSize: 14,
-                  background: isSel ? 'rgba(200,184,122,0.1)' : 'var(--surface2)',
-                  border: `1px solid ${isSel ? 'var(--khaki)' : 'var(--border)'}`,
-                  cursor: canPick ? 'pointer' : 'default',
-                  transition: 'all 0.15s',
-                }}
-              >
+              <div key={s.user_id} onClick={() => { if (!canPick) return; setSelected(isSel ? null : s.user_id); if (!isSel) setConfirmPlayer(s) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 3, fontSize: 14, background: isSel ? 'rgba(200,184,122,0.1)' : 'var(--surface2)', border: `1px solid ${isSel ? 'var(--khaki)' : 'var(--border)'}`, cursor: canPick ? 'pointer' : 'default', transition: 'all 0.15s' }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: CLS_COLOR[cls], flexShrink: 0 }} />
-                <span style={{ color: 'var(--text)' }}>{name}</span>
+                <span style={{ color: 'var(--text)' }}>{playerDisplayName(s)}</span>
               </div>
             )
           })}
@@ -347,6 +328,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const timerStr = `${mins}:${secs.toString().padStart(2, '0')}`
   const timerUrgent = timerSecs <= 20
   const timerPct = (timerSecs / 90) * 100
+  const round = sortedTeams.length > 0 ? Math.floor(picks.length / sortedTeams.length) + 1 : 1
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: 'var(--font-body)' }}>
@@ -362,9 +344,9 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           <span style={{ color: 'var(--border-strong)', padding: '0 4px' }}>›</span>
           <span style={{ color: 'var(--text)', padding: '0 4px' }}>Draft Board</span>
         </nav>
-        {!isDraftDone && (
+        {!isDraftDone && sortedTeams.length > 0 && (
           <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: 2, border: '1px solid var(--khaki)', color: 'var(--khaki)', background: 'rgba(200,184,122,0.08)', marginLeft: 4, whiteSpace: 'nowrap' }}>
-            Round {Math.floor(picks.length / Math.max(sortedTeams.length, 1)) + 1} — Pick {currentPickNum}
+            Round {round} — Pick {currentPickNum}
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -373,49 +355,38 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           <div onClick={toggleTheme} style={{ width: 32, height: 18, borderRadius: 18, position: 'relative', cursor: 'pointer', background: 'rgba(200,184,122,0.2)', border: '1px solid var(--border-strong)', flexShrink: 0 }}>
             <div style={{ position: 'absolute', top: 2, left: darkMode ? 14 : 2, width: 12, height: 12, borderRadius: '50%', background: 'var(--khaki)', transition: 'left 0.2s' }} />
           </div>
-          {session?.user?.discordId && session?.user?.discordAvatar ? (
-            <img src={`https://cdn.discordapp.com/avatars/${session.user.discordId}/${session.user.discordAvatar}.png`} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border-strong)' }} alt="" />
-          ) : (
-            <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--surface2)', border: '1px solid var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-heading)', fontSize: 11, color: 'var(--khaki)' }}>
-              {(session?.user?.ingameName || session?.user?.discordUsername || '?')[0].toUpperCase()}
-            </div>
-          )}
+          {session?.user?.discordId && session?.user?.discordAvatar
+            ? <img src={`https://cdn.discordapp.com/avatars/${session.user.discordId}/${session.user.discordAvatar}.png`} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border-strong)' }} alt="" />
+            : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--surface2)', border: '1px solid var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-heading)', fontSize: 11, color: 'var(--khaki)' }}>
+                {(session?.user?.ingameName || session?.user?.discordUsername || '?')[0].toUpperCase()}
+              </div>
+          }
           <span style={{ fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{session?.user?.ingameName || session?.user?.discordUsername}</span>
         </div>
       </header>
 
-      {/* PAGE BODY */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
         {/* PICK LOG */}
-        <aside style={{
-          width: twoCol ? 360 : 200, flexShrink: 0,
-          background: 'var(--surface)', borderRight: '1px solid var(--border)',
-          display: 'flex', flexDirection: 'column', height: '100%',
-          transition: 'width 0.3s',
-        }}>
+        <aside style={{ width: twoCol ? 360 : 200, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', height: '100%', transition: 'width 0.3s' }}>
           <div style={{ padding: '9px 12px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             Pick Log <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 400, fontSize: 11, color: 'var(--khaki)' }}>{picks.length}</span>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
             <div style={{ display: twoCol ? 'grid' : 'flex', gridTemplateColumns: twoCol ? '1fr 1fr' : undefined, flexDirection: twoCol ? undefined : 'column' }}>
               {[...picks].reverse().map(pick => (
                 <div key={pick.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 12px', borderBottom: '1px solid var(--border)', borderRight: twoCol ? '1px solid var(--border)' : 'none' }}>
                   <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 400, fontSize: 10, color: 'var(--text-dim)', width: 16, textAlign: 'right', flexShrink: 0 }}>{pick.pick_number}</span>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: teams.find(t => t.id === pick.team_id)?.color || 'var(--text-dim)', flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 13, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {pick.user?.ingame_name || pick.user?.discord_username || '?'}
-                  </span>
-                  <span style={{ fontSize: 10, color: CLS_COLOR[pick.class || 'flex'] || 'var(--flex)', flexShrink: 0 }}>
-                    {CLS_SHORT[pick.class || 'flex'] || 'Fx'}
-                  </span>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: sortedTeams.find(t => t.id === pick.team_id)?.color || 'var(--text-dim)', flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 13, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pickDisplayName(pick)}</span>
+                  <span style={{ fontSize: 10, color: CLS_COLOR[pick.class || 'flex'] || 'var(--flex)', flexShrink: 0 }}>{CLS_SHORT[pick.class || 'flex'] || 'Fx'}</span>
                 </div>
               ))}
             </div>
           </div>
         </aside>
 
-        {/* MAIN CONTENT */}
+        {/* MAIN */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
           {/* NOW PICKING BAR */}
@@ -424,23 +395,21 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               <>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: activeTeam.color, animation: 'blink 1.4s infinite', flexShrink: 0 }} />
                 <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>Now picking —</span>
-                <span style={{ fontSize: 13, color: 'var(--text)' }}>{captainName(activeTeam)}</span>
+                <span style={{ fontSize: 13, color: 'var(--text)' }}>{captainDisplayName(activeTeam)}</span>
                 <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>&nbsp;· {activeTeam.name}</span>
                 <span style={{ fontSize: 12, color: 'var(--text-dim)', marginLeft: 8 }}>{available.length} players remaining</span>
               </>
             )}
-            {isDraftDone && <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 13, color: 'var(--green)', letterSpacing: '0.04em' }}>Draft complete</span>}
-
-            {/* Admin actions */}
+            {isDraftDone && <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 13, color: 'var(--green-light)', letterSpacing: '0.04em' }}>Draft complete</span>}
+            {sortedTeams.length === 0 && !isDraftDone && <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No teams set up yet</span>}
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-
-              {isOrganizer && picks.length > 0 && (
+              {isAdmin && picks.length > 0 && (
                 <button onClick={undoPick} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--rust)', color: 'var(--rust)', background: 'rgba(192,57,43,0.08)', cursor: 'pointer' }}>↩ Undo</button>
               )}
-              <button onClick={() => { setTimerOn(!timerOn) }} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>
+              <button onClick={() => setTimerOn(!timerOn)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>
                 {timerOn ? '⏸ Pause' : '▶ Resume'}
               </button>
-              {isOrganizer && (
+              {isAdmin && (
                 <button style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>End Draft</button>
               )}
             </div>
@@ -461,26 +430,15 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>{timerOn ? 'Timer on' : 'Paused'}</span>
           </div>
 
-          {/* PLAYER POOL */}
+          {/* POOL */}
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ height: 36, flexShrink: 0, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 12 }}>
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>Available Players</span>
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 400, fontSize: 13, color: 'var(--khaki)' }}>{available.length}</span>
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search..."
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '4px 10px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text)', outline: 'none', width: 150 }}
-              />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '4px 10px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text)', outline: 'none', width: 150 }} />
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                 {['all', 'rifle', 'light', 'heavy', 'sniper', 'flex'].map(cls => (
-                  <button key={cls} onClick={() => setClassFilter(cls)} style={{
-                    fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase',
-                    padding: '3px 8px', borderRadius: 2, cursor: 'pointer', transition: 'all 0.15s',
-                    border: classFilter === cls ? `1px solid var(--khaki)` : '1px solid var(--border)',
-                    color: classFilter === cls ? 'var(--khaki)' : cls === 'all' ? 'var(--text-dim)' : CLS_COLOR[cls],
-                    background: classFilter === cls ? 'rgba(200,184,122,0.07)' : 'transparent',
-                  }}>{cls === 'all' ? 'All' : CLS_LABEL[cls]}</button>
+                  <button key={cls} onClick={() => setClassFilter(cls)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 2, cursor: 'pointer', transition: 'all 0.15s', border: classFilter === cls ? '1px solid var(--khaki)' : '1px solid var(--border)', color: classFilter === cls ? 'var(--khaki)' : cls === 'all' ? 'var(--text-dim)' : CLS_COLOR[cls], background: classFilter === cls ? 'rgba(200,184,122,0.07)' : 'transparent' }}>{cls === 'all' ? 'All' : CLS_LABEL[cls]}</button>
                 ))}
               </div>
             </div>
@@ -488,45 +446,32 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               {renderPool()}
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* Toast */}
-      {toast && (
-        <div style={{ position: 'fixed', bottom: 24, right: 24, background: 'var(--surface)', border: `1px solid var(--border-strong)`, borderLeft: `3px solid ${toast.err ? 'var(--rust)' : 'var(--green)'}`, color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12, padding: '10px 16px', borderRadius: 3, zIndex: 999 }}>{toast.msg}</div>
-      )}
-
-      <style>{`
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-      `}</style>
-
-      {/* CONFIRM PICK MODAL */}
+      {/* CONFIRM MODAL */}
       {confirmPlayer && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-          onClick={() => { setConfirmPlayer(null); setSelected(null) }}>
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '28px 32px', minWidth: 300, maxWidth: 400 }}
-            onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => { setConfirmPlayer(null); setSelected(null) }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '28px 32px', minWidth: 300, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
             <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Confirm Pick</div>
-            <div style={{ fontSize: 20, fontFamily: 'var(--font-heading)', fontWeight: 300, color: 'var(--text)', marginBottom: 6 }}>{playerName(confirmPlayer)}</div>
+            <div style={{ fontSize: 22, fontFamily: 'var(--font-heading)', fontWeight: 300, color: 'var(--text)', marginBottom: 6 }}>{playerDisplayName(confirmPlayer)}</div>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 24 }}>
               {confirmPlayer.class.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' / ')}
-              {activeTeam && <span> &nbsp;→&nbsp; {captainName(activeTeam)}</span>}
+              {activeTeam && <span> &nbsp;→&nbsp; {captainDisplayName(activeTeam)}</span>}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => { setConfirmPlayer(null); setSelected(null) }}
-                style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}
-              >Cancel</button>
-              <button
-                onClick={() => { setConfirmPlayer(null); confirmPick() }}
-                disabled={picking}
-                style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--green)', color: 'var(--green)', background: 'rgba(90,156,90,0.12)', cursor: 'pointer', opacity: picking ? 0.6 : 1 }}
-              >✓ Confirm Pick</button>
+              <button onClick={() => { setConfirmPlayer(null); setSelected(null) }} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => { setConfirmPlayer(null); confirmPick() }} disabled={picking} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--green-light)', color: 'var(--green-light)', background: 'rgba(90,156,90,0.12)', cursor: 'pointer', opacity: picking ? 0.6 : 1 }}>✓ Confirm Pick</button>
             </div>
           </div>
         </div>
       )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, background: 'var(--surface)', border: `1px solid var(--border-strong)`, borderLeft: `3px solid ${toast.err ? 'var(--rust)' : 'var(--green-light)'}`, color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12, padding: '10px 16px', borderRadius: 3, zIndex: 999 }}>{toast.msg}</div>
+      )}
+
+      <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }`}</style>
     </div>
   )
 }
