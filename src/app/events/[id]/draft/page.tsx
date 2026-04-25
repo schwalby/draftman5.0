@@ -195,7 +195,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   async function confirmPick() {
     if (!selected || !activeTeam || !canPick || picking) return
     setPicking(true)
-    const res = await fetch(`/api/draft/${eventId}/pick`, {
+    const res = await fetch(`/api/draft/${eventId}/picks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: selected, team_id: activeTeam.id, pick_number: currentPickNum }),
