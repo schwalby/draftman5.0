@@ -103,6 +103,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const [timerSecs, setTimerSecs] = useState(90)
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
   const [classPickerFor, setClassPickerFor] = useState<{ userId: string; pickId: string; name: string } | null>(null)
+  const [pickerSelected, setPickerSelected] = useState<string[]>([])
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const timerSecsRef = useRef(90)
 
@@ -227,25 +228,27 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     else showToast('Undo failed', true)
   }
 
-  async function changePickClass(pickId: string, newClass: string) {
+  async function changePickClass(pickId: string, newClasses: string[]) {
     setClassPickerFor(null)
+    setPickerSelected([])
     const res = await fetch(`/api/draft/${eventId}/picks/${pickId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ class: newClass }),
+      body: JSON.stringify({ class: newClasses[0] || 'flex' }),
     })
     if (res.ok) { showToast('Class updated'); fetchAll() }
     else showToast('Failed to update class', true)
   }
 
-  async function changeSignupClass(userId: string, newClass: string) {
+  async function changeSignupClass(userId: string, newClasses: string[]) {
     setClassPickerFor(null)
+    setPickerSelected([])
     const signup = signups.find(s => s.user_id === userId)
     if (!signup) return
     const res = await fetch(`/api/events/${eventId}/signups/${signup.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ class: [newClass] }),
+      body: JSON.stringify({ class: newClasses }),
     })
     if (res.ok) { showToast('Class updated'); fetchAll() }
     else showToast('Failed to update class', true)
@@ -550,6 +553,13 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           </div>
           <CtxItem label="Change Class" icon="◎" onClick={() => {
             setClassPickerFor({ userId: contextMenu.userId, pickId: contextMenu.pickId || '', name: contextMenu.name })
+            // Pre-select current class(es)
+            if (contextMenu.isDrafted && contextMenu.currentClass) {
+              setPickerSelected([contextMenu.currentClass])
+            } else {
+              const signup = signups.find(s => s.user_id === contextMenu.userId)
+              setPickerSelected(signup?.class || [])
+            }
             setContextMenu(null)
           }} />
           {contextMenu.isDrafted && (
@@ -566,30 +576,60 @@ export default function DraftPage({ params }: { params: { id: string } }) {
 
       {/* CLASS PICKER MODAL */}
       {classPickerFor && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }} onClick={() => setClassPickerFor(null)}>
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '24px 28px', minWidth: 280 }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }} onClick={() => { setClassPickerFor(null); setPickerSelected([]) }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '24px 28px', minWidth: 300 }} onClick={e => e.stopPropagation()}>
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 8 }}>Change Class</div>
-            <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 20 }}>{classPickerFor.name}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {ALL_CLASSES.map(cls => (
-                <button
-                  key={cls}
-                  onClick={() => classPickerFor.pickId
-                    ? changePickClass(classPickerFor.pickId, cls)
-                    : changeSignupClass(classPickerFor.userId, cls)
-                  }
-                  style={{
-                    padding: '8px 16px', borderRadius: 4, cursor: 'pointer',
-                    fontSize: 12, fontFamily: 'var(--font-body)',
-                    background: 'transparent', color: CLS_COLOR[cls],
-                    border: `1px solid ${CLS_COLOR[cls]}`,
-                  }}
-                >
-                  {CLS_LABEL[cls]}
-                </button>
-              ))}
+            <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 6 }}>{classPickerFor.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16 }}>
+              Select up to 2 classes. Flex is exclusive.
             </div>
-            <button onClick={() => setClassPickerFor(null)} style={{ marginTop: 20, fontSize: 11, color: 'var(--text-dim)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 3, padding: '5px 14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancel</button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+              {ALL_CLASSES.map(cls => {
+                const isSel = pickerSelected.includes(cls)
+                return (
+                  <button
+                    key={cls}
+                    onClick={() => {
+                      setPickerSelected(prev => {
+                        if (prev.includes(cls)) return prev.filter(c => c !== cls)
+                        if (cls === 'flex') return ['flex']
+                        if (prev.includes('flex')) return [cls]
+                        if (prev.length >= 2) return prev
+                        return [...prev, cls]
+                      })
+                    }}
+                    style={{
+                      padding: '8px 16px', borderRadius: 4, cursor: 'pointer',
+                      fontSize: 12, fontFamily: 'var(--font-body)',
+                      background: isSel ? `${CLS_COLOR[cls]}22` : 'transparent',
+                      color: CLS_COLOR[cls],
+                      border: `1px solid ${isSel ? CLS_COLOR[cls] : CLS_COLOR[cls] + '66'}`,
+                    }}
+                  >
+                    {CLS_LABEL[cls]}
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setClassPickerFor(null); setPickerSelected([]) }} style={{ fontSize: 11, color: 'var(--text-dim)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 3, padding: '5px 14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancel</button>
+              <button
+                onClick={() => {
+                  if (pickerSelected.length === 0) return
+                  classPickerFor.pickId
+                    ? changePickClass(classPickerFor.pickId, pickerSelected)
+                    : changeSignupClass(classPickerFor.userId, pickerSelected)
+                }}
+                disabled={pickerSelected.length === 0}
+                style={{
+                  fontSize: 11, color: pickerSelected.length === 0 ? 'var(--text-dim)' : '#1a1a14',
+                  background: pickerSelected.length === 0 ? 'transparent' : 'var(--khaki)',
+                  border: '1px solid var(--khaki)', borderRadius: 3,
+                  padding: '5px 14px', cursor: pickerSelected.length === 0 ? 'not-allowed' : 'pointer',
+                  fontFamily: 'var(--font-body)', fontWeight: 600,
+                }}
+              >Save</button>
+            </div>
           </div>
         </div>
       )}
