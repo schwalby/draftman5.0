@@ -17,6 +17,7 @@ interface Event {
   capacity: number
   signup_count?: number
   my_signup?: { class: string[] } | null
+  has_picks?: boolean
 }
 
 function formatDateTime(iso: string | null) {
@@ -32,7 +33,6 @@ export default function EventsPage() {
   const router = useRouter()
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [signingUp, setSigningUp] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/')
@@ -43,7 +43,20 @@ export default function EventsPage() {
     const res = await fetch('/api/events')
     if (res.ok) {
       const data = await res.json()
-      setEvents(data.filter((e: Event) => e.status === 'scheduled' || e.status === 'active'))
+      const open = data.filter((e: Event) => e.status === 'scheduled' || e.status === 'active')
+
+      // Check picks for each event
+      const enriched = await Promise.all(open.map(async (ev: Event) => {
+        try {
+          const picksRes = await fetch(`/api/draft/${ev.id}/picks`)
+          const picks = await picksRes.json()
+          return { ...ev, has_picks: Array.isArray(picks) && picks.length > 0 }
+        } catch {
+          return { ...ev, has_picks: false }
+        }
+      }))
+
+      setEvents(enriched)
     }
     setLoading(false)
   }, [])
@@ -51,12 +64,6 @@ export default function EventsPage() {
   useEffect(() => {
     if (status === 'authenticated') fetchEvents()
   }, [status, fetchEvents])
-
-  async function handleSignUp(e: React.MouseEvent, eventId: string) {
-    e.preventDefault()
-    e.stopPropagation()
-    router.push(`/events/${eventId}`)
-  }
 
   if (status === 'loading' || loading) {
     return (
@@ -85,7 +92,7 @@ export default function EventsPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'var(--font-body)' }}>
 
-      {/* ── SIDEBAR ─────────────────────────────────────────────── */}
+      {/* ── SIDEBAR ─── */}
       <aside style={{
         width: 220, flexShrink: 0, background: 'var(--surface)',
         borderRight: '1px solid var(--border)', display: 'flex',
@@ -97,13 +104,16 @@ export default function EventsPage() {
         </div>
         <div style={{ padding: '16px 6px 0' }}>
           <div style={{ fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300, letterSpacing: '0.18em', color: 'var(--text-dim)', textTransform: 'uppercase', padding: '0 10px', marginBottom: 6 }}>NAVIGATION</div>
-          {(user?.isOrganizer || user?.isSuperUser) && (
+          {(user?.isOrganizer || (user as any)?.isSuperUser) && (
             <Link href="/dashboard" style={navLink()}>
               <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#9642;</span> Dashboard
             </Link>
           )}
           <Link href="/portal" style={navLink()}>
             <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#9673;</span> Portal
+          </Link>
+          <Link href="/events" style={navLink(true)}>
+            <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#9675;</span> Events
           </Link>
           <Link href="/rules" style={navLink()}>
             <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#8801;</span> Rules
@@ -118,8 +128,7 @@ export default function EventsPage() {
           }}>
             {discordAvatarUrl
               ? <img src={discordAvatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : initial
-            }
+              : initial}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
@@ -128,7 +137,7 @@ export default function EventsPage() {
         </div>
       </aside>
 
-      {/* ── MAIN ────────────────────────────────────────────────── */}
+      {/* ── MAIN ─── */}
       <main style={{ marginLeft: 220, flex: 1, padding: '36px 40px 80px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ width: '100%', maxWidth: 760 }}>
 
@@ -145,12 +154,11 @@ export default function EventsPage() {
             </div>
           ) : events.map(event => {
             const isSignedUp = !!event.my_signup
+            const inProgress = !!event.has_picks
             const typeLabel = event.type === 'draft' ? 'Draft' : 'Community Event'
-            const isActive = event.status === 'active'
-            const statusColor = isActive ? 'var(--green-light)' : 'var(--khaki)'
-            const statusLabel = isActive ? 'Active' : 'Scheduled'
-            const countColor = (event.signup_count ?? 0) === 0 ? 'var(--text-dim)'
-              : isActive ? 'var(--green-light)' : 'var(--khaki)'
+            const statusColor = inProgress ? 'var(--green-light)' : event.status === 'active' ? 'var(--green-light)' : 'var(--khaki)'
+            const statusLabel = inProgress ? 'In Progress' : event.status === 'active' ? 'Active' : 'Scheduled'
+            const countColor = inProgress ? 'var(--green-light)' : (event.signup_count ?? 0) === 0 ? 'var(--text-dim)' : 'var(--khaki)'
 
             return (
               <Link
@@ -159,11 +167,10 @@ export default function EventsPage() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 16,
                   background: 'var(--surface)',
-                  border: `1px solid ${isSignedUp ? 'rgba(200,184,122,0.35)' : 'var(--border)'}`,
-                  borderLeft: isSignedUp ? '3px solid var(--khaki)' : undefined,
+                  border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(200,184,122,0.35)' : 'var(--border)'}`,
+                  borderLeft: inProgress ? '3px solid var(--green-light)' : isSignedUp ? '3px solid var(--khaki)' : undefined,
                   borderRadius: 4, padding: '18px 20px', marginBottom: 8,
                   textDecoration: 'none', color: 'var(--text)',
-                  transition: 'border-color 0.15s',
                 }}
               >
                 {/* Pip */}
@@ -176,32 +183,34 @@ export default function EventsPage() {
                     <span style={{
                       fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8,
                       letterSpacing: '0.14em', textTransform: 'uppercase', padding: '2px 6px',
-                      borderRadius: 2, border: `1px solid ${isActive ? 'rgba(90,156,90,0.4)' : 'rgba(200,184,122,0.35)'}`,
-                      color: statusColor
+                      borderRadius: 2,
+                      border: `1px solid ${inProgress ? 'rgba(90,156,90,0.4)' : 'rgba(200,184,122,0.35)'}`,
+                      color: statusColor,
                     }}>{statusLabel}</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
                     {event.starts_at ? `${formatDateTime(event.starts_at)} · ` : ''}{event.format} · {typeLabel} · {event.half_length} min
                   </div>
-                  {isSignedUp && (
+
+                  {inProgress ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--green-light)', marginTop: 5 }}>
+                      🔒 Draft in progress — signups closed
+                    </div>
+                  ) : isSignedUp ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-dim)', marginTop: 5 }}>
                       <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--khaki)', flexShrink: 0 }} />
                       Signed up as <span style={{ color: 'var(--text)', marginLeft: 3 }}>
                         {event.my_signup!.class.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' / ')}
                       </span>
                     </div>
-                  )}
-                  {!isSignedUp && (
-                    <button
-                      onClick={e => handleSignUp(e, event.id)}
-                      style={{
-                        fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
-                        letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 16px',
-                        borderRadius: 3, border: '1px solid var(--khaki)', color: 'var(--khaki)',
-                        background: 'rgba(200,184,122,0.08)', cursor: 'pointer', marginTop: 8,
-                        display: 'inline-block'
-                      }}
-                    >Sign Up</button>
+                  ) : (
+                    <div style={{
+                      fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
+                      letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 16px',
+                      borderRadius: 3, border: '1px solid var(--khaki)', color: 'var(--khaki)',
+                      background: 'rgba(200,184,122,0.08)', cursor: 'pointer', marginTop: 8,
+                      display: 'inline-block'
+                    }}>Sign Up</div>
                   )}
                 </div>
 
@@ -220,7 +229,6 @@ export default function EventsPage() {
               </Link>
             )
           })}
-
         </div>
       </main>
     </div>
