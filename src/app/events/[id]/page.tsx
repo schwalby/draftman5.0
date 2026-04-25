@@ -59,7 +59,6 @@ const CLASS_COLORS: Record<string, string> = {
 
 const CLASSES = ['rifle', 'third', 'heavy', 'sniper', 'flex'];
 
-
 export default function EventPage() {
   const { data: session } = useSession();
   const params = useParams();
@@ -73,6 +72,7 @@ export default function EventPage() {
   const submittingRef = useRef(false);
   const [mySignup, setMySignup] = useState<Signup | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [draftInProgress, setDraftInProgress] = useState(false);
 
   const isOrganizer = session?.user?.isOrganizer;
   const userId = session?.user?.userId;
@@ -86,7 +86,10 @@ export default function EventPage() {
   useEffect(() => {
     const fetchEvent = async () => {
       const res = await fetch(`/api/events/${eventId}`);
-      if (res.ok) setEvent(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setEvent(data.event ?? data);
+      }
     };
     const fetchSignups = async () => {
       const res = await fetch(`/api/events/${eventId}/signups`);
@@ -102,8 +105,16 @@ export default function EventPage() {
       }
       setLoading(false);
     };
+    const fetchPicks = async () => {
+      const res = await fetch(`/api/draft/${eventId}/picks`);
+      if (res.ok) {
+        const data = await res.json();
+        setDraftInProgress(Array.isArray(data) && data.length > 0);
+      }
+    };
     fetchEvent();
     fetchSignups();
+    fetchPicks();
   }, [eventId, userId]);
 
   // Realtime signups
@@ -214,9 +225,10 @@ export default function EventPage() {
                 <Pill>{event.format}</Pill>
                 <Pill>{event.half_length} min</Pill>
                 <Pill color={
+                  draftInProgress ? 'var(--green-light)' :
                   event.status === 'active' ? 'var(--green-light)' :
                   event.status === 'scheduled' ? 'var(--khaki)' : 'var(--text-dim)'
-                }>{event.status}</Pill>
+                }>{draftInProgress ? 'draft in progress' : event.status}</Pill>
               </div>
             </div>
 
@@ -247,7 +259,7 @@ export default function EventPage() {
                     cursor: 'pointer', letterSpacing: '0.04em',
                   }}
                 >
-                  ⚑ Set Up Teams
+                  {draftInProgress ? '▶ Rejoin Draft' : '⚑ Set Up Teams'}
                 </button>
               </div>
             )}
@@ -266,64 +278,84 @@ export default function EventPage() {
           )}
         </div>
 
-        {/* Signup form */}
+        {/* Signup form — hidden when draft is in progress */}
         {session && (
-          <div style={{ background: 'var(--surface)', border: '0.5px solid var(--border)', borderRadius: 6, padding: '20px', marginBottom: 28 }}>
-            <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-dim)', marginBottom: 14 }}>
-              {mySignup ? 'Your Signup — click to update or withdraw' : 'Sign Up — select up to 2 classes'}
+          draftInProgress ? (
+            <div style={{
+              background: 'rgba(90,156,90,0.06)',
+              border: '1px solid rgba(90,156,90,0.3)',
+              borderRadius: 6, padding: '16px 20px',
+              marginBottom: 28,
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <span style={{ fontSize: 16 }}>🔒</span>
+              <div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--green-light)', marginBottom: 2 }}>
+                  Draft in progress
+                </div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)' }}>
+                  Signups are closed. The draft is currently underway.
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-              {CLASSES.map(cls => {
-                const selected = selectedClasses.includes(cls);
-                return (
+          ) : (
+            <div style={{ background: 'var(--surface)', border: '0.5px solid var(--border)', borderRadius: 6, padding: '20px', marginBottom: 28 }}>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-dim)', marginBottom: 14 }}>
+                {mySignup ? 'Your Signup — click to update or withdraw' : 'Sign Up — select up to 2 classes'}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                {CLASSES.map(cls => {
+                  const selected = selectedClasses.includes(cls);
+                  return (
+                    <button
+                      key={cls}
+                      onClick={() => toggleClass(cls)}
+                      style={{
+                        padding: '6px 14px', borderRadius: 4, cursor: 'pointer',
+                        fontSize: 12, fontFamily: 'var(--font-body)', letterSpacing: '0.04em',
+                        background: selected ? CLASS_COLORS[cls] + '22' : 'transparent',
+                        color: selected ? CLASS_COLORS[cls] : 'var(--text-dim)',
+                        border: `0.5px solid ${selected ? CLASS_COLORS[cls] : 'var(--border)'}`,
+                      }}
+                    >
+                      {cls.charAt(0).toUpperCase() + cls.slice(1)}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {mySignup ? (
                   <button
-                    key={cls}
-                    onClick={() => toggleClass(cls)}
+                    onClick={handleSignup}
+                    disabled={submitting}
                     style={{
-                      padding: '6px 14px', borderRadius: 4, cursor: 'pointer',
-                      fontSize: 12, fontFamily: 'var(--font-body)', letterSpacing: '0.04em',
-                      background: selected ? CLASS_COLORS[cls] + '22' : 'transparent',
-                      color: selected ? CLASS_COLORS[cls] : 'var(--text-dim)',
-                      border: `0.5px solid ${selected ? CLASS_COLORS[cls] : 'var(--border)'}`,
+                      padding: '7px 18px', borderRadius: 4, cursor: 'pointer',
+                      fontSize: 12, fontFamily: 'var(--font-body)', fontWeight: 500,
+                      background: 'transparent', color: 'var(--rust)',
+                      border: '0.5px solid var(--rust)',
+                      opacity: submitting ? 0.6 : 1,
                     }}
                   >
-                    {cls.charAt(0).toUpperCase() + cls.slice(1)}
+                    {submitting ? '...' : 'Withdraw Signup'}
                   </button>
-                );
-              })}
+                ) : (
+                  <button
+                    onClick={handleSignup}
+                    disabled={submitting || selectedClasses.length === 0}
+                    style={{
+                      padding: '7px 18px', borderRadius: 4,
+                      cursor: selectedClasses.length === 0 ? 'not-allowed' : 'pointer',
+                      fontSize: 12, fontFamily: 'var(--font-body)', fontWeight: 500,
+                      background: 'var(--khaki)', color: '#1a1a14', border: 'none',
+                      opacity: submitting || selectedClasses.length === 0 ? 0.5 : 1,
+                    }}
+                  >
+                    {submitting ? '...' : 'Sign Up'}
+                  </button>
+                )}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {mySignup ? (
-                <button
-                  onClick={handleSignup}
-                  disabled={submitting}
-                  style={{
-                    padding: '7px 18px', borderRadius: 4, cursor: 'pointer',
-                    fontSize: 12, fontFamily: 'var(--font-body)', fontWeight: 500,
-                    background: 'transparent', color: 'var(--rust)',
-                    border: '0.5px solid var(--rust)',
-                    opacity: submitting ? 0.6 : 1,
-                  }}
-                >
-                  {submitting ? '...' : 'Withdraw Signup'}
-                </button>
-              ) : (
-                <button
-                  onClick={handleSignup}
-                  disabled={submitting || selectedClasses.length === 0}
-                  style={{
-                    padding: '7px 18px', borderRadius: 4,
-                    cursor: selectedClasses.length === 0 ? 'not-allowed' : 'pointer',
-                    fontSize: 12, fontFamily: 'var(--font-body)', fontWeight: 500,
-                    background: 'var(--khaki)', color: '#1a1a14', border: 'none',
-                    opacity: submitting || selectedClasses.length === 0 ? 0.5 : 1,
-                  }}
-                >
-                  {submitting ? '...' : 'Sign Up'}
-                </button>
-              )}
-            </div>
-          </div>
+          )
         )}
 
         {/* Player list */}
@@ -347,7 +379,6 @@ export default function EventPage() {
             ))}
           </div>
 
-          {/* Confirmed grid — 4 columns of 12 */}
           {confirmed.length === 0 ? (
             <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '20px 0' }}>No signups yet.</div>
           ) : (
@@ -370,7 +401,6 @@ export default function EventPage() {
             </div>
           )}
 
-          {/* Ringer list */}
           {ringers.length > 0 && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -400,7 +430,6 @@ export default function EventPage() {
         </div>
       </div>
 
-      {/* Signup drawer — organizer only */}
       {isOrganizer && (
         <SignupDrawer
           eventId={eventId}
