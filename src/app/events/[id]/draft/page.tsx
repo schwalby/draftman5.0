@@ -284,13 +284,22 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     fetchAll()
   }
 
+  // NATO names — default team names before rename
+  const NATO = ['Alpha','Bravo','Charlie','Delta','Echo','Foxtrot','Golf','Hotel','India','Juliet','Kilo','Lima','Mike','November','Oscar','Papa']
+
   function getTeamDisplayName(team: Team): string {
-    return teamNames[team.id] || team.name || captainDisplayName(team)
+    const overridden = teamNames[team.id]
+    if (overridden) return overridden
+    // If name is a NATO name (default), show captain name instead
+    if (NATO.includes(team.name)) return captainDisplayName(team)
+    // Otherwise it was custom renamed
+    return team.name || captainDisplayName(team)
   }
 
   function isTeamRenamed(team: Team): boolean {
-    const custom = teamNames[team.id] || team.name
-    return !!custom && custom !== captainDisplayName(team)
+    const overridden = teamNames[team.id]
+    if (overridden) return overridden !== captainDisplayName(team)
+    return !NATO.includes(team.name) && !!team.name && team.name !== captainDisplayName(team)
   }
 
   function showToast(msg: string, err = false) {
