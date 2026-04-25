@@ -560,7 +560,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             icon="◉"
             onClick={() => toggleRinger(contextMenu.userId)}
           />
-          <CtxItem label="View Portal" icon="↗" onClick={() => { setContextMenu(null); window.open('/portal', '_blank') }} />
+          <CtxItem label="View Portal" icon="↗" onClick={() => { setContextMenu(null); window.open(`/portal/${contextMenu.userId}`, '_blank') }} />
         </div>
       )}
 
