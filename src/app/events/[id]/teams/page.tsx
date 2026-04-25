@@ -58,6 +58,7 @@ export default function TeamSetupPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [draftInProgress, setDraftInProgress] = useState(false)
   const savingRef = useRef(false)
 
   useEffect(() => {
@@ -83,7 +84,6 @@ export default function TeamSetupPage() {
     })
     setPlayers(confirmed)
 
-    // Only auto-assign captains if no existing assignments passed in
     if (!existingCaptains) {
       const caps: Record<number, string> = {}
       const captainList = confirmed.filter((p: Player) => p.isCaptain)
@@ -102,6 +102,13 @@ export default function TeamSetupPage() {
         const evRes = await fetch(`/api/events/${eventId}`)
         const evData = await evRes.json()
         if (evData.event) setEventName(evData.event.name)
+
+        // Check if draft is already in progress
+        const picksRes = await fetch(`/api/draft/${eventId}/picks`)
+        const picksData = await picksRes.json()
+        if (Array.isArray(picksData) && picksData.length > 0) {
+          setDraftInProgress(true)
+        }
 
         const teamRes = await fetch(`/api/events/${eventId}/teams`)
         const teamData = await teamRes.json()
@@ -138,8 +145,6 @@ export default function TeamSetupPage() {
     load()
   }, [status, eventId])
 
-  // When drawer closes, re-fetch players and re-sync captain flags
-  // (preserves existing team assignments but updates isCaptain flags)
   async function handleDrawerClose() {
     setDrawerOpen(false)
     const sigRes = await fetch(`/api/events/${eventId}/signups`)
@@ -258,6 +263,50 @@ export default function TeamSetupPage() {
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 24px' }}>
 
+        {/* Draft in progress banner */}
+        {draftInProgress && (
+          <div style={{
+            marginBottom: 24,
+            padding: '12px 16px',
+            background: 'rgba(200,184,122,0.08)',
+            border: '1px solid var(--khaki)',
+            borderRadius: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+          }}>
+            <div>
+              <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--khaki)', marginBottom: 2 }}>
+                Draft in progress
+              </div>
+              <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)' }}>
+                Picks have already been made for this event. Rejoin the draft to continue.
+              </div>
+            </div>
+            <button
+              onClick={() => router.push(`/events/${eventId}/draft`)}
+              style={{
+                background: 'var(--khaki)',
+                border: 'none',
+                color: '#1a1a14',
+                fontFamily: 'var(--font-body)',
+                fontSize: 11,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                fontWeight: 700,
+                padding: '0 20px',
+                height: 34,
+                borderRadius: 4,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              Rejoin Draft →
+            </button>
+          </div>
+        )}
+
         {/* Page header */}
         <div style={{ marginBottom: 28 }}>
           <div style={{
@@ -303,34 +352,19 @@ export default function TeamSetupPage() {
               onClick={() => handleTeamCountChange(-1)}
               disabled={teamCount <= 2}
               style={{
-                background: 'var(--surface)',
-                border: 'none',
-                color: 'var(--khaki)',
-                width: 32,
-                height: 32,
-                fontSize: 18,
+                background: 'var(--surface)', border: 'none', color: 'var(--khaki)',
+                width: 32, height: 32, fontSize: 18,
                 cursor: teamCount <= 2 ? 'not-allowed' : 'pointer',
                 opacity: teamCount <= 2 ? 0.4 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'var(--font-body)',
               }}
-            >
-              −
-            </button>
+            >−</button>
             <div style={{
-              background: 'var(--bg)',
-              color: 'var(--text)',
-              width: 36,
-              height: 32,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14,
-              fontFamily: 'var(--font-body)',
-              borderLeft: '1px solid var(--border)',
-              borderRight: '1px solid var(--border)',
+              background: 'var(--bg)', color: 'var(--text)', width: 36, height: 32,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, fontFamily: 'var(--font-body)',
+              borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)',
             }}>
               {teamCount}
             </div>
@@ -338,78 +372,44 @@ export default function TeamSetupPage() {
               onClick={() => handleTeamCountChange(1)}
               disabled={teamCount >= 16}
               style={{
-                background: 'var(--surface)',
-                border: 'none',
-                color: 'var(--khaki)',
-                width: 32,
-                height: 32,
-                fontSize: 18,
+                background: 'var(--surface)', border: 'none', color: 'var(--khaki)',
+                width: 32, height: 32, fontSize: 18,
                 cursor: teamCount >= 16 ? 'not-allowed' : 'pointer',
                 opacity: teamCount >= 16 ? 0.4 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'var(--font-body)',
               }}
-            >
-              +
-            </button>
+            >+</button>
           </div>
 
-          {/* Right side buttons */}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
             <button
               onClick={() => setDrawerOpen(true)}
               style={{
-                background: 'transparent',
-                border: '1px solid var(--border-strong)',
-                color: 'var(--khaki)',
-                fontFamily: 'var(--font-body)',
-                fontSize: 11,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                padding: '0 14px',
-                height: 32,
-                borderRadius: 4,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
+                background: 'transparent', border: '1px solid var(--border-strong)',
+                color: 'var(--khaki)', fontFamily: 'var(--font-body)', fontSize: 11,
+                letterSpacing: '0.1em', textTransform: 'uppercase',
+                padding: '0 14px', height: 32, borderRadius: 4, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6,
               }}
-            >
-              ☰ Manage Signups
-            </button>
+            >☰ Manage Signups</button>
             <button
               onClick={handleRandomize}
               style={{
-                background: 'transparent',
-                border: '1px solid var(--border-strong)',
-                color: 'var(--khaki)',
-                fontFamily: 'var(--font-body)',
-                fontSize: 11,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                padding: '0 14px',
-                height: 32,
-                borderRadius: 4,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
+                background: 'transparent', border: '1px solid var(--border-strong)',
+                color: 'var(--khaki)', fontFamily: 'var(--font-body)', fontSize: 11,
+                letterSpacing: '0.1em', textTransform: 'uppercase',
+                padding: '0 14px', height: 32, borderRadius: 4, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6,
               }}
-            >
-              ↻ Randomize Draft Order
-            </button>
+            >↻ Randomize Draft Order</button>
           </div>
         </div>
 
         {/* Order note */}
         <div style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 11,
-          color: 'var(--text-dim)',
-          marginBottom: 20,
-          padding: '8px 10px',
+          fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)',
+          marginBottom: 20, padding: '8px 10px',
           background: 'rgba(200,184,122,0.04)',
           borderLeft: '2px solid rgba(200,184,122,0.25)',
           borderRadius: '0 3px 3px 0',
@@ -421,8 +421,7 @@ export default function TeamSetupPage() {
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: 8,
-          marginBottom: 28,
+          gap: 8, marginBottom: 28,
         }}>
           {Array.from({ length: teamCount }, (_, i) => {
             const rank = rankOf[i]
@@ -432,36 +431,16 @@ export default function TeamSetupPage() {
             const regularPlayers = players.filter((p) => !p.isCaptain)
 
             return (
-              <div
-                key={i}
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 4,
-                  padding: '10px 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-              >
-                {/* Color swatch */}
-                <div style={{
-                  width: 10,
-                  height: 36,
-                  borderRadius: 2,
-                  background: TEAM_COLORS[i],
-                  flexShrink: 0,
-                }} />
-
-                {/* Team info */}
+              <div key={i} style={{
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 4, padding: '10px 12px',
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <div style={{ width: 10, height: 36, borderRadius: 2, background: TEAM_COLORS[i], flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: 11,
-                    letterSpacing: '0.1em',
-                    color: 'var(--khaki)',
-                    textTransform: 'uppercase',
-                    marginBottom: 4,
+                    fontFamily: 'var(--font-body)', fontSize: 11, letterSpacing: '0.1em',
+                    color: 'var(--khaki)', textTransform: 'uppercase', marginBottom: 4,
                   }}>
                     {NATO_NAMES[i]}
                   </div>
@@ -469,63 +448,38 @@ export default function TeamSetupPage() {
                     value={currentCap}
                     onChange={(e) => handleCaptainChange(i, e.target.value)}
                     style={{
-                      width: '100%',
-                      background: 'var(--bg)',
-                      border: '1px solid var(--border)',
+                      width: '100%', background: 'var(--bg)', border: '1px solid var(--border)',
                       color: currentCap ? 'var(--text)' : 'var(--text-dim)',
-                      fontFamily: 'var(--font-body)',
-                      fontSize: 12,
-                      padding: '4px 6px',
-                      borderRadius: 3,
-                      appearance: 'none' as any,
-                      cursor: 'pointer',
-                      outline: 'none',
+                      fontFamily: 'var(--font-body)', fontSize: 12,
+                      padding: '4px 6px', borderRadius: 3, appearance: 'none' as any,
+                      cursor: 'pointer', outline: 'none',
                     }}
                   >
                     <option value="">— assign captain —</option>
-
                     {captainPlayers.length > 0 && (
                       <optgroup label="★ Captains">
                         {captainPlayers.map((p) => (
-                          <option
-                            key={p.userId}
-                            value={p.userId}
-                            disabled={assigned.has(p.userId)}
-                          >
+                          <option key={p.userId} value={p.userId} disabled={assigned.has(p.userId)}>
                             {p.ingameName}
                           </option>
                         ))}
                       </optgroup>
                     )}
-
                     <optgroup label="Players">
                       {regularPlayers.map((p) => (
-                        <option
-                          key={p.userId}
-                          value={p.userId}
-                          disabled={assigned.has(p.userId)}
-                        >
+                        <option key={p.userId} value={p.userId} disabled={assigned.has(p.userId)}>
                           {p.ingameName}
                         </option>
                       ))}
                     </optgroup>
                   </select>
                 </div>
-
-                {/* Pick order badge */}
                 <div style={{
-                  width: 28,
-                  height: 28,
-                  flexShrink: 0,
-                  borderRadius: '50%',
+                  width: 28, height: 28, flexShrink: 0, borderRadius: '50%',
                   background: rank === 1 ? 'rgba(200,184,122,0.18)' : 'rgba(200,184,122,0.08)',
                   border: rank === 1 ? '1px solid var(--khaki)' : '1px solid rgba(200,184,122,0.22)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  fontFamily: 'var(--font-body)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-body)',
                   color: rank === 1 ? 'var(--cream)' : 'var(--khaki)',
                 }}>
                   {rank}
@@ -538,14 +492,9 @@ export default function TeamSetupPage() {
         {/* Error */}
         {error && (
           <div style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 12,
-            color: 'var(--rust)',
-            marginBottom: 16,
-            padding: '8px 10px',
-            background: 'rgba(192,57,43,0.08)',
-            border: '1px solid rgba(192,57,43,0.25)',
-            borderRadius: 4,
+            fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--rust)',
+            marginBottom: 16, padding: '8px 10px',
+            background: 'rgba(192,57,43,0.08)', border: '1px solid rgba(192,57,43,0.25)', borderRadius: 4,
           }}>
             {error}
           </div>
@@ -553,50 +502,44 @@ export default function TeamSetupPage() {
 
         {/* Footer */}
         <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: 8,
-          paddingTop: 16,
-          borderTop: '1px solid var(--border)',
+          display: 'flex', justifyContent: 'flex-end', gap: 8,
+          paddingTop: 16, borderTop: '1px solid var(--border)',
         }}>
           <button
             onClick={() => router.push(`/events/${eventId}`)}
             style={{
-              background: 'transparent',
-              border: '1px solid var(--border-strong)',
-              color: 'var(--text-dim)',
-              fontFamily: 'var(--font-body)',
-              fontSize: 11,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              padding: '0 16px',
-              height: 34,
-              borderRadius: 4,
-              cursor: 'pointer',
+              background: 'transparent', border: '1px solid var(--border-strong)',
+              color: 'var(--text-dim)', fontFamily: 'var(--font-body)', fontSize: 11,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              padding: '0 16px', height: 34, borderRadius: 4, cursor: 'pointer',
             }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              background: saving ? 'rgba(200,184,122,0.3)' : 'var(--khaki)',
-              border: 'none',
-              color: saving ? 'rgba(26,26,20,0.5)' : '#1a1a14',
-              fontFamily: 'var(--font-body)',
-              fontSize: 11,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              fontWeight: 700,
-              padding: '0 20px',
-              height: 34,
-              borderRadius: 4,
-              cursor: saving ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {saving ? 'Saving...' : 'Lock In & Start Draft'}
-          </button>
+          >Cancel</button>
+
+          {draftInProgress ? (
+            <button
+              onClick={() => router.push(`/events/${eventId}/draft`)}
+              style={{
+                background: 'var(--khaki)', border: 'none', color: '#1a1a14',
+                fontFamily: 'var(--font-body)', fontSize: 11, letterSpacing: '0.08em',
+                textTransform: 'uppercase', fontWeight: 700,
+                padding: '0 20px', height: 34, borderRadius: 4, cursor: 'pointer',
+              }}
+            >Rejoin Draft →</button>
+          ) : (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              style={{
+                background: saving ? 'rgba(200,184,122,0.3)' : 'var(--khaki)',
+                border: 'none',
+                color: saving ? 'rgba(26,26,20,0.5)' : '#1a1a14',
+                fontFamily: 'var(--font-body)', fontSize: 11, letterSpacing: '0.08em',
+                textTransform: 'uppercase', fontWeight: 700,
+                padding: '0 20px', height: 34, borderRadius: 4,
+                cursor: saving ? 'not-allowed' : 'pointer',
+              }}
+            >{saving ? 'Saving...' : 'Lock In & Start Draft'}</button>
+          )}
         </div>
 
       </div>
