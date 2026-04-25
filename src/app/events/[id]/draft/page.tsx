@@ -104,6 +104,10 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
   const [classPickerFor, setClassPickerFor] = useState<{ userId: string; pickId: string; name: string } | null>(null)
   const [pickerSelected, setPickerSelected] = useState<string[]>([])
+  const [teamContextMenu, setTeamContextMenu] = useState<{ x: number; y: number; team: Team } | null>(null)
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null)
+  const [editingTeamName, setEditingTeamName] = useState('')
+  const [teamNames, setTeamNames] = useState<Record<string, string>>({})
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const timerSecsRef = useRef(90)
 
@@ -159,7 +163,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   }, [timerOn])
 
   useEffect(() => {
-    const handler = () => setContextMenu(null)
+    const handler = () => { setContextMenu(null); setTeamContextMenu(null) }
     window.addEventListener('click', handler)
     return () => window.removeEventListener('click', handler)
   }, [])
@@ -267,6 +271,28 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     else showToast('Failed', true)
   }
 
+  async function saveTeamName(teamId: string, name: string) {
+    const trimmed = name.trim()
+    if (!trimmed) { setEditingTeamId(null); return }
+    setTeamNames(prev => ({ ...prev, [teamId]: trimmed }))
+    setEditingTeamId(null)
+    await fetch(`/api/events/${eventId}/teams/${teamId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmed }),
+    })
+    fetchAll()
+  }
+
+  function getTeamDisplayName(team: Team): string {
+    return teamNames[team.id] || team.name || captainDisplayName(team)
+  }
+
+  function isTeamRenamed(team: Team): boolean {
+    const custom = teamNames[team.id] || team.name
+    return !!custom && custom !== captainDisplayName(team)
+  }
+
   function showToast(msg: string, err = false) {
     setToast({ msg, err })
     setTimeout(() => setToast(null), 2500)
@@ -334,12 +360,51 @@ export default function DraftPage({ params }: { params: { id: string } }) {
         boxShadow: isActive ? '0 0 0 1px rgba(200,184,122,0.12)' : 'none',
         borderRadius: 4, overflow: 'hidden', transition: 'border-color 0.2s',
       }}>
-        <div style={{ padding: '6px 8px 5px', borderBottom: '1px solid var(--border)' }}>
+        <div
+          style={{ padding: '6px 8px 5px', borderBottom: '1px solid var(--border)', cursor: isAdmin ? 'context-menu' : 'default' }}
+          onContextMenu={e => {
+            if (!isAdmin) return
+            e.preventDefault()
+            e.stopPropagation()
+            setTeamContextMenu({ x: e.clientX, y: e.clientY, team })
+          }}
+        >
           <div style={{ height: 2, borderRadius: 1, background: team.color, marginBottom: 4 }} />
-          <div style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            <span style={{ color: 'var(--khaki)', fontSize: 9, marginRight: 4 }}>♛</span>
-            {captainDisplayName(team)}
-          </div>
+          {editingTeamId === team.id ? (
+            <input
+              autoFocus
+              value={editingTeamName}
+              onChange={e => setEditingTeamName(e.target.value)}
+              onBlur={() => saveTeamName(team.id, editingTeamName)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') saveTeamName(team.id, editingTeamName)
+                if (e.key === 'Escape') setEditingTeamId(null)
+              }}
+              style={{
+                width: '100%', background: 'var(--surface2)',
+                border: '1px solid var(--khaki)', borderRadius: 3,
+                color: 'var(--text)', fontSize: 13, padding: '2px 4px',
+                fontFamily: 'var(--font-body)', outline: 'none',
+              }}
+            />
+          ) : (
+            <div
+              onClick={() => {
+                if (!isAdmin) return
+                setEditingTeamId(team.id)
+                setEditingTeamName(getTeamDisplayName(team))
+              }}
+              style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: isAdmin ? 'text' : 'default' }}
+              title={isAdmin ? 'Click to rename' : ''}
+            >
+              {getTeamDisplayName(team)}
+              {isTeamRenamed(team) ? (
+                <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 4 }}>({captainDisplayName(team)})</span>
+              ) : (
+                <span style={{ color: 'var(--khaki)', fontSize: 9, marginLeft: 4 }}>♛</span>
+              )}
+            </div>
+          )}
           <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: isActive ? 'var(--khaki)' : 'var(--text-dim)', marginTop: 1 }}>
             {isActive ? 'Picking now ▸' : `Pick ${team.pick_order}`}
           </div>
@@ -527,6 +592,41 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </div>
+
+      {/* TEAM HEADER CONTEXT MENU */}
+      {teamContextMenu && isAdmin && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            top: Math.min(teamContextMenu.y, window.innerHeight - 120),
+            left: Math.min(teamContextMenu.x, window.innerWidth - 200),
+            background: 'var(--surface)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 4,
+            zIndex: 500,
+            minWidth: 180,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{getTeamDisplayName(teamContextMenu.team)}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 1 }}>Team</div>
+          </div>
+          <CtxItem label="Rename Team" icon="✎" onClick={() => {
+            setEditingTeamId(teamContextMenu.team.id)
+            setEditingTeamName(getTeamDisplayName(teamContextMenu.team))
+            setTeamContextMenu(null)
+          }} />
+          {teamContextMenu.team.captain_id && (
+            <CtxItem label="View Captain Portal" icon="↗" onClick={() => {
+              setTeamContextMenu(null)
+              window.open(`/portal/${teamContextMenu.team.captain_id}`, '_blank')
+            }} />
+          )}
+        </div>
+      )}
 
       {/* RIGHT-CLICK CONTEXT MENU */}
       {contextMenu && isAdmin && (
