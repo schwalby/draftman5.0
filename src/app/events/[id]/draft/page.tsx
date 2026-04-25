@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { Spinner } from '@/components/Spinner'
+import SignupDrawer from '@/components/SignupDrawer'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -90,11 +91,20 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const [darkMode, setDarkMode] = useState(true)
   const [timerOn, setTimerOn] = useState(true)
   const [timerSecs, setTimerSecs] = useState(90)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const timerSecsRef = useRef(90)
 
-  const isAdmin = !!(session?.user?.isOrganizer || session?.user?.isSuperUser)
+  const isAdmin = !!(session?.user?.isOrganizer || (session?.user as any)?.isSuperUser)
   const myUserId = session?.user?.userId
+
+  // Load saved theme
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('draftman-theme')
+      setDarkMode(saved === 'slate')
+    } catch(e) {}
+  }, [])
 
   const fetchAll = useCallback(async () => {
     try {
@@ -156,7 +166,6 @@ export default function DraftPage({ params }: { params: { id: string } }) {
 
   function resetTimer() { timerSecsRef.current = 90; setTimerSecs(90) }
 
-  // ── Draft state ──────────────────────────────────────────────
   const sortedTeams = Array.isArray(teams)
     ? [...teams].sort((a, b) => (a.pick_order ?? 0) - (b.pick_order ?? 0))
     : []
@@ -191,7 +200,6 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     return true
   })
 
-  // ── Pick ─────────────────────────────────────────────────────
   async function confirmPick() {
     if (!selected || !activeTeam || !canPick || picking) return
     setPicking(true)
@@ -218,16 +226,14 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   }
 
   function toggleTheme() {
-    const next = darkMode ? 'olive' : 'slate'
-    document.documentElement.setAttribute('data-theme', next)
-    localStorage.setItem('theme', next)
-    setDarkMode(!darkMode)
+    const next = !darkMode
+    document.documentElement.setAttribute('data-theme', next ? 'slate' : '')
+    localStorage.setItem('draftman-theme', next ? 'slate' : 'light')
+    setDarkMode(next)
   }
 
-  // ── Two-col pick log ─────────────────────────────────────────
   const twoCol = picks.length >= 20
 
-  // ── Render team rows ─────────────────────────────────────────
   function renderTeamRows() {
     if (sortedTeams.length === 0) return null
     if (twoCol) {
@@ -290,7 +296,6 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     )
   }
 
-  // ── Render pool ──────────────────────────────────────────────
   function renderPool() {
     const classes = ['rifle', 'light', 'heavy', 'sniper', 'flex']
     const filtered = classFilter === 'all' ? classes : [classFilter]
@@ -350,6 +355,22 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Manage Players — admin only */}
+          {isAdmin && (
+            <button
+              onClick={() => setDrawerOpen(true)}
+              style={{
+                fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+                padding: '5px 11px', borderRadius: 3,
+                border: '1px solid var(--border-strong)',
+                color: 'var(--khaki)', background: 'rgba(200,184,122,0.06)',
+                cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              ⠿ Manage Players
+            </button>
+          )}
           <Link href="/portal" style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', textDecoration: 'none' }}>Portal</Link>
           <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
           <div onClick={toggleTheme} style={{ width: 32, height: 18, borderRadius: 18, position: 'relative', cursor: 'pointer', background: 'rgba(200,184,122,0.2)', border: '1px solid var(--border-strong)', flexShrink: 0 }}>
@@ -465,6 +486,15 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* SIGNUP DRAWER — admin only */}
+      {isAdmin && (
+        <SignupDrawer
+          eventId={eventId}
+          isOpen={drawerOpen}
+          onClose={() => { setDrawerOpen(false); fetchAll() }}
+        />
       )}
 
       {toast && (
