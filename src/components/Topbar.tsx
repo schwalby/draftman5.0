@@ -1,118 +1,115 @@
 'use client'
 
-import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
-import { usePathname } from 'next/navigation'
-
-interface BreadcrumbItem {
-  label: string
-  href: string
-}
+import Link from 'next/link'
+import Image from 'next/image'
 
 interface TopbarProps {
-  items?: BreadcrumbItem[]
+  items?: { label: string; href: string }[]
 }
 
-export function Topbar({ items }: TopbarProps) {
+export function Topbar({ items = [] }: TopbarProps) {
   const { data: session } = useSession()
-  const pathname = usePathname()
 
-  const avatarUrl = session?.user?.discordAvatar || null
+  const discordId = (session?.user as any)?.discordId
+  const discordAvatar = (session?.user as any)?.discordAvatar
+  const ingameName = (session?.user as any)?.ingameName
+  const discordUsername = (session?.user as any)?.discordUsername
 
-  const fallbackInitial = (session?.user?.ingameName || session?.user?.discordUsername || '?')[0].toUpperCase()
+  const avatarUrl =
+    discordId && discordAvatar
+      ? `https://cdn.discordapp.com/avatars/${discordId}/${discordAvatar}.png`
+      : null
+
+  const initial = (ingameName || discordUsername || '?')[0].toUpperCase()
 
   return (
-    <div style={{
-      background: 'var(--surface)',
-      borderBottom: '1px solid var(--border)',
-      borderLeft: '3px solid var(--khaki)',
-      display: 'flex',
-      alignItems: 'center',
-      padding: '0 24px',
-      height: 48,
+    <nav style={{
       position: 'sticky',
       top: 0,
       zIndex: 100,
+      display: 'flex',
+      alignItems: 'center',
+      height: '48px',
+      background: 'var(--surface)',
+      borderLeft: '3px solid var(--khaki)',
+      borderBottom: '1px solid var(--border)',
+      padding: '0 20px',
+      gap: '10px',
     }}>
       {/* Logo */}
-      <Link href="/dashboard" style={{
-        fontFamily: 'var(--font-heading)',
-        fontSize: 18,
-        letterSpacing: 3,
-        color: 'var(--khaki)',
-        textDecoration: 'none',
-        whiteSpace: 'nowrap',
-        marginRight: 24,
-        paddingRight: 24,
-        borderRight: '1px solid var(--border)',
-      }}>
-        DRAFTMAN5.0
+      <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+        <Image
+          src="/icon.png"
+          alt="DRAFT MAN"
+          width={28}
+          height={28}
+          style={{ borderRadius: '50%', objectFit: 'cover' }}
+        />
+        <span style={{
+          fontFamily: 'var(--font-heading)',
+          fontSize: '15px',
+          letterSpacing: '0.08em',
+          color: 'var(--khaki)',
+          lineHeight: 1,
+        }}>
+          DRAFT MAN 5.0
+        </span>
       </Link>
 
-      {/* Nav links */}
-      <Link href="/rules" style={{
-        fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
-        color: pathname === '/rules' ? 'var(--khaki)' : 'var(--text-dim)',
-        textDecoration: 'none', marginRight: 24, whiteSpace: 'nowrap',
-        fontFamily: 'var(--font-body)',
-        borderBottom: pathname === '/rules' ? '1px solid var(--khaki)' : 'none',
-        paddingBottom: pathname === '/rules' ? 2 : 0,
-      }}>
-        Rules
-      </Link>
+      {/* Divider */}
+      {items.length > 0 && (
+        <div style={{ width: '1px', height: '20px', background: 'var(--border-strong)', margin: '0 6px' }} />
+      )}
 
       {/* Breadcrumb */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-        {items?.map((item, i) => (
-          <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {i > 0 && <span style={{ color: 'rgba(200,184,122,0.3)', fontSize: 14 }}>›</span>}
-            {i < items.length - 1 ? (
-              <Link href={item.href} style={{ fontSize: 12, color: 'var(--text-dim)', textDecoration: 'none' }}>
-                {item.label}
-              </Link>
-            ) : (
-              <span style={{ fontSize: 12, color: 'var(--text)' }}>{item.label}</span>
-            )}
-          </span>
-        ))}
-      </div>
-
-      {/* User */}
-      {session && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          borderLeft: '1px solid var(--border)',
-          paddingLeft: 20, marginLeft: 20,
-        }}>
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt="avatar"
-              style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border-strong)', objectFit: 'cover' }}
-            />
-          ) : (
-            <div style={{
-              width: 28, height: 28, borderRadius: '50%',
-              border: '1px solid var(--border-strong)',
-              background: 'rgba(200,184,122,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, color: 'var(--khaki)',
-              fontFamily: 'var(--font-heading)', letterSpacing: '0.05em',
-            }}>
-              {fallbackInitial}
-            </div>
+      {items.map((item, i) => (
+        <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {i > 0 && (
+            <span style={{ color: 'var(--border-strong)', fontSize: '10px' }}>›</span>
           )}
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.06em' }}>
-            {session.user.ingameName || session.user.discordUsername}
-          </span>
-          <button
-            onClick={() => signOut({ callbackUrl: '/' })}
-            style={{ fontSize: 10, color: 'var(--rust)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'var(--font-body)', padding: 0 }}
-          >
-            Sign out
-          </button>
-        </div>
-      )}
-    </div>
+          {i < items.length - 1 ? (
+            <Link href={item.href} style={{ fontSize: '11px', color: 'var(--text-dim)', textDecoration: 'none' }}>
+              {item.label}
+            </Link>
+          ) : (
+            <span style={{ fontSize: '11px', color: 'var(--text)' }}>{item.label}</span>
+          )}
+        </span>
+      ))}
+
+      {/* Right side */}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <Link href="/rules" style={{ fontSize: '11px', color: 'var(--text-dim)', textDecoration: 'none', letterSpacing: '0.04em' }}>
+          Rules
+        </Link>
+        <Link href="/portal" style={{ fontSize: '11px', color: 'var(--text-dim)', textDecoration: 'none', letterSpacing: '0.04em' }}>
+          Portal
+        </Link>
+
+        {session && (
+          <>
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={discordUsername || ''}
+                width={28}
+                height={28}
+                style={{ borderRadius: '50%', border: '1px solid var(--border-strong)' }}
+              />
+            ) : (
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '50%',
+                background: 'var(--surface2)', border: '1px solid var(--border-strong)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '11px', color: 'var(--khaki)',
+              }}>
+                {initial}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </nav>
   )
 }
