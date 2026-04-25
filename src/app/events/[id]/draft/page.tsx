@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { Spinner } from '@/components/Spinner'
-import SignupDrawer from '@/components/SignupDrawer'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,6 +36,7 @@ interface Signup {
   user_id: string
   class: string[]
   priority: number
+  ringer: boolean
   users?: { ingame_name: string | null; discord_username: string } | null
 }
 
@@ -45,6 +45,17 @@ interface Event {
   name: string
   format: string
   status: string
+}
+
+interface ContextMenu {
+  x: number
+  y: number
+  userId: string
+  name: string
+  isDrafted: boolean
+  pickId?: string
+  currentClass?: string | null
+  isRinger: boolean
 }
 
 const CLS_COLOR: Record<string, string> = {
@@ -57,17 +68,16 @@ const CLS_SHORT: Record<string, string> = {
 const CLS_LABEL: Record<string, string> = {
   rifle: 'Rifle', light: 'Light', heavy: 'Heavy', sniper: 'Sniper', flex: 'Flex'
 }
+const ALL_CLASSES = ['rifle', 'light', 'heavy', 'sniper', 'flex']
 const SLOTS_PER_TEAM = 5
 
 function playerDisplayName(s: Signup): string {
   return (s as any).users?.ingame_name || (s as any).users?.discord_username || s.user_id
 }
-
 function captainDisplayName(team: Team): string {
   const cap = (team as any).captain
   return cap?.ingame_name || cap?.discord_username || team.name
 }
-
 function pickDisplayName(pick: DraftPick): string {
   return pick.user?.ingame_name || pick.user?.discord_username || '?'
 }
@@ -91,14 +101,14 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const [darkMode, setDarkMode] = useState(true)
   const [timerOn, setTimerOn] = useState(true)
   const [timerSecs, setTimerSecs] = useState(90)
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
+  const [classPickerFor, setClassPickerFor] = useState<{ userId: string; pickId: string; name: string } | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const timerSecsRef = useRef(90)
 
   const isAdmin = !!(session?.user?.isOrganizer || (session?.user as any)?.isSuperUser)
   const myUserId = session?.user?.userId
 
-  // Load saved theme
   useEffect(() => {
     try {
       const saved = localStorage.getItem('draftman-theme')
@@ -114,29 +124,12 @@ export default function DraftPage({ params }: { params: { id: string } }) {
         fetch(`/api/draft/${eventId}/picks`),
         fetch(`/api/events/${eventId}/signups`),
       ])
-
-      if (evRes.ok) {
-        const d = await evRes.json()
-        setEvent(d.event ?? d)
-      }
-      if (teamsRes.ok) {
-        const d = await teamsRes.json()
-        const arr = d?.teams ?? d
-        setTeams(Array.isArray(arr) ? arr : [])
-      }
-      if (picksRes.ok) {
-        const d = await picksRes.json()
-        setPicks(Array.isArray(d) ? d : [])
-      }
-      if (signupsRes.ok) {
-        const d = await signupsRes.json()
-        setSignups(Array.isArray(d) ? d : [])
-      }
-    } catch (e) {
-      console.error('fetchAll error', e)
-    } finally {
-      setLoading(false)
-    }
+      if (evRes.ok) { const d = await evRes.json(); setEvent(d.event ?? d) }
+      if (teamsRes.ok) { const d = await teamsRes.json(); const arr = d?.teams ?? d; setTeams(Array.isArray(arr) ? arr : []) }
+      if (picksRes.ok) { const d = await picksRes.json(); setPicks(Array.isArray(d) ? d : []) }
+      if (signupsRes.ok) { const d = await signupsRes.json(); setSignups(Array.isArray(d) ? d : []) }
+    } catch (e) { console.error('fetchAll error', e) }
+    finally { setLoading(false) }
   }, [eventId])
 
   useEffect(() => {
@@ -163,6 +156,12 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [timerOn])
+
+  useEffect(() => {
+    const handler = () => setContextMenu(null)
+    window.addEventListener('click', handler)
+    return () => window.removeEventListener('click', handler)
+  }, [])
 
   function resetTimer() { timerSecsRef.current = 90; setTimerSecs(90) }
 
@@ -220,6 +219,51 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     else showToast('Undo failed', true)
   }
 
+  async function undoSpecificPick(pickId: string) {
+    if (!isAdmin) return
+    setContextMenu(null)
+    const res = await fetch(`/api/draft/${eventId}/undo`, { method: 'DELETE' })
+    if (res.ok) { resetTimer(); showToast('Pick undone'); fetchAll() }
+    else showToast('Undo failed', true)
+  }
+
+  async function changePickClass(pickId: string, newClass: string) {
+    setClassPickerFor(null)
+    const res = await fetch(`/api/draft/${eventId}/picks/${pickId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ class: newClass }),
+    })
+    if (res.ok) { showToast('Class updated'); fetchAll() }
+    else showToast('Failed to update class', true)
+  }
+
+  async function changeSignupClass(userId: string, newClass: string) {
+    setClassPickerFor(null)
+    const signup = signups.find(s => s.user_id === userId)
+    if (!signup) return
+    const res = await fetch(`/api/events/${eventId}/signups/${signup.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ class: [newClass] }),
+    })
+    if (res.ok) { showToast('Class updated'); fetchAll() }
+    else showToast('Failed to update class', true)
+  }
+
+  async function toggleRinger(userId: string) {
+    setContextMenu(null)
+    const signup = signups.find(s => s.user_id === userId)
+    if (!signup) return
+    const res = await fetch(`/api/events/${eventId}/signups/${signup.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ringer: !signup.ringer }),
+    })
+    if (res.ok) { showToast(signup.ringer ? 'Removed ringer' : 'Marked as ringer'); fetchAll() }
+    else showToast('Failed', true)
+  }
+
   function showToast(msg: string, err = false) {
     setToast({ msg, err })
     setTimeout(() => setToast(null), 2500)
@@ -230,6 +274,31 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     document.documentElement.setAttribute('data-theme', next ? 'slate' : '')
     localStorage.setItem('draftman-theme', next ? 'slate' : 'light')
     setDarkMode(next)
+  }
+
+  function handleContextMenu(
+    e: React.MouseEvent,
+    userId: string,
+    name: string,
+    isDrafted: boolean,
+    pickId?: string,
+    currentClass?: string | null,
+    isRinger?: boolean
+  ) {
+    if (!isAdmin) return
+    e.preventDefault()
+    e.stopPropagation()
+    const signup = signups.find(s => s.user_id === userId)
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      userId,
+      name,
+      isDrafted,
+      pickId,
+      currentClass,
+      isRinger: isRinger ?? signup?.ringer ?? false,
+    })
   }
 
   const twoCol = picks.length >= 20
@@ -278,7 +347,10 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             if (pick) {
               const cls = pick.class || 'flex'
               return (
-                <div key={si} style={{ height: 26, borderRadius: 3, display: 'flex', alignItems: 'center', padding: '0 8px', gap: 6, fontSize: 13, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                <div
+                  key={si}
+                  onContextMenu={e => handleContextMenu(e, pick.user_id, pickDisplayName(pick), true, pick.id, pick.class)}
+                  style={{ height: 26, borderRadius: 3, display: 'flex', alignItems: 'center', padding: '0 8px', gap: 6, fontSize: 13, background: 'var(--surface2)', border: '1px solid var(--border)', cursor: isAdmin ? 'context-menu' : 'default' }}>
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: CLS_COLOR[cls] || 'var(--flex)', flexShrink: 0 }} />
                   <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pickDisplayName(pick)}</span>
                   <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>{CLS_SHORT[cls] || 'Fx'}</span>
@@ -312,7 +384,10 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           {players.map(s => {
             const isSel = selected === s.user_id
             return (
-              <div key={s.user_id} onClick={() => { if (!canPick) return; setSelected(isSel ? null : s.user_id); if (!isSel) setConfirmPlayer(s) }}
+              <div
+                key={s.user_id}
+                onClick={() => { if (!canPick) return; setSelected(isSel ? null : s.user_id); if (!isSel) setConfirmPlayer(s) }}
+                onContextMenu={e => handleContextMenu(e, s.user_id, playerDisplayName(s), false, undefined, undefined, s.ringer)}
                 style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 3, fontSize: 14, background: isSel ? 'rgba(200,184,122,0.1)' : 'var(--surface2)', border: `1px solid ${isSel ? 'var(--khaki)' : 'var(--border)'}`, cursor: canPick ? 'pointer' : 'default', transition: 'all 0.15s' }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: CLS_COLOR[cls], flexShrink: 0 }} />
                 <span style={{ color: 'var(--text)' }}>{playerDisplayName(s)}</span>
@@ -355,22 +430,6 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Manage Players — admin only */}
-          {isAdmin && (
-            <button
-              onClick={() => setDrawerOpen(true)}
-              style={{
-                fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
-                letterSpacing: '0.12em', textTransform: 'uppercase',
-                padding: '5px 11px', borderRadius: 3,
-                border: '1px solid var(--border-strong)',
-                color: 'var(--khaki)', background: 'rgba(200,184,122,0.06)',
-                cursor: 'pointer', whiteSpace: 'nowrap',
-              }}
-            >
-              ⠿ Manage Players
-            </button>
-          )}
           <Link href="/portal" style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', textDecoration: 'none' }}>Portal</Link>
           <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
           <div onClick={toggleTheme} style={{ width: 32, height: 18, borderRadius: 18, position: 'relative', cursor: 'pointer', background: 'rgba(200,184,122,0.2)', border: '1px solid var(--border-strong)', flexShrink: 0 }}>
@@ -410,7 +469,6 @@ export default function DraftPage({ params }: { params: { id: string } }) {
         {/* MAIN */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-          {/* NOW PICKING BAR */}
           <div style={{ height: 44, flexShrink: 0, background: 'rgba(200,184,122,0.04)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 8 }}>
             {!isDraftDone && activeTeam && (
               <>
@@ -436,12 +494,10 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             </div>
           </div>
 
-          {/* TEAMS */}
           <div style={{ flexShrink: 0, padding: '10px 12px 0', overflowX: 'auto' }}>
             {renderTeamRows()}
           </div>
 
-          {/* TIMER */}
           <div style={{ height: 36, flexShrink: 0, background: 'var(--surface2)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '0 16px' }}>
             <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>Time remaining</span>
             <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 400, fontSize: 20, letterSpacing: '0.06em', color: timerUrgent ? 'var(--rust)' : 'var(--khaki)', minWidth: 50, textAlign: 'center', transition: 'color 0.3s' }}>{timerStr}</span>
@@ -451,7 +507,6 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>{timerOn ? 'Timer on' : 'Paused'}</span>
           </div>
 
-          {/* POOL */}
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ height: 36, flexShrink: 0, background: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 12 }}>
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>Available Players</span>
@@ -469,6 +524,75 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </div>
+
+      {/* RIGHT-CLICK CONTEXT MENU */}
+      {contextMenu && isAdmin && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            top: Math.min(contextMenu.y, window.innerHeight - 200),
+            left: Math.min(contextMenu.x, window.innerWidth - 200),
+            background: 'var(--surface)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 4,
+            zIndex: 500,
+            minWidth: 180,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{contextMenu.name}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 1 }}>
+              {contextMenu.isDrafted ? 'Drafted player' : 'Available player'}
+            </div>
+          </div>
+          <CtxItem label="Change Class" icon="◎" onClick={() => {
+            setClassPickerFor({ userId: contextMenu.userId, pickId: contextMenu.pickId || '', name: contextMenu.name })
+            setContextMenu(null)
+          }} />
+          {contextMenu.isDrafted && (
+            <CtxItem label="Undo Pick" icon="↩" danger onClick={() => undoSpecificPick(contextMenu.pickId!)} />
+          )}
+          <CtxItem
+            label={contextMenu.isRinger ? 'Remove Ringer' : 'Mark as Ringer'}
+            icon="◉"
+            onClick={() => toggleRinger(contextMenu.userId)}
+          />
+          <CtxItem label="View Portal" icon="↗" onClick={() => { setContextMenu(null); window.open('/portal', '_blank') }} />
+        </div>
+      )}
+
+      {/* CLASS PICKER MODAL */}
+      {classPickerFor && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600 }} onClick={() => setClassPickerFor(null)}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '24px 28px', minWidth: 280 }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 8 }}>Change Class</div>
+            <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 20 }}>{classPickerFor.name}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {ALL_CLASSES.map(cls => (
+                <button
+                  key={cls}
+                  onClick={() => classPickerFor.pickId
+                    ? changePickClass(classPickerFor.pickId, cls)
+                    : changeSignupClass(classPickerFor.userId, cls)
+                  }
+                  style={{
+                    padding: '8px 16px', borderRadius: 4, cursor: 'pointer',
+                    fontSize: 12, fontFamily: 'var(--font-body)',
+                    background: 'transparent', color: CLS_COLOR[cls],
+                    border: `1px solid ${CLS_COLOR[cls]}`,
+                  }}
+                >
+                  {CLS_LABEL[cls]}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setClassPickerFor(null)} style={{ marginTop: 20, fontSize: 11, color: 'var(--text-dim)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 3, padding: '5px 14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* CONFIRM MODAL */}
       {confirmPlayer && (
@@ -488,20 +612,33 @@ export default function DraftPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* SIGNUP DRAWER — admin only */}
-      {isAdmin && (
-        <SignupDrawer
-          eventId={eventId}
-          isOpen={drawerOpen}
-          onClose={() => { setDrawerOpen(false); fetchAll() }}
-        />
-      )}
-
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, right: 24, background: 'var(--surface)', border: `1px solid var(--border-strong)`, borderLeft: `3px solid ${toast.err ? 'var(--rust)' : 'var(--green-light)'}`, color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12, padding: '10px 16px', borderRadius: 3, zIndex: 999 }}>{toast.msg}</div>
       )}
 
       <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }`}</style>
+    </div>
+  )
+}
+
+function CtxItem({ label, icon, onClick, danger }: { label: string; icon: string; onClick: () => void; danger?: boolean }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 12px', cursor: 'pointer',
+        background: hovered ? 'var(--surface2)' : 'transparent',
+        borderBottom: '1px solid var(--border)',
+        color: danger ? 'var(--rust)' : 'var(--text)',
+        fontSize: 12,
+      }}
+    >
+      <span style={{ width: 16, textAlign: 'center', color: danger ? 'var(--rust)' : 'var(--text-dim)', fontSize: 13 }}>{icon}</span>
+      {label}
     </div>
   )
 }
