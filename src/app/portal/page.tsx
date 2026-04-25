@@ -17,33 +17,13 @@ interface Event {
   signup_opens_at: string | null
   capacity: number
   signup_count?: number
-  my_signup?: {
-    class: string[]
-  } | null
-}
-
-interface DraftHistory {
-  id: string
-  event_id: string
-  event_name: string
-  starts_at: string | null
-  team_name: string
-  team_color: string
-  class: string
+  my_signup?: { class: string[] } | null
+  has_picks?: boolean
 }
 
 const CLASS_COLORS: Record<string, string> = {
-  rifle: '#c8a050',
-  third: '#4a9c6a',
-  light: '#4a9c6a',
-  heavy: '#9c5a4a',
-  sniper: '#5a6a9c',
-  flex: '#888888',
-}
-
-function formatDate(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+  rifle: '#c8a050', third: '#4a9c6a', light: '#4a9c6a',
+  heavy: '#9c5a4a', sniper: '#5a6a9c', flex: '#888888',
 }
 
 function formatDateTime(iso: string | null) {
@@ -69,9 +49,9 @@ export default function PortalPage() {
   }, [])
 
   function toggleTheme() {
-    const next = darkMode ? 'olive' : 'slate'
+    const next = darkMode ? '' : 'slate'
     document.documentElement.setAttribute('data-theme', next)
-    localStorage.setItem('theme', next)
+    localStorage.setItem('draftman-theme', next === 'slate' ? 'slate' : 'light')
     setDarkMode(!darkMode)
   }
 
@@ -80,9 +60,20 @@ export default function PortalPage() {
     const res = await fetch('/api/events')
     if (res.ok) {
       const data = await res.json()
-      // Only show scheduled/active events
       const open = data.filter((e: Event) => e.status === 'scheduled' || e.status === 'active')
-      setEvents(open)
+
+      // Check picks for each event
+      const enriched = await Promise.all(open.map(async (ev: Event) => {
+        try {
+          const picksRes = await fetch(`/api/draft/${ev.id}/picks`)
+          const picks = await picksRes.json()
+          return { ...ev, has_picks: Array.isArray(picks) && picks.length > 0 }
+        } catch {
+          return { ...ev, has_picks: false }
+        }
+      }))
+
+      setEvents(enriched)
     }
     setLoading(false)
   }, [])
@@ -119,13 +110,12 @@ export default function PortalPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'var(--font-body)' }}>
 
-      {/* ═══ SIDEBAR ═══════════════════════════════════════════════ */}
+      {/* ═══ SIDEBAR ═══ */}
       <aside style={{
         width: 220, flexShrink: 0, background: 'var(--surface)',
         borderRight: '1px solid var(--border)', display: 'flex',
         flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0
       }}>
-        {/* Logo */}
         <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 20, letterSpacing: '0.06em', color: 'var(--khaki)', lineHeight: 1 }}>
             DRAFTMAN5.0
@@ -135,17 +125,16 @@ export default function PortalPage() {
           </div>
         </div>
 
-        {/* Nav */}
         <div style={{ padding: '16px 6px 0' }}>
           <div style={{ fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300, letterSpacing: '0.18em', color: 'var(--text-dim)', textTransform: 'uppercase', padding: '0 10px', marginBottom: 6 }}>
             NAVIGATION
           </div>
-          {(user?.isOrganizer || user?.isSuperUser) && (
+          {(user?.isOrganizer || (user as any)?.isSuperUser) && (
             <Link href="/dashboard" style={navLink()}>
               <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#9642;</span> Dashboard
             </Link>
           )}
-          <Link href="/events" style={navLink()}>
+          <Link href="/portal" style={navLink(true)}>
             <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>&#9675;</span> Events
           </Link>
           <Link href="/rules" style={navLink()}>
@@ -153,9 +142,7 @@ export default function PortalPage() {
           </Link>
         </div>
 
-        {/* Bottom utility zone */}
         <div style={{ marginTop: 'auto' }}>
-          {/* Theme toggle */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)' }}>
               <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>◑</span> Dark Mode
@@ -178,7 +165,6 @@ export default function PortalPage() {
             </div>
           </div>
 
-          {/* Divider + user info */}
           <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 9 }}>
             <div style={{
               width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
@@ -188,8 +174,7 @@ export default function PortalPage() {
             }}>
               {discordAvatarUrl
                 ? <img src={discordAvatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : initial
-              }
+                : initial}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
@@ -203,11 +188,10 @@ export default function PortalPage() {
         </div>
       </aside>
 
-      {/* ═══ MAIN ══════════════════════════════════════════════════ */}
+      {/* ═══ MAIN ═══ */}
       <main style={{ marginLeft: 220, flex: 1, padding: '36px 40px 80px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ width: '100%', maxWidth: 760 }}>
 
-          {/* Greeting */}
           <div style={{ marginBottom: 36 }}>
             <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 32, letterSpacing: '0.04em', color: 'var(--text)', lineHeight: 1 }}>
               Welcome back, {displayName}
@@ -223,24 +207,25 @@ export default function PortalPage() {
               fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em',
               color: 'var(--text-dim)', textTransform: 'uppercase',
               paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 12
-            }}>Open Events — Sign Up Now</div>
+            }}>Open Events</div>
 
             {events.length === 0 ? (
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: 28, textAlign: 'center' }}>
-                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No events open for signup right now. Check back soon.</div>
+                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No events open right now. Check back soon.</div>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
                 {events.map(event => {
                   const mySignup = event.my_signup
                   const isSignedUp = !!mySignup
+                  const inProgress = !!event.has_picks
                   const typeLabel = event.type === 'draft' ? 'Draft' : 'Community Event'
 
                   return (
                     <div key={event.id} style={{
                       background: 'var(--surface)',
-                      border: `1px solid ${isSignedUp ? 'rgba(200,184,122,0.35)' : 'var(--border)'}`,
-                      borderLeft: `3px solid ${isSignedUp ? 'var(--khaki)' : 'var(--border)'}`,
+                      border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(200,184,122,0.35)' : 'var(--border)'}`,
+                      borderLeft: `3px solid ${inProgress ? 'var(--green-light)' : isSignedUp ? 'var(--khaki)' : 'var(--border)'}`,
                       borderRadius: 4, padding: 18,
                       display: 'flex', flexDirection: 'column', gap: 10
                     }}>
@@ -250,8 +235,13 @@ export default function PortalPage() {
                         <span style={{
                           fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8,
                           letterSpacing: '0.14em', textTransform: 'uppercase', padding: '2px 7px',
-                          borderRadius: 2, border: '1px solid rgba(200,184,122,0.35)', color: 'var(--khaki)', flexShrink: 0
-                        }}>Scheduled</span>
+                          borderRadius: 2,
+                          border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : 'rgba(200,184,122,0.35)'}`,
+                          color: inProgress ? 'var(--green-light)' : 'var(--khaki)',
+                          flexShrink: 0
+                        }}>
+                          {inProgress ? 'In Progress' : 'Scheduled'}
+                        </span>
                       </div>
 
                       {/* Meta */}
@@ -263,11 +253,17 @@ export default function PortalPage() {
 
                       {/* Signup status */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: isSignedUp ? 'var(--khaki)' : 'var(--text-dim)', opacity: isSignedUp ? 1 : 0.4, flexShrink: 0 }} />
-                        {isSignedUp
-                          ? <span style={{ color: 'var(--text-dim)' }}>Signed up as <span style={{ color: 'var(--text)' }}>{mySignup.class.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' / ')}</span></span>
-                          : <span style={{ color: 'var(--text-dim)' }}>Not signed up</span>
-                        }
+                        {inProgress ? (
+                          <span style={{ color: 'var(--green-light)' }}>🔒 Draft in progress — signups closed</span>
+                        ) : (
+                          <>
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: isSignedUp ? 'var(--khaki)' : 'var(--text-dim)', opacity: isSignedUp ? 1 : 0.4, flexShrink: 0 }} />
+                            {isSignedUp
+                              ? <span style={{ color: 'var(--text-dim)' }}>Signed up as <span style={{ color: 'var(--text)' }}>{mySignup.class.map((c: string) => c.charAt(0).toUpperCase() + c.slice(1)).join(' / ')}</span></span>
+                              : <span style={{ color: 'var(--text-dim)' }}>Not signed up</span>
+                            }
+                          </>
+                        )}
                       </div>
 
                       {/* Action */}
@@ -275,11 +271,17 @@ export default function PortalPage() {
                         fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
                         letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px',
                         borderRadius: 3, textDecoration: 'none', textAlign: 'center',
-                        border: isSignedUp ? '1px solid var(--border)' : '1px solid var(--khaki)',
-                        color: isSignedUp ? 'var(--text-dim)' : 'var(--khaki)',
-                        background: isSignedUp ? 'transparent' : 'rgba(200,184,122,0.08)',
+                        border: inProgress
+                          ? '1px solid var(--green-light)'
+                          : isSignedUp ? '1px solid var(--border)' : '1px solid var(--khaki)',
+                        color: inProgress
+                          ? 'var(--green-light)'
+                          : isSignedUp ? 'var(--text-dim)' : 'var(--khaki)',
+                        background: inProgress
+                          ? 'rgba(90,156,90,0.08)'
+                          : isSignedUp ? 'transparent' : 'rgba(200,184,122,0.08)',
                       }}>
-                        {isSignedUp ? 'View Event' : 'Sign Up'}
+                        {inProgress ? 'View Event' : isSignedUp ? 'View Event' : 'Sign Up'}
                       </Link>
                     </div>
                   )
@@ -295,7 +297,6 @@ export default function PortalPage() {
               color: 'var(--text-dim)', textTransform: 'uppercase',
               paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 12
             }}>My Draft History</div>
-
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{ padding: '24px', textAlign: 'center' }}>
                 <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Draft history will appear here after your first completed event.</div>
@@ -310,7 +311,6 @@ export default function PortalPage() {
               color: 'var(--text-dim)', textTransform: 'uppercase',
               paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 12
             }}>My Stats</div>
-
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: 28, textAlign: 'center' }}>
               <div style={{ fontSize: 24, marginBottom: 10, opacity: 0.3 }}>📊</div>
               <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.6 }}>
