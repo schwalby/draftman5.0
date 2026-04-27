@@ -262,20 +262,9 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     }
   }
 
-  // FIX: End Draft — PATCH event status to 'completed'
   async function endDraft() {
     setEndDraftConfirm(false)
-    const res = await fetch(`/api/events/${eventId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'completed' }),
-    })
-    if (res.ok) {
-      showToast('Draft ended')
-      fetchAll()
-    } else {
-      showToast('Failed to end draft', true)
-    }
+    router.push(`/events/${eventId}/tournament-setup`)
   }
 
   async function changePickClass(pickId: string, newClasses: string[]) {
@@ -618,13 +607,13 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               <button onClick={() => setTimerOn(!timerOn)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>
                 {timerOn ? '⏸ Pause' : '▶ Resume'}
               </button>
-              {/* FIX: End Draft now has onClick that shows confirm modal */}
+              {/* START TOURNAMENT button */}
               {isAdmin && (
                 <button
                   onClick={() => setEndDraftConfirm(true)}
                   style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}
                 >
-                  End Draft
+                  Start Tournament
                 </button>
               )}
             </div>
@@ -826,18 +815,17 @@ export default function DraftPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* FIX: End Draft confirm modal */}
       {endDraftConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setEndDraftConfirm(false)}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '28px 32px', minWidth: 300, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>End Draft</div>
-            <div style={{ fontSize: 15, color: 'var(--text)', marginBottom: 8 }}>Are you sure you want to end the draft?</div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Start Tournament</div>
+            <div style={{ fontSize: 15, color: 'var(--text)', marginBottom: 8 }}>Ready to move to tournament?</div>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 24 }}>
-              This will mark the event as completed. You can still make changes after.
+              The draft will be locked and you'll be taken to group assignment. You can still undo picks before confirming.
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setEndDraftConfirm(false)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={endDraft} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--rust)', color: 'var(--rust)', background: 'rgba(192,57,43,0.12)', cursor: 'pointer' }}>End Draft</button>
+              <button onClick={endDraft} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--green-light)', color: 'var(--green-light)', background: 'rgba(90,156,90,0.12)', cursor: 'pointer' }}>Set Up Tournament →</button>
             </div>
           </div>
         </div>
