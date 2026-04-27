@@ -26,11 +26,12 @@ interface FormState {
   type: string;
   format: string;
   halfLength: number;
+  playerCap: number;
   slots: { rifle: number; third: number; heavy: number; sniper: number };
-  draftDate: string;       // date only — YYYY-MM-DD — maps to starts_at
+  draftDate: string;
   maps: string[];
-  signupOpens: string;     // datetime-local string
-  checkinTime: string;     // time only — HH:MM
+  signupOpens: string;
+  checkinTime: string;
   notes: string;
 }
 
@@ -39,6 +40,7 @@ const initialState: FormState = {
   type: 'draft',
   format: '6v6',
   halfLength: 20,
+  playerCap: 48,
   slots: { rifle: 2, third: 1, heavy: 2, sniper: 1 },
   draftDate: '',
   maps: [],
@@ -47,16 +49,14 @@ const initialState: FormState = {
   notes: '',
 };
 
-// Combine draftDate + checkinTime into a datetime string for DB
 function buildCheckinAt(date: string, time: string): string | null {
   if (!date || !time) return null;
   return `${date}T${time}:00`;
 }
 
-// Format a date string for display
 function fmtDateOnly(d: string): string {
   if (!d) return '';
-  const dt = new Date(d + 'T12:00:00'); // noon to avoid TZ shift
+  const dt = new Date(d + 'T12:00:00');
   return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -85,7 +85,7 @@ export default function NewEventPage() {
     slots_third: f.slots.third,
     slots_heavy: f.slots.heavy,
     slots_sniper: f.slots.sniper,
-    capacity: Object.values(f.slots).reduce((a, b) => a + b, 0),
+    capacity: f.playerCap,
     maps: f.maps,
     starts_at: f.draftDate ? `${f.draftDate}T00:00:00` : null,
     signup_opens_at: f.signupOpens || null,
@@ -253,13 +253,22 @@ export default function NewEventPage() {
               />
             </Field>
 
-            <Field label="Half Length">
-              <PillGroup
-                options={[{ val: '15', label: '15 min' }, { val: '20', label: '20 min' }]}
-                value={String(form.halfLength)}
-                onChange={val => updateForm({ halfLength: parseInt(val) })}
-              />
-            </Field>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+              <Field label="Half Length">
+                <PillGroup
+                  options={[{ val: '15', label: '15 min' }, { val: '20', label: '20 min' }]}
+                  value={String(form.halfLength)}
+                  onChange={val => updateForm({ halfLength: parseInt(val) })}
+                />
+              </Field>
+              <Field label="Player Cap">
+                <PillGroup
+                  options={[{ val: '48', label: '48 players' }, { val: '60', label: '60 players' }]}
+                  value={String(form.playerCap)}
+                  onChange={val => updateForm({ playerCap: parseInt(val) })}
+                />
+              </Field>
+            </div>
 
             <Field label="Class Slots">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -396,6 +405,7 @@ export default function NewEventPage() {
                 { key: 'Type',           val: form.type === 'draft' ? 'Draft' : 'Community Event', color: 'var(--khaki)' },
                 { key: 'Format',         val: form.format,                                          color: '#8a9acc' },
                 { key: 'Half Length',    val: `${form.halfLength} min`,                             color: '#4abcaa' },
+                { key: 'Player Cap',     val: `${form.playerCap} players`,                          color: '#c8a050' },
                 { key: 'Draft Date',     val: form.draftDate ? fmtDateOnly(form.draftDate) : '—',   color: '#c8b87a' },
                 { key: 'Maps Selected',  val: form.maps.length ? `${form.maps.length} maps` : 'None', color: '#7aba7a' },
                 { key: 'Sign-up Opens',  val: fmtDatetime(form.signupOpens),                        color: '#d97060' },
