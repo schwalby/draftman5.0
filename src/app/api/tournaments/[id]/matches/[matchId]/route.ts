@@ -81,6 +81,7 @@ export async function PATCH(
       .eq('id', matchId).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     await logEdit(matchId, userId, 'admin', match, { winner_id: null, score_team1: null, score_team2: null }, note ?? 'Rejected — reset to pending')
+    if (match.stage === 'group' && match.group_id) await recalculateStandings(tournamentId, match.group_id)
     return NextResponse.json(updated)
   }
 
@@ -121,12 +122,12 @@ async function logEdit(
 }
 
 async function recalculateStandings(tournamentId: string, groupId: string) {
+  // Fetch all complete+confirmed matches for this group
   const { data: matches } = await supabaseAdmin
     .from('tournament_matches')
     .select('*')
     .eq('group_id', groupId)
     .eq('status', 'complete')
-    .eq('confirmed', true)
 
   const { data: groupTeams } = await supabaseAdmin
     .from('tournament_group_teams')
@@ -167,6 +168,7 @@ async function recalculateStandings(tournamentId: string, groupId: string) {
       .from('tournament_standings')
       .update({ ...s, seed: i + 1, updated_at: new Date().toISOString() })
       .eq('tournament_id', tournamentId)
+      .eq('group_id', groupId)
       .eq('team_id', team_id)
   }
 }
