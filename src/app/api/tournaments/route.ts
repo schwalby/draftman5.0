@@ -59,12 +59,10 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin.from('tournament_standings').insert(standings)
 
     // 3. Generate round robin matches for this group
-    // Round robin scheduling: each team plays every other team once
     const teamIds: string[] = g.team_ids
     const matchInserts = []
     let matchNumber = 1
 
-    // Use round-robin scheduling algorithm
     const n = teamIds.length
     const teams = [...teamIds]
     if (n % 2 !== 0) teams.push('BYE')
@@ -87,15 +85,13 @@ export async function POST(req: NextRequest) {
           })
         }
       }
-      // Rotate teams (keep first fixed)
       teams.splice(1, 0, teams.pop()!)
     }
 
     await supabaseAdmin.from('tournament_matches').insert(matchInserts)
   }
 
-  // 4. Create placeholder playoff matches (filled when RR ends)
-  // QF x4, SF x2, Final x1
+  // 4. Create placeholder playoff matches
   const playoffInserts = [
     { tournament_id: tournament.id, stage: 'quarterfinal', round: 1, match_number: 1, status: 'pending' },
     { tournament_id: tournament.id, stage: 'quarterfinal', round: 1, match_number: 2, status: 'pending' },
@@ -121,6 +117,8 @@ export async function GET(req: NextRequest) {
     .eq('event_id', event_id)
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+  if (error && error.code !== 'PGRST116') {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  return NextResponse.json(data ?? null)
 }
