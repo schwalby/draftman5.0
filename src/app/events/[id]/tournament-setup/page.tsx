@@ -139,19 +139,22 @@ export default function TournamentSetupPage() {
     }
 
     try {
-      // Mark event as completed
       await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'completed' }),
       })
 
-      // Create tournament
       const res = await fetch('/api/tournaments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
+
+      if (res.status === 409) {
+        router.push(`/events/${eventId}/tournament`)
+        return
+      }
 
       if (!res.ok) {
         const d = await res.json()
