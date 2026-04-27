@@ -24,6 +24,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing event_id or groups' }, { status: 400 })
   }
 
+  // Guard: check if tournament already exists for this event
+  const { data: existing } = await supabaseAdmin
+    .from('tournaments')
+    .select('id')
+    .eq('event_id', event_id)
+    .single()
+  if (existing) {
+    return NextResponse.json({ error: 'A tournament already exists for this event', tournament_id: existing.id }, { status: 409 })
+  }
+
   // 1. Create tournament
   const { data: tournament, error: tErr } = await supabaseAdmin
     .from('tournaments')
