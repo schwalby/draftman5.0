@@ -133,8 +133,8 @@ export default function TournamentSetupPage() {
       event_id: eventId,
       format: 'round_robin',
       groups: [
-        { label: 'A', teams: groupA.map(t => t.id) },
-        { label: 'B', teams: groupB.map(t => t.id) },
+        { label: 'A', team_ids: groupA.map(t => t.id) },
+        { label: 'B', team_ids: groupB.map(t => t.id) },
       ],
     }
 
