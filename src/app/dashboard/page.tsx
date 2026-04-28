@@ -5,6 +5,12 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Spinner } from '@/components/Spinner'
+import { createClient } from '@supabase/supabase-js'
+
+const sb = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 interface Event {
   id: string
@@ -16,6 +22,8 @@ interface Event {
   capacity: number
   signup_count?: number
   has_picks?: boolean
+  champion_name?: string | null
+  champion_color?: string | null
 }
 
 function signupColor(count: number, goal: number) {
@@ -39,11 +47,12 @@ function ringerCount(count: number, goal: number) {
 
 function statusStyle(status: string): { color: string; label: string } {
   switch (status) {
-    case 'draft':     return { color: 'var(--text-dim)',    label: 'DRAFT' }
-    case 'scheduled': return { color: 'var(--khaki)',       label: 'SCHEDULED' }
-    case 'active':    return { color: 'var(--green-light)', label: 'ACTIVE' }
-    case 'completed': return { color: 'var(--text-dim)',    label: 'COMPLETED' }
-    default:          return { color: 'var(--text-dim)',    label: status.toUpperCase() }
+    case 'draft':       return { color: 'var(--text-dim)',    label: 'DRAFT' }
+    case 'scheduled':   return { color: 'var(--khaki)',       label: 'SCHEDULED' }
+    case 'in_progress': return { color: 'var(--green-light)', label: 'DRAFT IN PROGRESS' }
+    case 'active':      return { color: '#3ddc84',            label: 'GAMES ACTIVE' }
+    case 'completed':   return { color: 'var(--text-dim)',    label: 'DRAFT COMPLETE' }
+    default:            return { color: 'var(--text-dim)',    label: status.toUpperCase() }
   }
 }
 
@@ -146,13 +155,32 @@ export default function DashboardPage() {
     const res = await fetch('/api/events')
     if (res.ok) {
       const data = await res.json()
-      // For each published/active event, check if draft picks exist
       const enriched = await Promise.all((data as Event[]).map(async (ev) => {
-        if (ev.status === 'scheduled' || ev.status === 'active') {
+        // Check for draft picks on in-progress/scheduled events
+        if (ev.status === 'scheduled' || ev.status === 'active' || ev.status === 'in_progress') {
           try {
             const picksRes = await fetch(`/api/draft/${ev.id}/picks`)
             const picks = await picksRes.json()
             return { ...ev, has_picks: Array.isArray(picks) && picks.length > 0 }
+          } catch {
+            return { ...ev, has_picks: false }
+          }
+        }
+        // For completed events, fetch champion from tournaments table
+        if (ev.status === 'completed') {
+          try {
+            const { data: tournament } = await sb
+              .from('tournaments')
+              .select('champion_team_id, teams:champion_team_id(name, color)')
+              .eq('event_id', ev.id)
+              .maybeSingle()
+            const team = (tournament as any)?.teams
+            return {
+              ...ev,
+              has_picks: false,
+              champion_name: team?.name ?? null,
+              champion_color: team?.color ?? null,
+            }
           } catch {
             return { ...ev, has_picks: false }
           }
@@ -228,8 +256,9 @@ export default function DashboardPage() {
   const roleLabel = isSuperUser ? 'SUPERUSER' : user?.isOrganizer ? 'DRAFT ADMIN' : 'PLAYER'
 
   const unpublishedEvents = events.filter(e => e.status === 'draft')
-  const inProgressEvents = events.filter(e => e.has_picks)
-  const publishedEvents = events.filter(e => !e.has_picks && e.status !== 'draft')
+  const inProgressEvents  = events.filter(e => e.has_picks || e.status === 'in_progress' || e.status === 'active')
+  const completedEvents   = events.filter(e => e.status === 'completed')
+  const publishedEvents   = events.filter(e => !e.has_picks && e.status === 'scheduled')
 
   const navLink = (active = false): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 8,
@@ -373,11 +402,12 @@ export default function DashboardPage() {
           </div>
 
           {/* Stats row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
             {[
               { label: 'Unpublished', value: unpublishedEvents.length, color: 'var(--text-dim)' },
               { label: 'Published',   value: publishedEvents.length,   color: 'var(--khaki)' },
               { label: 'In Progress', value: inProgressEvents.length,  color: 'var(--green-light)' },
+              { label: 'Completed',   value: completedEvents.length,   color: 'var(--text-dim)' },
             ].map(s => (
               <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '14px 18px' }}>
                 <div style={{ fontFamily: 'var(--font-heading)', fontSize: 28, fontWeight: 400, color: s.color, lineHeight: 1 }}>{s.value}</div>
@@ -445,6 +475,22 @@ export default function DashboardPage() {
                 </Section>
               )}
 
+              {/* Completed */}
+              {completedEvents.length > 0 && (
+                <Section label="Completed" count={completedEvents.length} color="var(--text-dim)">
+                  {completedEvents.map(event => (
+                    <EventRow
+                      key={event.id}
+                      event={event}
+                      actionLoading={actionLoading}
+                      onPublish={handlePublish}
+                      onUnpublish={handleUnpublish}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </Section>
+              )}
+
             </div>
           )}
         </main>
@@ -491,14 +537,31 @@ function EventRow({ event, actionLoading, onPublish, onUnpublish, onDelete, onRe
   const color = signupColor(count, goal)
   const barWidth = signupBarWidth(count, goal)
   const ringers = ringerCount(count, goal)
+  const isCompleted = event.status === 'completed'
+
+  // Status label: for completed, append champion name if available
+  const statusLabel = isCompleted && event.champion_name
+    ? `DRAFT COMPLETE — ${event.champion_name}`
+    : st.label
+
+  const statusColor = isCompleted && event.champion_name
+    ? 'var(--khaki)'
+    : st.color
 
   return (
     <div style={{
-      background: 'var(--surface)', border: '1px solid var(--border)',
+      background: 'var(--surface)', border: `1px solid ${isCompleted ? 'var(--border)' : 'var(--border)'}`,
       borderRadius: 4, padding: '14px 18px',
       display: 'flex', alignItems: 'center', gap: 16,
+      opacity: isCompleted ? 0.8 : 1,
     }}>
-      <div style={{ width: 7, height: 7, borderRadius: '50%', background: event.has_picks ? 'var(--green-light)' : st.color, flexShrink: 0 }} />
+      <div style={{
+        width: 7, height: 7, borderRadius: '50%',
+        background: isCompleted && event.champion_color
+          ? event.champion_color
+          : event.has_picks ? 'var(--green-light)' : st.color,
+        flexShrink: 0
+      }} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
@@ -508,9 +571,9 @@ function EventRow({ event, actionLoading, onPublish, onUnpublish, onDelete, onRe
           <span style={{
             fontFamily: 'var(--font-heading)', fontSize: 8, letterSpacing: '0.14em',
             textTransform: 'uppercase', padding: '2px 6px', borderRadius: 2,
-            border: `1px solid ${event.has_picks ? 'var(--green-light)33' : st.color + '33'}`,
-            color: event.has_picks ? 'var(--green-light)' : st.color,
-          }}>{event.has_picks ? 'IN PROGRESS' : st.label}</span>
+            border: `1px solid ${statusColor}33`,
+            color: statusColor,
+          }}>{statusLabel}</span>
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-dim)', display: 'flex', gap: 12 }}>
           <span>{event.format} · {typeLabel}</span>
