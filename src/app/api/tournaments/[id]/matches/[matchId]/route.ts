@@ -122,19 +122,35 @@ async function logEdit(
 }
 
 async function recalculateStandings(tournamentId: string, groupId: string) {
-  // Fetch all complete+confirmed matches for this group
-  const { data: matches } = await supabaseAdmin
+  console.log(`[standings] recalculating — tournament=${tournamentId} group=${groupId}`)
+
+  const { data: matches, error: matchErr } = await supabaseAdmin
     .from('tournament_matches')
     .select('*')
     .eq('group_id', groupId)
     .eq('status', 'complete')
 
-  const { data: groupTeams } = await supabaseAdmin
+  if (matchErr) {
+    console.error('[standings] error fetching matches:', matchErr.message)
+    return
+  }
+  console.log(`[standings] found ${matches?.length ?? 0} complete matches`)
+
+  const { data: groupTeams, error: teamErr } = await supabaseAdmin
     .from('tournament_group_teams')
     .select('team_id')
     .eq('group_id', groupId)
 
-  if (!matches || !groupTeams) return
+  if (teamErr) {
+    console.error('[standings] error fetching group teams:', teamErr.message)
+    return
+  }
+  console.log(`[standings] found ${groupTeams?.length ?? 0} teams in group`)
+
+  if (!matches || !groupTeams) {
+    console.error('[standings] missing matches or groupTeams — aborting')
+    return
+  }
 
   const standings: Record<string, { wins: number; losses: number; points_for: number; points_against: number }> = {}
   for (const { team_id } of groupTeams) {
@@ -142,19 +158,28 @@ async function recalculateStandings(tournamentId: string, groupId: string) {
   }
 
   for (const m of matches) {
-    if (!m.team1_id || !m.team2_id || !m.winner_id) continue
+    if (!m.team1_id || !m.team2_id || !m.winner_id) {
+      console.log(`[standings] skipping match ${m.id} — missing team or winner`)
+      continue
+    }
     const loserId = m.winner_id === m.team1_id ? m.team2_id : m.team1_id
     if (standings[m.winner_id]) {
       standings[m.winner_id].wins++
       standings[m.winner_id].points_for += m.winner_id === m.team1_id ? (m.score_team1 ?? 0) : (m.score_team2 ?? 0)
       standings[m.winner_id].points_against += m.winner_id === m.team1_id ? (m.score_team2 ?? 0) : (m.score_team1 ?? 0)
+    } else {
+      console.log(`[standings] winner ${m.winner_id} not found in group standings`)
     }
     if (standings[loserId]) {
       standings[loserId].losses++
       standings[loserId].points_for += loserId === m.team1_id ? (m.score_team1 ?? 0) : (m.score_team2 ?? 0)
       standings[loserId].points_against += loserId === m.team1_id ? (m.score_team2 ?? 0) : (m.score_team1 ?? 0)
+    } else {
+      console.log(`[standings] loser ${loserId} not found in group standings`)
     }
   }
+
+  console.log('[standings] computed:', JSON.stringify(standings))
 
   const sorted = Object.entries(standings).sort(([, a], [, b]) => {
     const wDiff = b.wins - a.wins
@@ -164,13 +189,20 @@ async function recalculateStandings(tournamentId: string, groupId: string) {
 
   for (let i = 0; i < sorted.length; i++) {
     const [team_id, s] = sorted[i]
-    await supabaseAdmin
+    const { error: updateErr } = await supabaseAdmin
       .from('tournament_standings')
       .update({ ...s, seed: i + 1, updated_at: new Date().toISOString() })
       .eq('tournament_id', tournamentId)
       .eq('group_id', groupId)
       .eq('team_id', team_id)
+    if (updateErr) {
+      console.error(`[standings] failed to update team ${team_id}:`, updateErr.message)
+    } else {
+      console.log(`[standings] updated team ${team_id} seed=${i + 1} wins=${s.wins} losses=${s.losses}`)
+    }
   }
+
+  console.log('[standings] recalculation complete')
 }
 
 async function advanceWinner(nextMatchId: string, winnerId: string) {
