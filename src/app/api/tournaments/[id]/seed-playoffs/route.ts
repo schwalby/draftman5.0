@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function POST(
   _req: NextRequest,
@@ -15,7 +15,7 @@ export async function POST(
   const { id: tournamentId } = params
 
   // Fetch groups
-  const { data: groups } = await supabaseAdmin
+  const { data: groups } = await getSupabaseAdmin()
     .from('tournament_groups')
     .select('*')
     .eq('tournament_id', tournamentId)
@@ -28,7 +28,7 @@ export async function POST(
   // Fetch standings per group, ordered by seed
   const groupStandings: Record<string, any[]> = {}
   for (const g of groups) {
-    const { data } = await supabaseAdmin
+    const { data } = await getSupabaseAdmin()
       .from('tournament_standings')
       .select('team_id, seed, seed_override, wins, losses, points_for, points_against')
       .eq('group_id', g.id)
@@ -49,7 +49,7 @@ export async function POST(
   ]
 
   // Fetch QF matches to update
-  const { data: qfMatches } = await supabaseAdmin
+  const { data: qfMatches } = await getSupabaseAdmin()
     .from('tournament_matches')
     .select('id, match_number')
     .eq('tournament_id', tournamentId)
@@ -64,7 +64,7 @@ export async function POST(
   for (const mu of matchups) {
     const qf = qfMatches.find((m: any) => m.match_number === mu.match_number)
     if (!qf) continue
-    await supabaseAdmin
+    await getSupabaseAdmin()
       .from('tournament_matches')
       .update({
         team1_id: mu.team1 ?? null,
@@ -76,14 +76,14 @@ export async function POST(
   }
 
   // Wire up next_match_id: QF1 winner → SF1, QF2 winner → SF1, QF3 winner → SF2, QF4 winner → SF2
-  const { data: sfMatches } = await supabaseAdmin
+  const { data: sfMatches } = await getSupabaseAdmin()
     .from('tournament_matches')
     .select('id, match_number')
     .eq('tournament_id', tournamentId)
     .eq('stage', 'semifinal')
     .order('match_number')
 
-  const { data: finalMatch } = await supabaseAdmin
+  const { data: finalMatch } = await getSupabaseAdmin()
     .from('tournament_matches')
     .select('id')
     .eq('tournament_id', tournamentId)
@@ -95,7 +95,7 @@ export async function POST(
     const sf2 = sfMatches[1]?.id
     const nextMap: Record<number, string> = { 1: sf1, 2: sf1, 3: sf2, 4: sf2 }
     for (const qf of qfMatches) {
-      await supabaseAdmin
+      await getSupabaseAdmin()
         .from('tournament_matches')
         .update({ next_match_id: nextMap[qf.match_number] })
         .eq('id', qf.id)
@@ -105,7 +105,7 @@ export async function POST(
   // Wire SF → Final
   if (sfMatches && finalMatch) {
     for (const sf of sfMatches) {
-      await supabaseAdmin
+      await getSupabaseAdmin()
         .from('tournament_matches')
         .update({ next_match_id: finalMatch.id })
         .eq('id', sf.id)

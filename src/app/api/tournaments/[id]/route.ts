@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function GET(
   _req: NextRequest,
@@ -8,7 +8,7 @@ export async function GET(
   const { id } = params
 
   // Fetch tournament
-  const { data: tournament, error: tErr } = await supabaseAdmin
+  const { data: tournament, error: tErr } = await getSupabaseAdmin()
     .from('tournaments')
     .select('*')
     .eq('id', id)
@@ -16,20 +16,20 @@ export async function GET(
   if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 })
 
   // Fetch groups
-  const { data: groups } = await supabaseAdmin
+  const { data: groups } = await getSupabaseAdmin()
     .from('tournament_groups')
     .select('*')
     .eq('tournament_id', id)
     .order('label')
 
   // Fetch group teams
-  const { data: groupTeams } = await supabaseAdmin
+  const { data: groupTeams } = await getSupabaseAdmin()
     .from('tournament_group_teams')
     .select('*, teams(id, name, color, captain_id)')
     .in('group_id', (groups ?? []).map((g: any) => g.id))
 
   // Fetch all matches
-  const { data: matches } = await supabaseAdmin
+  const { data: matches } = await getSupabaseAdmin()
     .from('tournament_matches')
     .select(`
       *,
@@ -43,7 +43,7 @@ export async function GET(
     .order('match_number')
 
   // Fetch standings
-  const { data: standings } = await supabaseAdmin
+  const { data: standings } = await getSupabaseAdmin()
     .from('tournament_standings')
     .select('*, teams(id, name, color)')
     .eq('tournament_id', id)

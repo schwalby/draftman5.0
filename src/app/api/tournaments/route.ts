@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Guard: check if tournament already exists for this event
-  const { data: existing } = await supabaseAdmin
+  const { data: existing } = await getSupabaseAdmin()
     .from('tournaments')
     .select('id')
     .eq('event_id', event_id)
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 1. Create tournament
-  const { data: tournament, error: tErr } = await supabaseAdmin
+  const { data: tournament, error: tErr } = await getSupabaseAdmin()
     .from('tournaments')
     .insert({ event_id, format, num_groups, teams_per_group, rounds_per_group, num_advance, status: 'active' })
     .select()
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
   // 2. Create groups + memberships + standings rows
   for (const g of groups) {
-    const { data: group, error: gErr } = await supabaseAdmin
+    const { data: group, error: gErr } = await getSupabaseAdmin()
       .from('tournament_groups')
       .insert({ tournament_id: tournament.id, label: g.label })
       .select()
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       team_id,
       seed: i + 1,
     }))
-    await supabaseAdmin.from('tournament_group_teams').insert(memberships)
+    await getSupabaseAdmin().from('tournament_group_teams').insert(memberships)
 
     // Standings rows
     const standings = g.team_ids.map((team_id: string) => ({
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       team_id,
       wins: 0, losses: 0, points_for: 0, points_against: 0,
     }))
-    await supabaseAdmin.from('tournament_standings').insert(standings)
+    await getSupabaseAdmin().from('tournament_standings').insert(standings)
 
     // 3. Generate round robin matches for this group
     const teamIds: string[] = g.team_ids
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       teams.splice(1, 0, teams.pop()!)
     }
 
-    await supabaseAdmin.from('tournament_matches').insert(matchInserts)
+    await getSupabaseAdmin().from('tournament_matches').insert(matchInserts)
   }
 
   // 4. Create placeholder playoff matches
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
     { tournament_id: tournament.id, stage: 'semifinal', round: 2, match_number: 2, status: 'pending' },
     { tournament_id: tournament.id, stage: 'final', round: 3, match_number: 1, status: 'pending' },
   ]
-  await supabaseAdmin.from('tournament_matches').insert(playoffInserts)
+  await getSupabaseAdmin().from('tournament_matches').insert(playoffInserts)
 
   return NextResponse.json({ tournament })
 }
@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
   const event_id = searchParams.get('event_id')
   if (!event_id) return NextResponse.json({ error: 'Missing event_id' }, { status: 400 })
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('tournaments')
     .select('*')
     .eq('event_id', event_id)
