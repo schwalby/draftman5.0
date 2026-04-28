@@ -21,8 +21,6 @@ interface Event {
 
 type Assignment = Record<string, 'a' | 'b' | 'pool'>
 
-// Round robin schedule for 4 teams — each plays the other once
-// [t1idx, t2idx] pairs per round
 const RR_ROUNDS = [
   [[0, 3], [1, 2]],
   [[0, 1], [2, 3]],
@@ -53,11 +51,13 @@ export default function TournamentSetupPage() {
   const [dragId, setDragId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
+  const [tournamentExists, setTournamentExists] = useState(false)
 
   const fetchData = useCallback(async () => {
-    const [evRes, teamsRes] = await Promise.all([
+    const [evRes, teamsRes, tournRes] = await Promise.all([
       fetch(`/api/events/${eventId}`),
       fetch(`/api/events/${eventId}/teams`),
+      fetch(`/api/tournaments?event_id=${eventId}`),
     ])
     if (evRes.ok) {
       const d = await evRes.json()
@@ -71,6 +71,10 @@ export default function TournamentSetupPage() {
       const init: Assignment = {}
       sorted.forEach(t => { init[t.id] = 'pool' })
       setAssignment(init)
+    }
+    if (tournRes.ok) {
+      const d = await tournRes.json()
+      if (d?.id) setTournamentExists(true)
     }
   }, [eventId])
 
@@ -196,6 +200,37 @@ export default function TournamentSetupPage() {
       <div style={{ minHeight: '100vh', padding: '40px 24px' }}>
         <div style={{ maxWidth: 700, margin: '0 auto' }}>
 
+          {/* TOURNAMENT ALREADY EXISTS BANNER */}
+          {tournamentExists && (
+            <div style={{
+              background: 'rgba(200,184,122,0.06)',
+              border: '1px solid rgba(200,184,122,0.35)',
+              borderLeft: '3px solid var(--khaki)',
+              borderRadius: 4,
+              padding: '16px 20px',
+              marginBottom: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+            }}>
+              <div>
+                <div style={{ fontFamily: 'var(--font-heading)', fontSize: 13, letterSpacing: 2, color: 'var(--khaki)', marginBottom: 4 }}>
+                  DRAFT IN PROGRESS
+                </div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)', letterSpacing: 1 }}>
+                  A tournament has already been created for this event.
+                </div>
+              </div>
+              <button
+                onClick={() => router.push(`/events/${eventId}/tournament`)}
+                style={{ fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: 2, padding: '8px 16px', background: 'rgba(200,184,122,0.1)', border: '1px solid var(--khaki)', color: 'var(--khaki)', cursor: 'pointer', borderRadius: 3, whiteSpace: 'nowrap' }}
+              >
+                GO TO TOURNAMENT →
+              </button>
+            </div>
+          )}
+
           {/* STEP TABS */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 36 }}>
             {(['ASSIGN GROUPS', 'REVIEW'] as const).map((label, i) => {
@@ -221,7 +256,7 @@ export default function TournamentSetupPage() {
             })}
           </div>
 
-          {/* ── STEP 1 ── */}
+          {/* STEP 1 */}
           {step === 1 && (
             <div>
               <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 28, letterSpacing: '0.08em', color: 'var(--khaki)', marginBottom: 8 }}>ASSIGN GROUPS</h2>
@@ -231,15 +266,11 @@ export default function TournamentSetupPage() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.06em' }}>Drag teams between groups, or randomize.</div>
-                <button
-                  onClick={randomize}
-                  style={{ fontFamily: 'var(--font-body)', fontSize: 11, letterSpacing: '0.1em', padding: '7px 16px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', cursor: 'pointer', borderRadius: 3 }}
-                >
+                <button onClick={randomize} style={{ fontFamily: 'var(--font-body)', fontSize: 11, letterSpacing: '0.1em', padding: '7px 16px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', cursor: 'pointer', borderRadius: 3 }}>
                   ⇄ RANDOMIZE
                 </button>
               </div>
 
-              {/* GROUPS GRID */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
                 {(['a', 'b'] as const).map(g => {
                   const color = g === 'a' ? '#4a7abf' : '#b85c38'
@@ -252,19 +283,9 @@ export default function TournamentSetupPage() {
                         <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.2em', color, fontFamily: 'var(--font-body)' }}>{label}</span>
                         <span style={{ fontSize: 9, color: 'var(--text-dim)', marginLeft: 'auto', letterSpacing: '0.1em' }}>{gt.length} / 4</span>
                       </div>
-                      <div
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={() => onDrop(g)}
-                        style={{
-                          minHeight: 180, padding: 8, border: `1px solid ${color}44`,
-                          borderRadius: '0 0 3px 3px', display: 'flex', flexDirection: 'column', gap: 6,
-                          background: 'transparent', transition: 'background 0.15s',
-                        }}
-                      >
+                      <div onDragOver={e => e.preventDefault()} onDrop={() => onDrop(g)} style={{ minHeight: 180, padding: 8, border: `1px solid ${color}44`, borderRadius: '0 0 3px 3px', display: 'flex', flexDirection: 'column', gap: 6, background: 'transparent' }}>
                         {gt.length === 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 60, fontSize: 10, letterSpacing: '0.1em', color: 'var(--border-strong)', fontFamily: 'var(--font-body)' }}>
-                            DROP TEAMS HERE
-                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 60, fontSize: 10, letterSpacing: '0.1em', color: 'var(--border-strong)', fontFamily: 'var(--font-body)' }}>DROP TEAMS HERE</div>
                         )}
                         {gt.map(t => <TeamCard key={t.id} team={t} onDragStart={() => onDragStart(t.id)} />)}
                       </div>
@@ -273,14 +294,9 @@ export default function TournamentSetupPage() {
                 })}
               </div>
 
-              {/* UNASSIGNED */}
               <div style={{ marginBottom: 28 }}>
                 <div style={{ fontSize: 9, letterSpacing: '0.16em', color: 'var(--text-dim)', marginBottom: 10, fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>Unassigned Teams</div>
-                <div
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={() => onDrop('pool')}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 6, minHeight: 48, padding: 8, background: 'var(--surface2)', border: '1px dashed var(--border)', borderRadius: 3 }}
-                >
+                <div onDragOver={e => e.preventDefault()} onDrop={() => onDrop('pool')} style={{ display: 'flex', flexDirection: 'column', gap: 6, minHeight: 48, padding: 8, background: 'var(--surface2)', border: '1px dashed var(--border)', borderRadius: 3 }}>
                   {poolTeams().length === 0 && (
                     <div style={{ fontSize: 10, color: 'var(--border-strong)', letterSpacing: '0.08em', fontFamily: 'var(--font-body)', padding: '6px 0' }}>All teams assigned</div>
                   )}
@@ -288,16 +304,8 @@ export default function TournamentSetupPage() {
                 </div>
               </div>
 
-              {/* VALIDATION */}
-              <div style={{
-                padding: '10px 14px', borderRadius: 3, fontSize: 11, letterSpacing: '0.06em', marginBottom: 20, fontFamily: 'var(--font-body)',
-                background: isValid() ? 'rgba(90,156,90,0.1)' : 'rgba(192,57,43,0.08)',
-                border: `1px solid ${isValid() ? 'rgba(90,156,90,0.3)' : 'rgba(192,57,43,0.25)'}`,
-                color: isValid() ? 'var(--green-light)' : 'var(--rust)',
-              }}>
-                {isValid()
-                  ? '✓ Groups balanced — ready to continue.'
-                  : `Assign all ${teams.length} teams — 4 per group — to continue. (A: ${countGroup('a')}, B: ${countGroup('b')})`}
+              <div style={{ padding: '10px 14px', borderRadius: 3, fontSize: 11, letterSpacing: '0.06em', marginBottom: 20, fontFamily: 'var(--font-body)', background: isValid() ? 'rgba(90,156,90,0.1)' : 'rgba(192,57,43,0.08)', border: `1px solid ${isValid() ? 'rgba(90,156,90,0.3)' : 'rgba(192,57,43,0.25)'}`, color: isValid() ? 'var(--green-light)' : 'var(--rust)' }}>
+                {isValid() ? '✓ Groups balanced — ready to continue.' : `Assign all ${teams.length} teams — 4 per group — to continue. (A: ${countGroup('a')}, B: ${countGroup('b')})`}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 28 }}>
@@ -307,7 +315,7 @@ export default function TournamentSetupPage() {
             </div>
           )}
 
-          {/* ── STEP 2 ── */}
+          {/* STEP 2 */}
           {step === 2 && (
             <div>
               <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 28, letterSpacing: '0.08em', color: 'var(--khaki)', marginBottom: 8 }}>REVIEW</h2>
@@ -315,7 +323,6 @@ export default function TournamentSetupPage() {
                 Confirm group assignments before starting the tournament
               </p>
 
-              {/* GROUP CARDS */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 32 }}>
                 {(['a', 'b'] as const).map(g => {
                   const color = g === 'a' ? '#4a7abf' : '#b85c38'
@@ -342,7 +349,6 @@ export default function TournamentSetupPage() {
                 })}
               </div>
 
-              {/* ROUND ROBIN SCHEDULE */}
               <div style={{ marginBottom: 32 }}>
                 <div style={{ fontSize: 9, letterSpacing: '0.16em', color: 'var(--text-dim)', marginBottom: 16, fontFamily: 'var(--font-body)', textTransform: 'uppercase' }}>Round Robin Schedule</div>
                 {(['a', 'b'] as const).map(g => {
@@ -398,11 +404,7 @@ export default function TournamentSetupPage() {
 
 function TeamCard({ team, onDragStart }: { team: Team; onDragStart: () => void }) {
   return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 3, cursor: 'grab', userSelect: 'none', transition: 'border-color 0.12s' }}
-    >
+    <div draggable onDragStart={onDragStart} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 3, cursor: 'grab', userSelect: 'none' }}>
       <span style={{ fontSize: 14, color: 'var(--border-strong)', cursor: 'grab' }}>⠿</span>
       <div style={{ width: 10, height: 10, borderRadius: '50%', background: team.color, flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: 13, fontWeight: 600, letterSpacing: '0.08em', fontFamily: 'var(--font-body)' }}>{teamDisplayName(team)}</span>
