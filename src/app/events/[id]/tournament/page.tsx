@@ -96,7 +96,7 @@ export default function TournamentPage() {
       { data: stndgs },
     ] = await Promise.all([
       sb.from('tournament_groups').select('*').eq('tournament_id', t.id).order('label'),
-      sb.from('tournament_group_teams').select('*, teams(id, name, color, captain_id)').eq('tournament_id', t.id),
+      sb.from('tournament_group_teams').select('*, teams(id, name, color)').eq('tournament_id', t.id),
       sb.from('tournament_matches').select('*, team1:team1_id(id, name, color), team2:team2_id(id, name, color), winner:winner_id(id, name, color)').eq('tournament_id', t.id).order('stage').order('round').order('match_number'),
       sb.from('tournament_standings').select('*, teams(id, name, color)').eq('tournament_id', t.id).order('wins', { ascending: false }).order('points_for', { ascending: false }),
     ])
