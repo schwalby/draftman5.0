@@ -113,6 +113,12 @@ export async function POST(req: NextRequest) {
   ]
   await getSupabaseAdmin().from('tournament_matches').insert(playoffInserts)
 
+  // 5. Flip event status to in_progress (games are now underway)
+  await getSupabaseAdmin()
+    .from('events')
+    .update({ status: 'in_progress' })
+    .eq('id', event_id)
+
   return NextResponse.json({ tournament })
 }
 
