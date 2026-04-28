@@ -59,7 +59,6 @@ export default function TournamentPage() {
   const [toast, setToast] = useState<{ msg: string; error?: boolean } | null>(null)
   const ctxRef = useRef<HTMLDivElement>(null)
 
-  // Edit form state
   const [editWinner, setEditWinner] = useState('')
   const [editScore1, setEditScore1] = useState('')
   const [editScore2, setEditScore2] = useState('')
@@ -76,19 +75,37 @@ export default function TournamentPage() {
     setTimeout(() => setToast(null), 3000)
   }, [])
 
+  // Fetch directly from Supabase — bypasses Railway caching entirely
   const fetchData = useCallback(async () => {
-    const res = await fetch(`/api/tournaments?event_id=${eventId}`, { cache: 'no-store' })
-    if (!res.ok) { setLoading(false); return }
-    const t = await res.json()
-    if (!t?.id) { setLoading(false); return }
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
-    const full = await fetch(`/api/tournaments/${t.id}`, { cache: 'no-store' })
-    const data = await full.json()
-    setTournament(data.tournament)
-    setGroups(data.groups ?? [])
-    setGroupTeams(data.groupTeams ?? [])
-    setMatches(data.matches ?? [])
-    setStandings(data.standings ?? [])
+    const { data: t } = await sb
+      .from('tournaments')
+      .select('*')
+      .eq('event_id', eventId)
+      .single()
+    if (!t) { setLoading(false); return }
+
+    const [
+      { data: grps },
+      { data: grpTeams },
+      { data: mtchs },
+      { data: stndgs },
+    ] = await Promise.all([
+      sb.from('tournament_groups').select('*').eq('tournament_id', t.id).order('label'),
+      sb.from('tournament_group_teams').select('*, teams(id, name, color, captain_id)').eq('tournament_id', t.id),
+      sb.from('tournament_matches').select('*, team1:team1_id(id, name, color), team2:team2_id(id, name, color), winner:winner_id(id, name, color)').eq('tournament_id', t.id).order('stage').order('round').order('match_number'),
+      sb.from('tournament_standings').select('*, teams(id, name, color)').eq('tournament_id', t.id).order('wins', { ascending: false }).order('points_for', { ascending: false }),
+    ])
+
+    setTournament(t)
+    setGroups(grps ?? [])
+    setGroupTeams(grpTeams ?? [])
+    setMatches(mtchs ?? [])
+    setStandings(stndgs ?? [])
     setLoading(false)
   }, [eventId])
 
@@ -114,7 +131,6 @@ export default function TournamentPage() {
     return () => { supabase.removeChannel(matchSub); supabase.removeChannel(standingSub) }
   }, [tournament, fetchData])
 
-  // Close ctx on outside click / escape
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) setCtx(null)
@@ -124,8 +140,6 @@ export default function TournamentPage() {
     document.addEventListener('keydown', esc)
     return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', esc) }
   }, [])
-
-  // ── Actions ────────────────────────────────────────────────────────
 
   async function patchMatch(matchId: string, body: object) {
     setSaving(true)
@@ -192,8 +206,6 @@ export default function TournamentPage() {
     await fetchData()
   }
 
-  // ── Context menu ───────────────────────────────────────────────────
-
   function openCtx(e: React.MouseEvent, type: string, match?: Match, standing?: any) {
     e.preventDefault()
     const x = Math.min(e.clientX, window.innerWidth - 230)
@@ -218,8 +230,6 @@ export default function TournamentPage() {
     }
     setModal({ type, match, standing })
   }
-
-  // ── Derived data ───────────────────────────────────────────────────
 
   const groupMatches = matches.filter(m => m.stage === 'group')
   const playoffMatches = matches.filter(m => m.stage !== 'group')
@@ -261,8 +271,6 @@ export default function TournamentPage() {
   }
 
   const diff = (s: Standing) => s.points_for - s.points_against
-
-  // ── Styles ─────────────────────────────────────────────────────────
 
   const S: Record<string, React.CSSProperties> = {
     page: { padding: '32px 24px', maxWidth: 1300, margin: '0 auto' },
@@ -317,7 +325,6 @@ export default function TournamentPage() {
     toast: { position: 'fixed' as const, bottom: 24, right: 24, zIndex: 600, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 4, padding: '12px 20px', fontFamily: 'var(--font-body)', fontSize: 12, letterSpacing: 1, color: 'var(--text)' },
   }
 
-  // ── Tab button ─────────────────────────────────────────────────────
   function Tab({ id, label, count }: { id: 'rr' | 'bracket' | 'queue'; label: string; count?: number }) {
     const active = tab === id
     return (
@@ -335,12 +342,10 @@ export default function TournamentPage() {
     )
   }
 
-  // ── Match card ─────────────────────────────────────────────────────
   function MatchCard({ match, showGroupBadge = false }: { match: Match; showGroupBadge?: boolean }) {
     const unconf = match.status === 'awaiting_confirmation'
     const complete = match.status === 'complete'
     const live = match.status === 'in_progress'
-    const pending = match.status === 'pending'
 
     const cardBorder = unconf ? '1px solid rgba(200,132,42,0.5)'
       : complete ? '1px solid rgba(200,184,122,0.25)'
@@ -392,7 +397,6 @@ export default function TournamentPage() {
     )
   }
 
-  // ── Connector column ───────────────────────────────────────────────
   function Connectors({ count }: { count: number }) {
     return (
       <div style={{ width: 40, display: 'flex', flexDirection: 'column', justifyContent: 'space-around', flex: 1, padding: '16px 0' }}>
@@ -406,7 +410,6 @@ export default function TournamentPage() {
     )
   }
 
-  // ── Render ─────────────────────────────────────────────────────────
   if (loading) return (
     <div>
       <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Tournament', href: '#' }]} />
@@ -432,11 +435,8 @@ export default function TournamentPage() {
   return (
     <div>
       <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Tournament', href: '#' }]} />
-
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
-
       <div style={S.page}>
-        {/* Header */}
         <div style={S.header}>
           <div>
             <div style={S.title}>TOURNAMENT</div>
@@ -456,7 +456,6 @@ export default function TournamentPage() {
           </div>
         </div>
 
-        {/* Status bar */}
         <div style={S.statusBar}>
           <div style={S.stat}><div style={S.statVal}>{groups.length}</div><div style={S.statLabel}>GROUPS</div></div>
           <div style={S.stat}><div style={S.statVal}>{tournament.rounds_per_group}</div><div style={S.statLabel}>RR ROUNDS</div></div>
@@ -466,14 +465,12 @@ export default function TournamentPage() {
           <div style={S.stat}><div style={S.statVal}>{tournament.status.toUpperCase()}</div><div style={S.statLabel}>STATUS</div></div>
         </div>
 
-        {/* Tabs */}
         <div style={S.tabs}>
           <Tab id="rr" label="ROUND ROBIN" />
           <Tab id="bracket" label="PLAYOFF BRACKET" />
           <Tab id="queue" label="CONFIRM QUEUE" count={awaitingConfirmation.length || undefined} />
         </div>
 
-        {/* ═══ ROUND ROBIN ═══ */}
         {tab === 'rr' && (
           <div>
             <div style={S.groupsRow}>
@@ -487,8 +484,6 @@ export default function TournamentPage() {
                       <div style={{ width: 3, height: 20, borderRadius: 2, background: accentColor }} />
                       <span style={{ fontFamily: 'var(--font-heading)', fontSize: 13, fontWeight: 700, letterSpacing: 3, color: accentColor }}>GROUP {g.label}</span>
                     </div>
-
-                    {/* Standings table */}
                     <table style={S.table}>
                       <thead>
                         <tr>
@@ -504,11 +499,7 @@ export default function TournamentPage() {
                       </thead>
                       <tbody>
                         {gStandings.map((s, i) => (
-                          <tr
-                            key={s.team_id}
-                            onContextMenu={e => openCtx(e, 'standing', undefined, { ...s, groupLabel: g.label })}
-                            style={{ cursor: 'context-menu' }}
-                          >
+                          <tr key={s.team_id} onContextMenu={e => openCtx(e, 'standing', undefined, { ...s, groupLabel: g.label })} style={{ cursor: 'context-menu' }}>
                             <td style={{ ...S.td, fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--text-dim)', width: 20 }}>{i + 1}</td>
                             <td style={S.td}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -532,8 +523,6 @@ export default function TournamentPage() {
                         ))}
                       </tbody>
                     </table>
-
-                    {/* Rounds */}
                     <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, letterSpacing: 2, color: 'var(--text-dim)', padding: '10px 16px 6px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>RESULTS BY ROUND</div>
                     {Object.entries(gRounds).map(([round, rMatches]) => (
                       <div key={round}>
@@ -575,7 +564,6 @@ export default function TournamentPage() {
           </div>
         )}
 
-        {/* ═══ BRACKET ═══ */}
         {tab === 'bracket' && (
           <div>
             <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)', letterSpacing: 1, marginBottom: 20, padding: '10px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4 }}>
@@ -583,30 +571,20 @@ export default function TournamentPage() {
             </div>
             <div style={S.bracketWrap}>
               <div style={S.bracket}>
-                {/* QF */}
                 <div style={S.bRound}>
                   <div style={S.bRoundLabel}>QUARTERFINALS</div>
-                  <div style={S.bRoundMatches}>
-                    {qfMatches.map(m => <MatchCard key={m.id} match={m} showGroupBadge />)}
-                  </div>
+                  <div style={S.bRoundMatches}>{qfMatches.map(m => <MatchCard key={m.id} match={m} showGroupBadge />)}</div>
                 </div>
                 <Connectors count={2} />
-                {/* SF */}
                 <div style={S.bRound}>
                   <div style={S.bRoundLabel}>SEMIFINALS</div>
-                  <div style={S.bRoundMatches}>
-                    {sfMatches.map(m => <MatchCard key={m.id} match={m} />)}
-                  </div>
+                  <div style={S.bRoundMatches}>{sfMatches.map(m => <MatchCard key={m.id} match={m} />)}</div>
                 </div>
                 <Connectors count={1} />
-                {/* Final */}
                 <div style={S.bRound}>
                   <div style={S.bRoundLabel}>FINAL</div>
-                  <div style={S.bRoundMatches}>
-                    {finalMatches.map(m => <MatchCard key={m.id} match={m} />)}
-                  </div>
+                  <div style={S.bRoundMatches}>{finalMatches.map(m => <MatchCard key={m.id} match={m} />)}</div>
                 </div>
-                {/* Champion */}
                 <div style={{ width: 40, display: 'flex', flexDirection: 'column', justifyContent: 'space-around', flex: 1, padding: '16px 0' }}>
                   <div style={{ flex: 1, position: 'relative' }}>
                     <div style={{ position: 'absolute', right: 0, top: '50%', width: 20, height: 1, background: 'var(--border-strong)' }} />
@@ -619,9 +597,7 @@ export default function TournamentPage() {
                       <div style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 3, color: 'var(--text-dim)', marginBottom: 10 }}>{champion ? 'WINNER' : 'AWAITING FINAL'}</div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 8 }}>
                         {champion && <div style={{ width: 10, height: 10, borderRadius: '50%', background: champion.color }} />}
-                        <span style={{ fontFamily: 'var(--font-heading)', fontSize: champion ? 18 : 13, fontWeight: 700, letterSpacing: 2, color: champion ? 'var(--khaki)' : 'var(--text-dim)' }}>
-                          {champion?.name ?? 'TBD'}
-                        </span>
+                        <span style={{ fontFamily: 'var(--font-heading)', fontSize: champion ? 18 : 13, fontWeight: 700, letterSpacing: 2, color: champion ? 'var(--khaki)' : 'var(--text-dim)' }}>{champion?.name ?? 'TBD'}</span>
                       </div>
                     </div>
                   </div>
@@ -631,13 +607,10 @@ export default function TournamentPage() {
           </div>
         )}
 
-        {/* ═══ CONFIRM QUEUE ═══ */}
         {tab === 'queue' && (
           <div>
             {awaitingConfirmation.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 48, fontFamily: 'var(--font-body)', fontSize: 12, letterSpacing: 2, color: 'var(--text-dim)' }}>
-                NO PENDING CONFIRMATIONS
-              </div>
+              <div style={{ textAlign: 'center', padding: 48, fontFamily: 'var(--font-body)', fontSize: 12, letterSpacing: 2, color: 'var(--text-dim)' }}>NO PENDING CONFIRMATIONS</div>
             ) : (
               awaitingConfirmation.map(m => {
                 const group = groups.find(g => g.id === m.group_id)
@@ -647,9 +620,7 @@ export default function TournamentPage() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                       <div>
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 2, color: 'var(--text-dim)' }}>{stageLabel}</span>
-                        <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--text)', marginTop: 2 }}>
-                          {m.team1?.name ?? 'TBD'} vs {m.team2?.name ?? 'TBD'}
-                        </div>
+                        <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14, fontWeight: 700, letterSpacing: 2, color: 'var(--text)', marginTop: 2 }}>{m.team1?.name ?? 'TBD'} vs {m.team2?.name ?? 'TBD'}</div>
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 1, color: 'var(--text-dim)' }}>reported by bot</span>
@@ -679,7 +650,6 @@ export default function TournamentPage() {
         )}
       </div>
 
-      {/* ═══ CONTEXT MENU ═══ */}
       {ctx && (
         <div ref={ctxRef} style={{ ...S.ctxMenu, left: ctx.x, top: ctx.y }}>
           <div style={S.ctxHeader}>{ctx.match ? `${ctx.match.team1?.name ?? 'TBD'} vs ${ctx.match.team2?.name ?? 'TBD'}` : ctx.standing ? `${ctx.standing.teams?.name} — GROUP ${ctx.standing.groupLabel}` : ''}</div>
@@ -714,12 +684,9 @@ export default function TournamentPage() {
         </div>
       )}
 
-      {/* ═══ MODALS ═══ */}
       {modal && (
         <div style={S.modalBackdrop} onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
           <div style={S.modal}>
-
-            {/* Edit match */}
             {modal.type === 'edit-match' && modal.match && (
               <>
                 <div style={S.modalTitle}>EDIT MATCH RESULT</div>
@@ -751,8 +718,6 @@ export default function TournamentPage() {
                 </div>
               </>
             )}
-
-            {/* Reject */}
             {modal.type === 'reject' && modal.match && (
               <>
                 <div style={S.modalTitle}>REJECT RESULT</div>
@@ -768,8 +733,6 @@ export default function TournamentPage() {
                 </div>
               </>
             )}
-
-            {/* Edit standing */}
             {modal.type === 'edit-standing' && modal.standing && (
               <>
                 <div style={S.modalTitle}>EDIT STANDING</div>
@@ -796,8 +759,6 @@ export default function TournamentPage() {
                 </div>
               </>
             )}
-
-            {/* Reassign */}
             {modal.type === 'reassign' && modal.match && (
               <>
                 <div style={S.modalTitle}>REASSIGN TEAMS</div>
@@ -817,12 +778,10 @@ export default function TournamentPage() {
                 </div>
               </>
             )}
-
           </div>
         </div>
       )}
 
-      {/* Toast */}
       {toast && (
         <div style={{ ...S.toast, borderColor: toast.error ? 'rgba(192,57,43,0.5)' : 'var(--border-strong)', color: toast.error ? 'var(--rust)' : 'var(--text)' }}>
           {toast.msg}
