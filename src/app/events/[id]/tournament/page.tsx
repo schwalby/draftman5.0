@@ -86,7 +86,7 @@ export default function TournamentPage() {
       .from('tournaments')
       .select('*')
       .eq('event_id', eventId)
-      .single()
+      .maybeSingle()
     if (!t) { setLoading(false); return }
 
     const [
