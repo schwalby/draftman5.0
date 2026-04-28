@@ -73,6 +73,7 @@ export default function EventPage() {
   const [mySignup, setMySignup] = useState<Signup | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draftInProgress, setDraftInProgress] = useState(false);
+  const [tournamentExists, setTournamentExists] = useState(false);
 
   const isOrganizer = session?.user?.isOrganizer;
   const userId = session?.user?.userId;
@@ -112,9 +113,18 @@ export default function EventPage() {
         setDraftInProgress(Array.isArray(data) && data.length > 0);
       }
     };
+    const fetchTournament = async () => {
+      const { data } = await supabase
+        .from('tournaments')
+        .select('id')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      setTournamentExists(!!data);
+    };
     fetchEvent();
     fetchSignups();
     fetchPicks();
+    fetchTournament();
   }, [eventId, userId]);
 
   // Realtime signups
@@ -182,6 +192,20 @@ export default function EventPage() {
     submittingRef.current = false;
   };
 
+  // Smart navigation — goes directly to the right page based on event state
+  function getActionButton(): { label: string; href: string } | null {
+    if (!isOrganizer) return null;
+    if (event?.status === 'completed' || tournamentExists) {
+      return { label: '▶ Go to Draft', href: `/events/${eventId}/tournament` };
+    }
+    if (draftInProgress) {
+      return { label: '▶ Rejoin Draft', href: `/events/${eventId}/draft` };
+    }
+    return { label: '⚑ Set Up Teams', href: `/events/${eventId}/teams` };
+  }
+
+  const actionButton = getActionButton();
+
   const displayName = (s: Signup) => s.users?.ingame_name || s.users?.discord_username || 'Unknown';
 
   if (loading) return (
@@ -204,6 +228,22 @@ export default function EventPage() {
     return new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   };
 
+  const statusLabel = (() => {
+    if (draftInProgress && !tournamentExists) return 'Draft In Progress'
+    if (tournamentExists && event.status !== 'completed') return 'Games Active'
+    if (event.status === 'completed') return 'Draft Complete'
+    if (event.status === 'scheduled') return 'Scheduled'
+    return event.status
+  })()
+
+  const statusColor = (() => {
+    if (event.status === 'completed') return 'var(--text-dim)'
+    if (tournamentExists) return '#3ddc84'
+    if (draftInProgress) return 'var(--green-light)'
+    if (event.status === 'scheduled') return 'var(--khaki)'
+    return 'var(--text-dim)'
+  })()
+
   return (
     <>
       <Topbar items={[
@@ -224,11 +264,7 @@ export default function EventPage() {
                 <Pill>{event.type}</Pill>
                 <Pill>{event.format}</Pill>
                 <Pill>{event.half_length} min</Pill>
-                <Pill color={
-                  draftInProgress ? 'var(--green-light)' :
-                  event.status === 'active' ? 'var(--green-light)' :
-                  event.status === 'scheduled' ? 'var(--khaki)' : 'var(--text-dim)'
-                }>{draftInProgress ? 'draft in progress' : event.status}</Pill>
+                <Pill color={statusColor}>{statusLabel}</Pill>
               </div>
             </div>
 
@@ -248,19 +284,21 @@ export default function EventPage() {
                 >
                   ⠿ Manage Signups
                 </button>
-                <button
-                  onClick={() => window.location.href = `/events/${eventId}/teams`}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 7,
-                    padding: '8px 16px', borderRadius: 4,
-                    border: '0.5px solid var(--border-strong)',
-                    background: 'var(--surface2)', color: 'var(--khaki)',
-                    fontSize: 13, fontFamily: 'var(--font-body)',
-                    cursor: 'pointer', letterSpacing: '0.04em',
-                  }}
-                >
-                  {draftInProgress ? '▶ Rejoin Draft' : '⚑ Set Up Teams'}
-                </button>
+                {actionButton && (
+                  <button
+                    onClick={() => window.location.href = actionButton.href}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 7,
+                      padding: '8px 16px', borderRadius: 4,
+                      border: '0.5px solid var(--border-strong)',
+                      background: 'var(--surface2)', color: 'var(--khaki)',
+                      fontSize: 13, fontFamily: 'var(--font-body)',
+                      cursor: 'pointer', letterSpacing: '0.04em',
+                    }}
+                  >
+                    {actionButton.label}
+                  </button>
+                )}
               </div>
             )}
           </div>
