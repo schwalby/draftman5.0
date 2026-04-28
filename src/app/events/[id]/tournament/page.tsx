@@ -77,12 +77,12 @@ export default function TournamentPage() {
   }, [])
 
   const fetchData = useCallback(async () => {
-    const res = await fetch(`/api/tournaments?event_id=${eventId}`)
+    const res = await fetch(`/api/tournaments?event_id=${eventId}`, { cache: 'no-store' })
     if (!res.ok) { setLoading(false); return }
     const t = await res.json()
     if (!t?.id) { setLoading(false); return }
 
-    const full = await fetch(`/api/tournaments/${t.id}`)
+    const full = await fetch(`/api/tournaments/${t.id}`, { cache: 'no-store' })
     const data = await full.json()
     setTournament(data.tournament)
     setGroups(data.groups ?? [])
