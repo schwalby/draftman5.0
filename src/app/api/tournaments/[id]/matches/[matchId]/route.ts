@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function PATCH(
   req: NextRequest,
@@ -22,7 +22,7 @@ export async function PATCH(
   const body = await req.json()
   const { winner_id, score_team1, score_team2, map, ktp_match_id, action, note } = body
 
-  const { data: match, error: mErr } = await supabaseAdmin
+  const { data: match, error: mErr } = await getSupabaseAdmin()
     .from('tournament_matches')
     .select('*')
     .eq('id', matchId)
@@ -32,7 +32,7 @@ export async function PATCH(
 
   // BOT REPORTS → awaiting_confirmation
   if (action === 'report' || validBot) {
-    const { data: updated, error } = await supabaseAdmin
+    const { data: updated, error } = await getSupabaseAdmin()
       .from('tournament_matches')
       .update({
         winner_id, score_team1, score_team2,
@@ -52,7 +52,7 @@ export async function PATCH(
   if (action === 'confirm') {
     if (!isAdmin && !isCaptain) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const userId = (session?.user as any)?.userId ?? null
-    const { data: updated, error } = await supabaseAdmin
+    const { data: updated, error } = await getSupabaseAdmin()
       .from('tournament_matches')
       .update({
         status: 'complete', confirmed: true,
@@ -71,7 +71,7 @@ export async function PATCH(
   if (action === 'reject') {
     if (!isAdmin && !isCaptain) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const userId = (session?.user as any)?.userId ?? null
-    const { data: updated, error } = await supabaseAdmin
+    const { data: updated, error } = await getSupabaseAdmin()
       .from('tournament_matches')
       .update({
         status: 'pending', winner_id: null, score_team1: null, score_team2: null,
@@ -89,7 +89,7 @@ export async function PATCH(
   if (action === 'edit') {
     if (!isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const userId = (session?.user as any)?.userId ?? null
-    const { data: updated, error } = await supabaseAdmin
+    const { data: updated, error } = await getSupabaseAdmin()
       .from('tournament_matches')
       .update({
         winner_id, score_team1, score_team2,
@@ -113,7 +113,7 @@ async function logEdit(
   matchId: string, editedBy: string | null, source: string,
   prev: any, next: any, note: string
 ) {
-  await supabaseAdmin.from('tournament_match_edits').insert({
+  await getSupabaseAdmin().from('tournament_match_edits').insert({
     match_id: matchId, edited_by: editedBy, source,
     prev_winner_id: prev.winner_id, prev_score_team1: prev.score_team1, prev_score_team2: prev.score_team2,
     new_winner_id: next.winner_id, new_score_team1: next.score_team1, new_score_team2: next.score_team2,
@@ -124,7 +124,7 @@ async function logEdit(
 async function recalculateStandings(tournamentId: string, groupId: string) {
   console.log(`[standings] recalculating — tournament=${tournamentId} group=${groupId}`)
 
-  const { data: matches, error: matchErr } = await supabaseAdmin
+  const { data: matches, error: matchErr } = await getSupabaseAdmin()
     .from('tournament_matches')
     .select('*')
     .eq('group_id', groupId)
@@ -136,7 +136,7 @@ async function recalculateStandings(tournamentId: string, groupId: string) {
   }
   console.log(`[standings] found ${matches?.length ?? 0} complete matches`)
 
-  const { data: groupTeams, error: teamErr } = await supabaseAdmin
+  const { data: groupTeams, error: teamErr } = await getSupabaseAdmin()
     .from('tournament_group_teams')
     .select('team_id')
     .eq('group_id', groupId)
@@ -189,7 +189,7 @@ async function recalculateStandings(tournamentId: string, groupId: string) {
 
   for (let i = 0; i < sorted.length; i++) {
     const [team_id, s] = sorted[i]
-    const { error: updateErr } = await supabaseAdmin
+    const { error: updateErr } = await getSupabaseAdmin()
       .from('tournament_standings')
       .update({ ...s, seed: i + 1, updated_at: new Date().toISOString() })
       .eq('tournament_id', tournamentId)
@@ -206,14 +206,14 @@ async function recalculateStandings(tournamentId: string, groupId: string) {
 }
 
 async function advanceWinner(nextMatchId: string, winnerId: string) {
-  const { data: nextMatch } = await supabaseAdmin
+  const { data: nextMatch } = await getSupabaseAdmin()
     .from('tournament_matches')
     .select('team1_id, team2_id')
     .eq('id', nextMatchId)
     .single()
   if (!nextMatch) return
   const slot = !nextMatch.team1_id ? 'team1_id' : 'team2_id'
-  await supabaseAdmin
+  await getSupabaseAdmin()
     .from('tournament_matches')
     .update({ [slot]: winnerId, updated_at: new Date().toISOString() })
     .eq('id', nextMatchId)
