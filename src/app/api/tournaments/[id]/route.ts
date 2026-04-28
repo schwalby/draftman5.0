@@ -52,3 +52,50 @@ export async function GET(
 
   return NextResponse.json({ tournament, groups, groupTeams, matches, standings })
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { id } = params
+  const body = await req.json()
+
+  if (body.action === 'declare_champion') {
+    const db = getSupabaseAdmin()
+
+    // Find the confirmed final match
+    const { data: finalMatch, error: fErr } = await db
+      .from('tournament_matches')
+      .select('*, winner:winner_id(id, name, color)')
+      .eq('tournament_id', id)
+      .eq('stage', 'final')
+      .eq('status', 'complete')
+      .maybeSingle()
+
+    if (fErr) return NextResponse.json({ error: fErr.message }, { status: 500 })
+    if (!finalMatch) return NextResponse.json({ error: 'Final match not complete yet' }, { status: 400 })
+    if (!finalMatch.winner_id) return NextResponse.json({ error: 'Final match has no winner' }, { status: 400 })
+
+    // Write champion to tournaments table
+    const { data: tournament, error: tErr } = await db
+      .from('tournaments')
+      .update({ champion_team_id: finalMatch.winner_id })
+      .eq('id', id)
+      .select('*, event_id')
+      .single()
+
+    if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 })
+
+    // Flip event status to completed
+    const { error: eErr } = await db
+      .from('events')
+      .update({ status: 'completed' })
+      .eq('id', tournament.event_id)
+
+    if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 })
+
+    return NextResponse.json({ success: true, champion: finalMatch.winner })
+  }
+
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+}

@@ -29,6 +29,7 @@ type Group = { id: string; label: string }
 type Tournament = {
   id: string; event_id: string; format: string; status: string
   num_groups: number; rounds_per_group: number
+  champion_team_id: string | null
 }
 
 type CtxState = { x: number; y: number; type: string; match?: Match; standing?: Standing & { groupLabel: string } } | null
@@ -207,6 +208,21 @@ export default function TournamentPage() {
     await fetchData()
   }
 
+  async function declareChampion() {
+    setSaving(true)
+    const res = await fetch(`/api/tournaments/${tournament!.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'declare_champion' }),
+    })
+    setSaving(false)
+    if (!res.ok) { const d = await res.json(); showToast(d.error || 'Error', true); return }
+    const d = await res.json()
+    showToast(`${d.champion?.name ?? 'Champion'} declared winner!`)
+    setModal(null)
+    await fetchData()
+  }
+
   function openCtx(e: React.MouseEvent, type: string, match?: Match, standing?: any) {
     e.preventDefault()
     const x = Math.min(e.clientX, window.innerWidth - 230)
@@ -302,6 +318,7 @@ export default function TournamentPage() {
     btnPrimary: { background: 'var(--khaki)', color: 'var(--bg)' },
     btnGhost: { background: 'transparent', color: 'var(--text-dim)', border: '1px solid var(--border)' },
     btnDanger: { background: 'transparent', color: 'var(--rust)', border: '1px solid rgba(192,57,43,0.3)' },
+    btnChampion: { background: 'rgba(200,184,122,0.15)', color: 'var(--khaki)', border: '1px solid rgba(200,184,122,0.5)' },
     btnSmConfirm: { fontFamily: 'var(--font-heading)', fontSize: 9, letterSpacing: 1.5, padding: '3px 10px', borderRadius: 2, border: 'none', background: 'var(--khaki)', color: 'var(--bg)', cursor: 'pointer', fontWeight: 700 },
     btnSmReject: { fontFamily: 'var(--font-heading)', fontSize: 9, letterSpacing: 1.5, padding: '3px 10px', borderRadius: 2, border: '1px solid rgba(192,57,43,0.4)', background: 'transparent', color: 'var(--rust)', cursor: 'pointer', fontWeight: 600 },
     ctxMenu: { position: 'fixed' as const, zIndex: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 5, minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden' },
@@ -315,6 +332,7 @@ export default function TournamentPage() {
     modalInput: { width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '8px 12px', color: 'var(--text)', fontFamily: 'var(--font-heading)', fontSize: 13, letterSpacing: 1 },
     modalWarning: { fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--amber)', marginBottom: 16, padding: '8px 12px', border: '1px solid rgba(200,132,42,0.25)', borderRadius: 3, background: 'rgba(200,132,42,0.05)' },
     modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 },
+    championConfirm: { textAlign: 'center' as const, padding: '20px 0' },
     bracketWrap: { overflowX: 'auto' as const, paddingBottom: 24 },
     bracket: { display: 'flex', alignItems: 'stretch', minWidth: 'fit-content' },
     bRound: { display: 'flex', flexDirection: 'column' as const, minWidth: 230 },
@@ -413,17 +431,17 @@ export default function TournamentPage() {
 
   if (loading) return (
     <div>
-      <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Tournament', href: '#' }]} />
+      <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Draft', href: '#' }]} />
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-dim)', fontFamily: 'var(--font-body)' }}>Loading...</div>
     </div>
   )
 
   if (!tournament) return (
     <div>
-      <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Tournament', href: '#' }]} />
+      <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Draft', href: '#' }]} />
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14, letterSpacing: 2, color: 'var(--text-dim)', marginBottom: 16 }}>NO TOURNAMENT FOUND</div>
-        {isAdmin && <button style={{ ...S.btn, ...S.btnPrimary }} onClick={() => router.push(`/events/${eventId}/tournament/setup`)}>CREATE TOURNAMENT</button>}
+        <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14, letterSpacing: 2, color: 'var(--text-dim)', marginBottom: 16 }}>NO DRAFT FOUND</div>
+        {isAdmin && <button style={{ ...S.btn, ...S.btnPrimary }} onClick={() => router.push(`/events/${eventId}/tournament/setup`)}>CREATE DRAFT</button>}
       </div>
     </div>
   )
@@ -431,16 +449,27 @@ export default function TournamentPage() {
   const qfMatches = getStageMatches('quarterfinal')
   const sfMatches = getStageMatches('semifinal')
   const finalMatches = getStageMatches('final')
-  const champion = finalMatches[0]?.winner
+
+  // Champion: declared (locked in) vs pending (final complete but not yet declared)
+  const declaredChampion = tournament.champion_team_id
+    ? (finalMatches[0]?.winner?.id === tournament.champion_team_id ? finalMatches[0].winner : null)
+    : null
+  const pendingChampion = !tournament.champion_team_id && finalMatches[0]?.status === 'complete' && finalMatches[0]?.winner
+    ? finalMatches[0].winner
+    : null
+  const champion = declaredChampion ?? (finalMatches[0]?.winner ?? null)
+
+  // Show declare button when: admin, final is complete, champion not yet declared
+  const showDeclareButton = isAdmin && pendingChampion && !tournament.champion_team_id
 
   return (
     <div>
-      <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Tournament', href: '#' }]} />
+      <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Draft', href: '#' }]} />
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
       <div style={S.page}>
         <div style={S.header}>
           <div>
-            <div style={S.title}>TOURNAMENT</div>
+            <div style={S.title}>DRAFT</div>
             <div style={S.sub}>{groups.length} GROUPS · ROUND ROBIN + PLAYOFFS</div>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -448,6 +477,11 @@ export default function TournamentPage() {
               <span style={{ ...S.badge, background: 'rgba(200,132,42,0.15)', color: 'var(--amber)', border: '1px solid rgba(200,132,42,0.3)' }}>
                 {awaitingConfirmation.length} PENDING
               </span>
+            )}
+            {showDeclareButton && (
+              <button style={{ ...S.btn, ...S.btnChampion }} onClick={() => openModal('declare-champion')} disabled={saving}>
+                🏆 DECLARE CHAMPION
+              </button>
             )}
             {isAdmin && (
               <button style={{ ...S.btn, ...S.btnGhost }} onClick={seedPlayoffs} disabled={saving}>
@@ -463,7 +497,10 @@ export default function TournamentPage() {
           <div style={S.stat}><div style={S.statVal}>{matches.filter(m => m.status === 'complete').length}</div><div style={S.statLabel}>COMPLETE</div></div>
           <div style={S.stat}><div style={S.statVal}>{awaitingConfirmation.length}</div><div style={S.statLabel}>UNCONFIRMED</div></div>
           <div style={S.stat}><div style={S.statVal}>{matches.filter(m => m.status === 'in_progress').length}</div><div style={S.statLabel}>LIVE</div></div>
-          <div style={S.stat}><div style={S.statVal}>{tournament.status.toUpperCase()}</div><div style={S.statLabel}>STATUS</div></div>
+          <div style={S.stat}>
+            <div style={S.statVal}>{tournament.champion_team_id ? 'COMPLETE' : 'ACTIVE'}</div>
+            <div style={S.statLabel}>STATUS</div>
+          </div>
         </div>
 
         <div style={S.tabs}>
@@ -594,12 +631,29 @@ export default function TournamentPage() {
                 <div style={{ ...S.bRound, minWidth: 170 }}>
                   <div style={S.bRoundLabel}>CHAMPION</div>
                   <div style={S.bRoundMatches}>
-                    <div style={S.championCard}>
-                      <div style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 3, color: 'var(--text-dim)', marginBottom: 10 }}>{champion ? 'WINNER' : 'AWAITING FINAL'}</div>
+                    <div style={{
+                      ...S.championCard,
+                      border: declaredChampion ? '1px solid var(--khaki)' : '1px solid var(--border)',
+                      background: declaredChampion ? 'rgba(200,184,122,0.08)' : 'transparent',
+                    }}>
+                      <div style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 3, color: declaredChampion ? 'var(--khaki)' : 'var(--text-dim)', marginBottom: 10 }}>
+                        {declaredChampion ? 'WINNER' : pendingChampion ? 'AWAITING DECLARATION' : 'AWAITING FINAL'}
+                      </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 8 }}>
                         {champion && <div style={{ width: 10, height: 10, borderRadius: '50%', background: champion.color }} />}
-                        <span style={{ fontFamily: 'var(--font-heading)', fontSize: champion ? 18 : 13, fontWeight: 700, letterSpacing: 2, color: champion ? 'var(--khaki)' : 'var(--text-dim)' }}>{champion?.name ?? 'TBD'}</span>
+                        <span style={{ fontFamily: 'var(--font-heading)', fontSize: champion ? 18 : 13, fontWeight: 700, letterSpacing: 2, color: declaredChampion ? 'var(--khaki)' : pendingChampion ? 'var(--text-dim)' : 'var(--text-dim)' }}>
+                          {champion?.name ?? 'TBD'}
+                        </span>
                       </div>
+                      {pendingChampion && !declaredChampion && isAdmin && (
+                        <button
+                          style={{ ...S.btn, ...S.btnChampion, marginTop: 16, fontSize: 10, padding: '6px 12px', width: '100%' }}
+                          onClick={() => openModal('declare-champion')}
+                          disabled={saving}
+                        >
+                          🏆 DECLARE
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -688,6 +742,28 @@ export default function TournamentPage() {
       {modal && (
         <div style={S.modalBackdrop} onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
           <div style={S.modal}>
+            {modal.type === 'declare-champion' && pendingChampion && (
+              <>
+                <div style={S.modalTitle}>DECLARE CHAMPION</div>
+                <div style={S.modalSub}>This will lock in the result and mark the draft as complete.</div>
+                <div style={S.championConfirm}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
+                    <div style={{ width: 14, height: 14, borderRadius: '50%', background: pendingChampion.color }} />
+                    <span style={{ fontFamily: 'var(--font-heading)', fontSize: 24, fontWeight: 700, letterSpacing: 3, color: 'var(--khaki)' }}>{pendingChampion.name}</span>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, letterSpacing: 2, color: 'var(--text-dim)' }}>DRAFT CHAMPION</div>
+                </div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)', marginTop: 8, marginBottom: 4, textAlign: 'center' }}>
+                  This cannot be undone without admin override.
+                </div>
+                <div style={S.modalActions}>
+                  <button style={{ ...S.btn, ...S.btnGhost }} onClick={() => setModal(null)}>CANCEL</button>
+                  <button style={{ ...S.btn, ...S.btnChampion }} onClick={declareChampion} disabled={saving}>
+                    🏆 CONFIRM — {pendingChampion.name} WINS
+                  </button>
+                </div>
+              </>
+            )}
             {modal.type === 'edit-match' && modal.match && (
               <>
                 <div style={S.modalTitle}>EDIT MATCH RESULT</div>
