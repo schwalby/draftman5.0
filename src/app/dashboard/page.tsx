@@ -541,7 +541,7 @@ function EventRow({ event, actionLoading, onPublish, onUnpublish, onDelete, onRe
 
   // Status label: for completed, append champion name if available
   const statusLabel = isCompleted && event.champion_name
-    ? `DRAFT COMPLETE — ${event.champion_name}`
+    ? `DRAFT COMPLETE · WINNER: ${event.champion_name}`
     : st.label
 
   const statusColor = isCompleted && event.champion_name
