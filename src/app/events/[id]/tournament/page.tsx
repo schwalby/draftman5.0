@@ -89,14 +89,15 @@ export default function TournamentPage() {
       .maybeSingle()
     if (!t) { setLoading(false); return }
 
+    const { data: grps } = await sb.from('tournament_groups').select('*').eq('tournament_id', t.id).order('label')
+    const groupIds = (grps ?? []).map((g: any) => g.id)
+
     const [
-      { data: grps },
       { data: grpTeams },
       { data: mtchs },
       { data: stndgs },
     ] = await Promise.all([
-      sb.from('tournament_groups').select('*').eq('tournament_id', t.id).order('label'),
-      sb.from('tournament_group_teams').select('*, teams(id, name, color)').eq('tournament_id', t.id),
+      sb.from('tournament_group_teams').select('*, teams(id, name, color)').in('group_id', groupIds),
       sb.from('tournament_matches').select('*, team1:team1_id(id, name, color), team2:team2_id(id, name, color), winner:winner_id(id, name, color)').eq('tournament_id', t.id).order('stage').order('round').order('match_number'),
       sb.from('tournament_standings').select('*, teams(id, name, color)').eq('tournament_id', t.id).order('wins', { ascending: false }).order('points_for', { ascending: false }),
     ])
