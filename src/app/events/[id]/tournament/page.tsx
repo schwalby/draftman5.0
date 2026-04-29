@@ -168,12 +168,17 @@ export default function TournamentPage() {
   }
 
   async function editMatch(match: Match) {
-    const winner = editWinner === match.team1?.name ? match.team1?.id : match.team2?.id
+    const winnerIsTeam1 = editWinner === match.team1?.name
+    const winner = winnerIsTeam1 ? match.team1?.id : match.team2?.id
+    const winnerScore = parseInt(editScore1) || 0
+    const loserScore = parseInt(editScore2) || 0
+    const score_team1 = winnerIsTeam1 ? winnerScore : loserScore
+    const score_team2 = winnerIsTeam1 ? loserScore : winnerScore
     const ok = await patchMatch(match.id, {
       action: 'edit',
       winner_id: winner,
-      score_team1: parseInt(editScore1) || 0,
-      score_team2: parseInt(editScore2) || 0,
+      score_team1,
+      score_team2,
       map: editMap || match.map,
     })
     if (ok) { showToast('Match updated'); setModal(null) }
