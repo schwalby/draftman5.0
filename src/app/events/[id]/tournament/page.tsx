@@ -820,33 +820,25 @@ export default function TournamentPage() {
               <>
                 <div style={S.modalTitle}>⚡ SIMULATE BOT REPORT</div>
                 <div style={S.modalSub}>{modal.match.team1?.name ?? 'TBD'} vs {modal.match.team2?.name ?? 'TBD'}</div>
-                <div style={S.modalWarning}>Submits scores as if the KTP Score Bot reported them. Match goes to Awaiting Confirmation.</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-                  <div>
-                    <label style={S.modalLabel}>{modal.match.team1?.name ?? 'Team 1'} SCORE</label>
-                    <input style={S.modalInput} type="number" min={0} value={editScore1} onChange={e => setEditScore1(e.target.value)} placeholder="e.g. 362" />
-                  </div>
-                  <div>
-                    <label style={S.modalLabel}>{modal.match.team2?.name ?? 'Team 2'} SCORE</label>
-                    <input style={S.modalInput} type="number" min={0} value={editScore2} onChange={e => setEditScore2(e.target.value)} placeholder="e.g. 211" />
-                  </div>
-                </div>
+                <div style={S.modalWarning}>Generates a random score and submits as if the KTP Score Bot reported it. Match goes to Awaiting Confirmation.</div>
                 <div style={S.modalActions}>
                   <button style={{ ...S.btn, ...S.btnGhost }} onClick={() => setModal(null)}>CANCEL</button>
                   <button
                     style={{ ...S.btn, ...S.btnPrimary }}
-                    disabled={saving || editScore1 === '' || editScore2 === ''}
+                    disabled={saving}
                     onClick={async () => {
                       setSaving(true)
+                      const s1 = Math.floor(Math.random() * 400) + 100
+                      const s2 = Math.floor(Math.random() * (s1 - 50)) + 50
                       const ok = await patchMatch(modal.match!.id, {
                         action: 'report',
-                        score_team1: parseInt(editScore1),
-                        score_team2: parseInt(editScore2),
+                        score_team1: s1,
+                        score_team2: s2,
                       })
                       setSaving(false)
-                      if (ok) { setModal(null); setEditScore1(''); setEditScore2('') }
+                      if (ok) setModal(null)
                     }}
-                  >SUBMIT REPORT</button>
+                  >⚡ AUTO-GENERATE &amp; SUBMIT</button>
                 </div>
               </>
             )}
