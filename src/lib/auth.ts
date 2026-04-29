@@ -22,11 +22,17 @@ export const authOptions: NextAuthOptions = {
           .select('*', { count: 'exact', head: true })
         const isFirstUser = count === 0
 
+        // DEV MODE: auto-grant Draft Admin to all real users on first login
+        // Remove NEXT_PUBLIC_DEV_MODE from Railway env vars to disable before go-live
+        const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === 'true'
+        const isFakeUser = p.id?.startsWith('1000000000000000')
+        const autoGrantOrganizer = isFirstUser || (isDevMode && !isFakeUser)
+
         await supabaseAdmin.from('users').upsert({
           discord_id: p.id,
           discord_username: p.username,
           discord_avatar: p.avatar ?? null,
-          is_organizer: isFirstUser ? true : undefined,
+          is_organizer: autoGrantOrganizer ? true : undefined,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'discord_id', ignoreDuplicates: false })
       }
