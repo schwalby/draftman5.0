@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { Spinner } from '@/components/Spinner'
+import SignupDrawer from '@/components/SignupDrawer'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -112,6 +113,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const [teamNames, setTeamNames] = useState<Record<string, string>>({})
   // FIX: track if "End Draft" confirm is showing
   const [endDraftConfirm, setEndDraftConfirm] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const timerSecsRef = useRef(90)
 
@@ -689,6 +691,9 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               {isAdmin && picks.length > 0 && !isDraftDone && (
                 <button onClick={undoPick} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--rust)', color: 'var(--rust)', background: 'rgba(192,57,43,0.08)', cursor: 'pointer' }}>↩ Undo</button>
               )}
+              {isAdmin && (
+                <button onClick={() => setDrawerOpen(true)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>⛉ Manage Players</button>
+              )}
               <button onClick={() => setTimerOn(!timerOn)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>
                 {timerOn ? '⏸ Pause' : '▶ Resume'}
               </button>
@@ -953,6 +958,14 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, right: 24, background: 'var(--surface)', border: `1px solid var(--border-strong)`, borderLeft: `3px solid ${toast.err ? 'var(--rust)' : 'var(--green-light)'}`, color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12, padding: '10px 16px', borderRadius: 3, zIndex: 999 }}>{toast.msg}</div>
       )}
+
+      <SignupDrawer
+        eventId={eventId}
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        capacity={(event as any)?.capacity ?? 48}
+        onUpdate={fetchAll}
+      />
 
       <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }`}</style>
     </div>

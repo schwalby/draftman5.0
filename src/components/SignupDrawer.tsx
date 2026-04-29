@@ -22,19 +22,19 @@ interface Props {
   eventId: string;
   isOpen: boolean;
   onClose: () => void;
+  capacity?: number;
+  onUpdate?: () => void;
 }
 
 const CLASS_COLORS: Record<string, string> = {
   rifle:  '#c8a050',
-  light:  '#4a9c6a',
+  third:  '#4a9c6a',
   heavy:  '#9c5a4a',
   sniper: '#5a6a9c',
   flex:   '#888888',
 };
 
-const CONFIRMED_CAP = 48;
-
-export default function SignupDrawer({ eventId, isOpen, onClose }: Props) {
+export default function SignupDrawer({ eventId, isOpen, onClose, capacity = 48, onUpdate }: Props) {
   const [signups, setSignups] = useState<Signup[]>([]);
   const [loading, setLoading] = useState(false);
   const [openNote, setOpenNote] = useState<string | null>(null);
@@ -82,6 +82,7 @@ export default function SignupDrawer({ eventId, isOpen, onClose }: Props) {
   const toggleRinger = async (s: Signup) => {
     setSignups(prev => prev.map(p => p.id === s.id ? { ...p, ringer: !p.ringer } : p));
     await patch(s.id, { ringer: !s.ringer });
+    onUpdate?.();
   };
 
   const toggleCaptain = async (s: Signup) => {
@@ -179,7 +180,7 @@ export default function SignupDrawer({ eventId, isOpen, onClose }: Props) {
               Signup Manager
             </span>
             <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 4 }}>
-              {confirmed.length} / {CONFIRMED_CAP} confirmed
+              {confirmed.length} / {capacity} confirmed
             </span>
             <button onClick={onClose} style={{
               marginLeft: 'auto', width: 26, height: 26, borderRadius: 4,
@@ -207,7 +208,7 @@ export default function SignupDrawer({ eventId, isOpen, onClose }: Props) {
             ) : (
               <>
                 {/* Confirmed section */}
-                <SectionHeader label="Confirmed" count={`${confirmed.length} / ${CONFIRMED_CAP}`} />
+                <SectionHeader label="Confirmed" count={`${confirmed.length} / ${capacity}`} />
                 {confirmed.length === 0 && <EmptyRow />}
                 {confirmed.map((s, idx) => (
                   <PlayerRowWrapper key={s.id}>
