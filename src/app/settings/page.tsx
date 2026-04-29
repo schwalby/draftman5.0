@@ -52,6 +52,8 @@ export default function SettingsPage() {
     userName: string
   } | null>(null)
   const [saving, setSaving] = useState(false)
+  const [seeding, setSeeding] = useState(false)
+  const [seedLog, setSeedLog] = useState<string[]>([])
 
   // ── Auth gate ──────────────────────────────────────────────────
   // We check is_superuser from the DB directly on load — not from session
@@ -164,6 +166,115 @@ export default function SettingsPage() {
         ? 'full SuperUser privileges — including the ability to manage other users\' roles.'
         : 'their SuperUser access.'
     : ''
+
+  // ── DEV: Seed a test draft ─────────────────────────────────────
+  async function seedTestDraft() {
+    setSeeding(true)
+    setSeedLog([])
+    const log = (msg: string) => setSeedLog(prev => [...prev, msg])
+
+    try {
+      // 1. Fetch fake users
+      log('Fetching fake users...')
+      const usersRes = await fetch('/api/users')
+      const allUsers: User[] = await usersRes.json()
+      const fakeUsers = allUsers.filter(u => u.discord_id?.startsWith('1000000000000000'))
+      if (fakeUsers.length < 10) { log(`❌ Need at least 10 fake users, found ${fakeUsers.length}`); setSeeding(false); return }
+      log(`Found ${fakeUsers.length} fake users`)
+
+      // 2. Create event
+      log('Creating test event...')
+      const now = new Date()
+      const draftDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+      const eventRes = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `[TEST] Draft ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
+          type: 'draft',
+          format: '6v6',
+          status: 'scheduled',
+          half_length: 20,
+          capacity: 48,
+          slots_rifle: 2,
+          slots_third: 1,
+          slots_heavy: 2,
+          slots_sniper: 1,
+          maps: [],
+          starts_at: draftDate.toISOString(),
+          signup_opens_at: now.toISOString(),
+          checkin_opens_at: draftDate.toISOString(),
+          notes: 'Auto-generated test event — safe to delete',
+        }),
+      })
+      if (!eventRes.ok) { log('❌ Failed to create event'); setSeeding(false); return }
+      const { event } = await eventRes.json()
+      log(`✓ Event created: ${event.name}`)
+
+      // 3. Sign up fake users with random classes
+      log('Signing up players...')
+      const classes = ['rifle', 'third', 'heavy', 'sniper', 'flex']
+      const twoClassPairs = [['rifle','third'],['rifle','heavy'],['third','heavy'],['heavy','sniper'],['rifle','sniper']]
+      let signedUp = 0
+      for (const u of fakeUsers) {
+        const useTwoClasses = Math.random() > 0.5
+        const cls = useTwoClasses
+          ? twoClassPairs[Math.floor(Math.random() * twoClassPairs.length)]
+          : [classes[Math.floor(Math.random() * classes.length)]]
+        const r = await fetch(`/api/events/${event.id}/signups`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: u.id, class: cls }),
+        })
+        if (r.ok) signedUp++
+      }
+      log(`✓ ${signedUp} players signed up`)
+
+      // 4. Create 8 teams with captains from first 8 fake users
+      log('Creating 8 teams...')
+      const NATO = ['Alpha','Bravo','Charlie','Delta','Echo','Foxtrot','Golf','Hotel']
+      const COLORS = ['#c0392b','#2980b9','#27ae60','#8e44ad','#d35400','#16a085','#2c3e50','#7f8c8d']
+      const teamIds: string[] = []
+      for (let i = 0; i < 8; i++) {
+        const captain = fakeUsers[i]
+        const r = await fetch(`/api/events/${event.id}/teams`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: NATO[i], color: COLORS[i], captain_id: captain.id, pick_order: i + 1 }),
+        })
+        if (r.ok) { const d = await r.json(); teamIds.push(d.team?.id || d.id) }
+      }
+      log(`✓ 8 teams created`)
+
+      // 5. Auto-draft remaining players (snake draft)
+      log('Running auto-draft...')
+      const pool = fakeUsers.slice(8) // skip captains
+      const SLOTS = 5
+      const totalPicks = 8 * SLOTS
+      let pickNum = 1
+      let poolIdx = 0
+      for (let pick = 0; pick < totalPicks && poolIdx < pool.length; pick++) {
+        const round = Math.floor(pick / 8)
+        const pos = pick % 8
+        const teamIdx = round % 2 === 0 ? pos : 7 - pos
+        const teamId = teamIds[teamIdx]
+        const player = pool[poolIdx++]
+        const cls = ['rifle','third','heavy','sniper','flex'][Math.floor(Math.random() * 5)]
+        await fetch(`/api/draft/${event.id}/picks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: player.id, team_id: teamId, pick_number: pickNum++, class: cls }),
+        })
+      }
+      log(`✓ Draft complete`)
+      log('✓ Done! Redirecting to tournament setup...')
+
+      setTimeout(() => router.push(`/events/${event.id}/tournament-setup`), 1000)
+    } catch (e) {
+      log(`❌ Error: ${String(e)}`)
+      setSeeding(false)
+    }
+  }
 
   if (status === 'loading' || loading) {
     return (
@@ -328,6 +439,49 @@ export default function SettingsPage() {
           </table>
         </div>
       </div>
+
+        {/* ── DEV TOOLS ── remove before going live ───────────────── */}
+        <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 24px 48px' }}>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontFamily: 'var(--font-heading)', fontSize: 18, fontWeight: 600, letterSpacing: '0.06em', color: 'var(--rust)' }}>
+                ⚠ DEV TOOLS
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                Remove this section before going live. SuperUser only.
+              </div>
+            </div>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--rust)', borderRadius: 4, padding: '20px 24px' }}>
+              <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Seed Test Draft</div>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
+                Creates a 6v6 event, signs up all fake users, creates 8 teams, runs a full snake draft, then drops you at tournament setup. Uses existing fake users (discord_id starting with 1000000000000000).
+              </div>
+              <button
+                onClick={seedTestDraft}
+                disabled={seeding}
+                style={{
+                  fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', padding: '8px 20px', borderRadius: 3,
+                  border: '1px solid var(--rust)', color: seeding ? 'var(--text-dim)' : 'var(--rust)',
+                  background: seeding ? 'transparent' : 'rgba(192,57,43,0.08)',
+                  cursor: seeding ? 'not-allowed' : 'pointer', opacity: seeding ? 0.6 : 1,
+                }}
+              >
+                {seeding ? '⏳ Seeding...' : '⚡ Generate Test Draft'}
+              </button>
+              {seedLog.length > 0 && (
+                <div style={{ marginTop: 16, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '10px 14px' }}>
+                  {seedLog.map((line, i) => (
+                    <div key={i} style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: line.startsWith('❌') ? 'var(--rust)' : line.startsWith('✓') ? 'var(--green-light)' : 'var(--text-dim)', lineHeight: 1.8 }}>
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* ── END DEV TOOLS ─────────────────────────────────────── */}
 
       {/* ── Confirm modal ───────────────────────────────────────── */}
       {modal && (
