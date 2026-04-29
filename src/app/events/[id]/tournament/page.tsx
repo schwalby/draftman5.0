@@ -381,9 +381,6 @@ export default function TournamentPage() {
         onContextMenu={e => openCtx(e, unconf ? 'match-unconf' : complete ? 'match-complete' : live ? 'match-live' : 'match-pending', match)}
         style={{ ...S.matchCard, border: cardBorder, boxShadow: live ? '0 0 12px rgba(200,132,42,0.1)' : undefined }}
       >
-        {live && <div style={{ position: 'absolute', top: 6, right: 8, fontFamily: 'var(--font-body)', fontSize: 8, letterSpacing: 2, color: 'var(--amber)', fontWeight: 700 }}>LIVE</div>}
-        {complete && match.confirmed && <div style={{ position: 'absolute', top: 6, right: 8, fontFamily: 'var(--font-body)', fontSize: 8, letterSpacing: 2, color: 'var(--green)', fontWeight: 700 }}>CONFIRMED</div>}
-
         {unconf && canConfirm && (
           <div style={S.unconfBar}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
