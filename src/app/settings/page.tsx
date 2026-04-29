@@ -208,7 +208,8 @@ export default function SettingsPage() {
         }),
       })
       if (!eventRes.ok) { log('❌ Failed to create event'); setSeeding(false); return }
-      const { event } = await eventRes.json()
+      const eventData = await eventRes.json()
+      const event = eventData.event ?? eventData
       log(`✓ Event created: ${event.name}`)
 
       // 3. Sign up fake users with random classes
