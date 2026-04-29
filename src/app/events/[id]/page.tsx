@@ -409,7 +409,7 @@ export default function EventPage() {
 
           {/* Class dot legend */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-            {Object.entries(CLASS_COLORS).filter(([c]) => c !== 'third').map(([cls, color]) => (
+            {Object.entries(CLASS_COLORS).filter(([c]) => c !== 'light').map(([cls, color]) => (
               <div key={cls} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-dim)' }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block' }} />
                 {cls.charAt(0).toUpperCase() + cls.slice(1)}
