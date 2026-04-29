@@ -199,6 +199,26 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const pickedIds = new Set(picks.map(p => p.user_id))
   const captainIds = new Set(sortedTeams.map(t => t.captain_id).filter(Boolean))
 
+  // Slot counts from event — how many of each class across all teams
+  const numTeams = sortedTeams.length || 1
+  const slotCounts: Record<string, number> = {
+    rifle:  ((event as any)?.slots_rifle  ?? 0) * numTeams,
+    third:  ((event as any)?.slots_third  ?? 0) * numTeams,
+    light:  ((event as any)?.slots_third  ?? 0) * numTeams,
+    heavy:  ((event as any)?.slots_heavy  ?? 0) * numTeams,
+    sniper: ((event as any)?.slots_sniper ?? 0) * numTeams,
+    flex:   9999,
+  }
+  const draftedClassCounts: Record<string, number> = { rifle: 0, third: 0, light: 0, heavy: 0, sniper: 0, flex: 0 }
+  for (const pick of picks) {
+    const cls = pick.class || 'flex'
+    if (draftedClassCounts[cls] !== undefined) draftedClassCounts[cls]++
+  }
+  function isClassFull(cls: string): boolean {
+    if (cls === 'all' || cls === 'flex') return false
+    return slotCounts[cls] > 0 && draftedClassCounts[cls] >= slotCounts[cls]
+  }
+
   const available = signups.filter(s => {
     if (pickedIds.has(s.user_id) || captainIds.has(s.user_id)) return false
     const name = playerDisplayName(s).toLowerCase()
@@ -638,7 +658,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 400, fontSize: 13, color: 'var(--khaki)' }}>{available.length}</span>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '4px 10px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text)', outline: 'none', width: 150 }} />
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-                {['all', 'rifle', 'light', 'heavy', 'sniper', 'flex'].map(cls => (
+                {['all', 'rifle', 'light', 'heavy', 'sniper', 'flex'].filter(cls => !isClassFull(cls)).map(cls => (
                   <button key={cls} onClick={() => setClassFilter(cls)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 2, cursor: 'pointer', transition: 'all 0.15s', border: classFilter === cls ? '1px solid var(--khaki)' : '1px solid var(--border)', color: classFilter === cls ? 'var(--khaki)' : cls === 'all' ? 'var(--text-dim)' : CLS_COLOR[cls], background: classFilter === cls ? 'rgba(200,184,122,0.07)' : 'transparent' }}>{cls === 'all' ? 'All' : CLS_LABEL[cls]}</button>
                 ))}
               </div>
