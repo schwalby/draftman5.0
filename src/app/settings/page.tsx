@@ -432,7 +432,7 @@ export default function SettingsPage() {
                 ⚠ DEV TOOLS
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                Remove this section before going live. SuperUser only.
+                Remove this section before going live.
               </div>
             </div>
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--rust)', borderRadius: 4, padding: '20px 24px' }}>
