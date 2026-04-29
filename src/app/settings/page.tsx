@@ -56,6 +56,17 @@ export default function SettingsPage() {
   const [seedLog, setSeedLog] = useState<string[]>([])
   const [showTestAccounts, setShowTestAccounts] = useState(false)
 
+  // Fake bot result state
+  const [botEvents, setBotEvents] = useState<{ id: string; name: string }[]>([])
+  const [botEventId, setBotEventId] = useState('')
+  const [botMatches, setBotMatches] = useState<{ id: string; label: string; tournamentId: string }[]>([])
+  const [botMatchId, setBotMatchId] = useState('')
+  const [botTournamentId, setBotTournamentId] = useState('')
+  const [botScore1, setBotScore1] = useState('')
+  const [botScore2, setBotScore2] = useState('')
+  const [botSubmitting, setBotSubmitting] = useState(false)
+  const [botMsg, setBotMsg] = useState<{ text: string; err?: boolean } | null>(null)
+
   // ── Auth gate ──────────────────────────────────────────────────
   // We check is_superuser from the DB directly on load — not from session
   // since isSuperUser isn't in the session token yet
@@ -191,6 +202,63 @@ export default function SettingsPage() {
     } catch (e) {
       log(`❌ Error: ${String(e)}`)
       setSeeding(false)
+    }
+  }
+
+  // ── DEV: Fake bot result ───────────────────────────────────────
+  async function loadBotEvents() {
+    const res = await fetch('/api/events')
+    if (!res.ok) return
+    const data = await res.json()
+    const evts = (Array.isArray(data) ? data : data.events ?? [])
+      .filter((e: any) => e.status === 'in_progress' || e.status === 'active' || e.status === 'scheduled')
+    setBotEvents(evts.map((e: any) => ({ id: e.id, name: e.name })))
+  }
+
+  async function loadBotMatches(eventId: string) {
+    setBotMatchId('')
+    setBotMatches([])
+    setBotTournamentId('')
+    const tRes = await fetch(`/api/tournaments?event_id=${eventId}`)
+    if (!tRes.ok) return
+    const tData = await tRes.json()
+    const tournament = Array.isArray(tData) ? tData[0] : tData.tournament ?? tData
+    if (!tournament?.id) return
+    setBotTournamentId(tournament.id)
+    const mRes = await fetch(`/api/tournaments/${tournament.id}/matches`)
+    if (!mRes.ok) return
+    const mData = await mRes.json()
+    const matches = Array.isArray(mData) ? mData : mData.matches ?? []
+    const pending = matches.filter((m: any) => m.status === 'pending' || m.status === 'in_progress')
+    setBotMatches(pending.map((m: any) => ({
+      id: m.id,
+      tournamentId: tournament.id,
+      label: `${m.team1?.name ?? 'TBD'} vs ${m.team2?.name ?? 'TBD'} (${m.stage} R${m.round})`,
+    })))
+  }
+
+  async function submitFakeResult() {
+    if (!botMatchId || !botTournamentId || botScore1 === '' || botScore2 === '') return
+    setBotSubmitting(true)
+    setBotMsg(null)
+    const res = await fetch(`/api/tournaments/${botTournamentId}/matches/${botMatchId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'report',
+        score_team1: parseInt(botScore1),
+        score_team2: parseInt(botScore2),
+      }),
+    })
+    setBotSubmitting(false)
+    if (res.ok) {
+      setBotMsg({ text: '✓ Result submitted — check Confirm Queue on the draft page' })
+      setBotScore1('')
+      setBotScore2('')
+      setBotMatchId('')
+    } else {
+      const d = await res.json()
+      setBotMsg({ text: `❌ ${d.error ?? 'Failed'}`, err: true })
     }
   }
 
@@ -463,6 +531,70 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
+
+            {/* Fake Bot Result */}
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--rust)', borderRadius: 4, padding: '20px 24px', marginTop: 12 }}>
+              <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Fake Bot Result</div>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
+                Submit a match score as if the KTP Score Bot reported it. Result goes to Awaiting Confirmation — then confirm it on the draft page.
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <select
+                    value={botEventId}
+                    onChange={e => { setBotEventId(e.target.value); if (e.target.value) loadBotMatches(e.target.value) }}
+                    onClick={() => { if (botEvents.length === 0) loadBotEvents() }}
+                    style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '7px 10px', color: botEventId ? 'var(--text)' : 'var(--text-dim)', fontFamily: 'var(--font-body)', fontSize: 12, cursor: 'pointer' }}
+                  >
+                    <option value=''>Select event…</option>
+                    {botEvents.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  </select>
+                  <button onClick={loadBotEvents} style={{ fontFamily: 'var(--font-heading)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '7px 12px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>↺ Refresh</button>
+                </div>
+                {botEventId && (
+                  <select
+                    value={botMatchId}
+                    onChange={e => setBotMatchId(e.target.value)}
+                    style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '7px 10px', color: botMatchId ? 'var(--text)' : 'var(--text-dim)', fontFamily: 'var(--font-body)', fontSize: 12, cursor: 'pointer' }}
+                  >
+                    <option value=''>Select match…</option>
+                    {botMatches.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                  </select>
+                )}
+                {botMatchId && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      type='number' min={0} placeholder='Score Team 1'
+                      value={botScore1} onChange={e => setBotScore1(e.target.value)}
+                      style={{ width: 120, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '7px 10px', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12 }}
+                    />
+                    <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>vs</span>
+                    <input
+                      type='number' min={0} placeholder='Score Team 2'
+                      value={botScore2} onChange={e => setBotScore2(e.target.value)}
+                      style={{ width: 120, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '7px 10px', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12 }}
+                    />
+                    <button
+                      onClick={submitFakeResult}
+                      disabled={botSubmitting || botScore1 === '' || botScore2 === ''}
+                      style={{
+                        fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.12em',
+                        textTransform: 'uppercase', padding: '8px 20px', borderRadius: 3,
+                        border: '1px solid var(--rust)', color: botSubmitting ? 'var(--text-dim)' : 'var(--rust)',
+                        background: botSubmitting ? 'transparent' : 'rgba(192,57,43,0.08)',
+                        cursor: botSubmitting ? 'not-allowed' : 'pointer', opacity: botSubmitting ? 0.6 : 1,
+                      }}
+                    >{botSubmitting ? '⏳ Submitting...' : '⚡ Submit Result'}</button>
+                  </div>
+                )}
+                {botMsg && (
+                  <div style={{ fontSize: 11, color: botMsg.err ? 'var(--rust)' : 'var(--green-light)', fontFamily: 'var(--font-body)' }}>
+                    {botMsg.text}
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
         </div>
         {/* ── END DEV TOOLS ─────────────────────────────────────── */}
