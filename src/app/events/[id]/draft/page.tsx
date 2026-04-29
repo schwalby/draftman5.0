@@ -103,6 +103,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const [timerOn, setTimerOn] = useState(true)
   const [timerSecs, setTimerSecs] = useState(90)
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null)
+  const [confirmClass, setConfirmClass] = useState<string | null>(null)
   const [classPickerFor, setClassPickerFor] = useState<{ userId: string; pickId: string; name: string } | null>(null)
   const [pickerSelected, setPickerSelected] = useState<string[]>([])
   const [teamContextMenu, setTeamContextMenu] = useState<{ x: number; y: number; team: Team } | null>(null)
@@ -209,6 +210,14 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   }
   const activeTeamDrafted: Record<string, number> = { rifle: 0, third: 0, heavy: 0, sniper: 0, flex: 0 }
   if (activeTeam) {
+    // Count the captain's signup class — their slot is already spoken for
+    if (activeTeam.captain_id) {
+      const captainSignup = signups.find(s => s.user_id === activeTeam.captain_id)
+      if (captainSignup) {
+        const capCls = captainSignup.class[0] || 'flex'
+        if (activeTeamDrafted[capCls] !== undefined) activeTeamDrafted[capCls]++
+      }
+    }
     for (const pick of picks.filter(p => p.team_id === activeTeam.id)) {
       const cls = pick.class || 'flex'
       if (activeTeamDrafted[cls] !== undefined) activeTeamDrafted[cls]++
@@ -233,6 +242,16 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     flex:   9999,
   }
   const draftedClassCounts: Record<string, number> = { rifle: 0, third: 0, heavy: 0, sniper: 0, flex: 0 }
+  // Seed captain classes globally — each captain's slot is already spoken for
+  for (const team of sortedTeams) {
+    if (team.captain_id) {
+      const captainSignup = signups.find(s => s.user_id === team.captain_id)
+      if (captainSignup) {
+        const capCls = captainSignup.class[0] || 'flex'
+        if (draftedClassCounts[capCls] !== undefined) draftedClassCounts[capCls]++
+      }
+    }
+  }
   for (const pick of picks) {
     const cls = pick.class || 'flex'
     if (draftedClassCounts[cls] !== undefined) draftedClassCounts[cls]++
@@ -255,13 +274,15 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   async function confirmPick() {
     if (!selected || !activeTeam || !canPick || picking) return
     setPicking(true)
+    const body: Record<string, any> = { user_id: selected, team_id: activeTeam.id, pick_number: currentPickNum }
+    if (confirmClass) body.class = confirmClass
     const res = await fetch(`/api/draft/${eventId}/picks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: selected, team_id: activeTeam.id, pick_number: currentPickNum }),
+      body: JSON.stringify(body),
     })
     setPicking(false)
-    if (res.ok) { setSelected(null); resetTimer(); showToast('Pick confirmed') }
+    if (res.ok) { setSelected(null); setConfirmClass(null); resetTimer(); showToast('Pick confirmed') }
     else { const d = await res.json(); showToast(d.error || 'Pick failed', true) }
   }
 
@@ -273,6 +294,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     if (res.ok) {
       setSelected(null)
       setConfirmPlayer(null)  // FIX: clear confirm modal state
+      setConfirmClass(null)
       resetTimer()
       showToast('Pick undone')
       // fetchAll is triggered by realtime subscription, but call it explicitly as fallback
@@ -299,6 +321,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     if (res.ok) {
       setSelected(null)
       setConfirmPlayer(null)
+      setConfirmClass(null)
       resetTimer()
       showToast('Pick undone')
       fetchAll()
@@ -544,7 +567,24 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             return (
               <div
                 key={s.user_id}
-                onClick={() => { if (!canPick) return; setSelected(isSel ? null : s.user_id); if (!isSel) setConfirmPlayer(s) }}
+                onClick={() => {
+                  if (!canPick) return
+                  if (isSel) {
+                    setSelected(null)
+                    setConfirmPlayer(null)
+                    setConfirmClass(null)
+                  } else {
+                    setSelected(s.user_id)
+                    setConfirmPlayer(s)
+                    // Auto-assign class if only 1 option available for the active team
+                    const openClasses = s.class.filter(c => !isClassFullForActiveTeam(c))
+                    if (openClasses.length === 1) {
+                      setConfirmClass(openClasses[0])
+                    } else {
+                      setConfirmClass(null)
+                    }
+                  }
+                }}
                 onContextMenu={e => handleContextMenu(e, s.user_id, playerDisplayName(s), false, undefined, undefined, undefined, s.ringer)}
                 style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 3, fontSize: 14, background: isSel ? 'rgba(200,184,122,0.1)' : 'var(--surface2)', border: `1px solid ${isSel ? 'var(--khaki)' : 'var(--border)'}`, cursor: canPick ? 'pointer' : 'default', transition: 'all 0.15s' }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: CLS_COLOR[cls], flexShrink: 0 }} />
@@ -843,22 +883,56 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       )}
 
       {/* CONFIRM MODAL */}
-      {confirmPlayer && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => { setConfirmPlayer(null); setSelected(null) }}>
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '28px 32px', minWidth: 300, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Confirm Pick</div>
-            <div style={{ fontSize: 22, fontFamily: 'var(--font-heading)', fontWeight: 300, color: 'var(--text)', marginBottom: 6 }}>{playerDisplayName(confirmPlayer)}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 24 }}>
-              {confirmPlayer.class.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' / ')}
-              {activeTeam && <span> &nbsp;→&nbsp; {captainDisplayName(activeTeam)}</span>}
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => { setConfirmPlayer(null); setSelected(null) }} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={() => { setConfirmPlayer(null); confirmPick() }} disabled={picking} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--green-light)', color: 'var(--green-light)', background: 'rgba(90,156,90,0.12)', cursor: 'pointer', opacity: picking ? 0.6 : 1 }}>✓ Confirm Pick</button>
+      {confirmPlayer && (() => {
+        // Classes this player can fill for the active team
+        const openClasses = confirmPlayer.class.includes('flex')
+          ? ['flex']
+          : confirmPlayer.class.filter(c => !isClassFullForActiveTeam(c))
+        const needsPick = openClasses.length > 1
+        const canConfirm = !needsPick || confirmClass !== null
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => { setConfirmPlayer(null); setSelected(null); setConfirmClass(null) }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '28px 32px', minWidth: 300, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Confirm Pick</div>
+              <div style={{ fontSize: 22, fontFamily: 'var(--font-heading)', fontWeight: 300, color: 'var(--text)', marginBottom: 6 }}>{playerDisplayName(confirmPlayer)}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: needsPick ? 16 : 24 }}>
+                {confirmPlayer.class.map(c => CLS_LABEL[c] || c).join(' / ')}
+                {activeTeam && <span> &nbsp;→&nbsp; {captainDisplayName(activeTeam)}</span>}
+              </div>
+              {needsPick && (
+                <>
+                  <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 8 }}>Assign Class</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+                    {openClasses.map(cls => {
+                      const isSel = confirmClass === cls
+                      return (
+                        <button
+                          key={cls}
+                          onClick={() => setConfirmClass(cls)}
+                          style={{
+                            padding: '8px 18px', borderRadius: 4, cursor: 'pointer',
+                            fontSize: 12, fontFamily: 'var(--font-body)',
+                            background: isSel ? `${CLS_COLOR[cls]}22` : 'transparent',
+                            color: CLS_COLOR[cls],
+                            border: `1px solid ${isSel ? CLS_COLOR[cls] : CLS_COLOR[cls] + '66'}`,
+                            fontWeight: isSel ? 600 : 400,
+                          }}
+                        >
+                          {CLS_LABEL[cls]}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button onClick={() => { setConfirmPlayer(null); setSelected(null); setConfirmClass(null) }} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={() => { setConfirmPlayer(null); confirmPick() }} disabled={picking || !canConfirm} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: `1px solid ${canConfirm ? 'var(--green-light)' : 'var(--border)'}`, color: canConfirm ? 'var(--green-light)' : 'var(--text-dim)', background: canConfirm ? 'rgba(90,156,90,0.12)' : 'transparent', cursor: canConfirm && !picking ? 'pointer' : 'not-allowed', opacity: picking ? 0.6 : 1 }}>✓ Confirm Pick</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {endDraftConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setEndDraftConfirm(false)}>
