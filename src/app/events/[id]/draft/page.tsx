@@ -67,7 +67,7 @@ const CLS_SHORT: Record<string, string> = {
   rifle: 'Ri', light: 'Lt', heavy: 'Hv', sniper: 'Sn', flex: 'Fx'
 }
 const CLS_LABEL: Record<string, string> = {
-  rifle: 'Rifle', light: 'Light', heavy: 'Heavy', sniper: 'Sniper', flex: 'Flex'
+  rifle: 'Rifle', light: 'Light', third: 'Third', heavy: 'Heavy', sniper: 'Sniper', flex: 'Flex'
 }
 const ALL_CLASSES = ['rifle', 'light', 'heavy', 'sniper', 'flex']
 const SLOTS_PER_TEAM = 5
