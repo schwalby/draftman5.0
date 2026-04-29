@@ -503,7 +503,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   }
 
   function renderPool() {
-    const classes = ['rifle', 'light', 'heavy', 'sniper', 'flex']
+    const classes = ['rifle', 'third', 'heavy', 'sniper', 'flex']
     const filtered = classFilter === 'all' ? classes : [classFilter]
     return filtered.map(cls => {
       const players = available.filter(s => s.class.includes(cls))

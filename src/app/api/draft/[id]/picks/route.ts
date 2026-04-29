@@ -25,7 +25,7 @@ export async function POST(
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { user_id, team_id, pick_number } = body
+  const { user_id, team_id, pick_number, class: assignedClass } = body
 
   // Verify caller is organizer or the captain of the team
   if (!session.user.isOrganizer && !session.user.isSuperUser) {
@@ -39,15 +39,17 @@ export async function POST(
     }
   }
 
-  // Get the player's class from signups
-  const { data: signup } = await supabaseAdmin
-    .from('signups')
-    .select('class')
-    .eq('event_id', params.id)
-    .eq('user_id', user_id)
-    .single()
-
-  const playerClass = signup?.class?.[0] || 'flex'
+  // Use class from modal if provided, otherwise fall back to signup first class
+  let playerClass = assignedClass || null
+  if (!playerClass) {
+    const { data: signup } = await supabaseAdmin
+      .from('signups')
+      .select('class')
+      .eq('event_id', params.id)
+      .eq('user_id', user_id)
+      .single()
+    playerClass = signup?.class?.[0] || 'flex'
+  }
 
   const { data, error } = await supabaseAdmin
     .from('draft_picks')
