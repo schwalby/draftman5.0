@@ -416,7 +416,17 @@ export default function TournamentPage() {
             </div>
           )
         })}
-        <div style={S.matchMap}>{match.map ?? 'PENDING'}{live ? ' · LIVE' : ''}</div>
+        <div style={S.matchMap}>
+          {match.map
+            ? `${match.map}${live ? ' · LIVE' : ''}`
+            : complete
+              ? (match.confirmed ? 'CONFIRMED' : 'COMPLETE')
+              : unconf
+                ? 'AWAITING CONFIRMATION'
+                : live
+                  ? 'LIVE'
+                  : 'PENDING'}
+        </div>
       </div>
     )
   }
