@@ -60,11 +60,11 @@ interface ContextMenu {
 }
 
 const CLS_COLOR: Record<string, string> = {
-  rifle: 'var(--rifle)', light: 'var(--light)', heavy: 'var(--heavy)',
+  rifle: 'var(--rifle)', light: 'var(--light)', third: 'var(--light)', heavy: 'var(--heavy)',
   sniper: 'var(--sniper)', flex: 'var(--flex)'
 }
 const CLS_SHORT: Record<string, string> = {
-  rifle: 'Ri', light: 'Lt', heavy: 'Hv', sniper: 'Sn', flex: 'Fx'
+  rifle: 'Ri', light: 'Lt', third: 'Th', heavy: 'Hv', sniper: 'Sn', flex: 'Fx'
 }
 const CLS_LABEL: Record<string, string> = {
   rifle: 'Rifle', light: 'Light', third: 'Third', heavy: 'Heavy', sniper: 'Sniper', flex: 'Flex'
