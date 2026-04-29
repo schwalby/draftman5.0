@@ -4,7 +4,7 @@ import { Providers } from '@/components/Providers'
 
 export const metadata: Metadata = {
   title: 'DRAFT MAN 5.0',
-  description: 'Tournament management for the Day of Defeat community.',
+  description: 'Draft management for the Day of Defeat community.',
   icons: {
     icon: '/favicon.ico',
     apple: '/icon.png',

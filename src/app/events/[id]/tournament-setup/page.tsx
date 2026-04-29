@@ -162,7 +162,7 @@ export default function TournamentSetupPage() {
 
       if (!res.ok) {
         const d = await res.json()
-        showToast(d.error || 'Failed to create tournament', true)
+        showToast(d.error || 'Failed to create draft', true)
         setSaving(false)
         return
       }
@@ -180,7 +180,7 @@ export default function TournamentSetupPage() {
         <Topbar items={[
           { label: 'Dashboard', href: '/dashboard' },
           { label: event?.name ?? 'Event', href: `/events/${eventId}` },
-          { label: 'Tournament Setup', href: `/events/${eventId}/tournament-setup` },
+          { label: 'Draft Setup', href: `/events/${eventId}/tournament-setup` },
         ]} />
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontFamily: 'var(--font-body)', fontSize: 13 }}>
           Loading...
@@ -194,7 +194,7 @@ export default function TournamentSetupPage() {
       <Topbar items={[
         { label: 'Dashboard', href: '/dashboard' },
         { label: event?.name ?? 'Event', href: `/events/${eventId}` },
-        { label: 'Tournament Setup', href: `/events/${eventId}/tournament-setup` },
+        { label: 'Draft Setup', href: `/events/${eventId}/tournament-setup` },
       ]} />
 
       <div style={{ minHeight: '100vh', padding: '40px 24px' }}>
@@ -219,7 +219,7 @@ export default function TournamentSetupPage() {
                   DRAFT IN PROGRESS
                 </div>
                 <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)', letterSpacing: 1 }}>
-                  A tournament has already been created for this event.
+                  A draft has already been created for this event.
                 </div>
               </div>
               <button
@@ -320,7 +320,7 @@ export default function TournamentSetupPage() {
             <div>
               <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 28, letterSpacing: '0.08em', color: 'var(--khaki)', marginBottom: 8 }}>REVIEW</h2>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.12em', marginBottom: 32, textTransform: 'uppercase' }}>
-                Confirm group assignments before starting the tournament
+                Confirm group assignments before starting the draft
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 32 }}>

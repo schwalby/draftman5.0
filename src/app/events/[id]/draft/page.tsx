@@ -613,7 +613,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
                   onClick={() => setEndDraftConfirm(true)}
                   style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}
                 >
-                  Start Tournament
+                  Start Draft
                 </button>
               )}
             </div>
@@ -818,8 +818,8 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       {endDraftConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setEndDraftConfirm(false)}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '28px 32px', minWidth: 300, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Start Tournament</div>
-            <div style={{ fontSize: 15, color: 'var(--text)', marginBottom: 8 }}>Ready to move to tournament?</div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Start Draft</div>
+            <div style={{ fontSize: 15, color: 'var(--text)', marginBottom: 8 }}>Ready to move to draft?</div>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 24 }}>
               The draft will be locked and you'll be taken to group assignment. You can still undo picks before confirming.
             </div>
