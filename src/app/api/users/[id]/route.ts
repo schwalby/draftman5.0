@@ -1,64 +1,116 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
+import { logAudit } from '@/lib/audit'
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.isOrganizer && !(session?.user as any)?.isSuperUser) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-  const { id } = params
-  const { data: user, error: userError } = await supabaseAdmin
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const supabase = getSupabaseAdmin()
+  const { data, error } = await supabase
     .from('users')
-    .select('id, ingame_name, discord_username, discord_avatar, discord_id, is_organizer, is_superuser, is_captain, created_at')
-    .eq('id', id)
-    .single()
-  if (userError) return NextResponse.json({ error: userError.message }, { status: 500 })
-  if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-  const { data: signups } = await supabaseAdmin
-    .from('signups')
-    .select('id, class, priority, ringer, captain, flagged, checked_in, signed_up_at, events(id, name, starts_at, format, status)')
-    .eq('user_id', id)
-    .order('signed_up_at', { ascending: false })
-  const { data: draftPicks } = await supabaseAdmin
-    .from('draft_picks')
-    .select('id, pick_number, class, picked_at, events(id, name, starts_at, format), teams(id, name, color)')
-    .eq('user_id', id)
-    .order('picked_at', { ascending: false })
-  return NextResponse.json({ user, signups: signups || [], draftPicks: draftPicks || [] })
+    .select('*')
+    .eq('id', params.id)
+    .maybeSingle()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  return NextResponse.json(data)
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  if (!(session?.user as any)?.isSuperUser) {
+  if (!session || !(session.user as any).isSuperUser) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const body = await req.json()
-  const allowed = ['is_organizer', 'is_superuser', 'is_captain']
-  const updates: Record<string, unknown> = {}
-  for (const key of allowed) {
-    if (body[key] !== undefined) updates[key] = body[key]
-  }
+  const supabase = getSupabaseAdmin()
 
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
-  }
-
-  const { data, error } = await supabaseAdmin
+  // Fetch target user for audit name
+  const { data: targetUser } = await supabase
     .from('users')
-    .update(updates)
+    .select('id, discord_username, ingame_name, is_organizer, is_superuser, is_captain')
+    .eq('id', params.id)
+    .maybeSingle()
+
+  const targetName = targetUser?.ingame_name || targetUser?.discord_username || params.id
+
+  // Self-demotion guard for SuperUser
+  if (body.is_superuser === false && params.id === (session.user as any).userId) {
+    return NextResponse.json({ error: 'Cannot remove your own SuperUser status' }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(body)
     .eq('id', params.id)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Audit role changes
+  const actorId = (session.user as any).userId
+  const actorName = session.user?.name ?? 'unknown'
+
+  const roleFields: Array<{ field: string; role: string }> = [
+    { field: 'is_superuser', role: 'SuperUser' },
+    { field: 'is_organizer', role: 'Draft Admin' },
+    { field: 'is_captain', role: 'Captain' },
+  ]
+
+  for (const { field, role } of roleFields) {
+    if (field in body && targetUser) {
+      const prev = (targetUser as any)[field]
+      const next = body[field]
+      if (prev !== next) {
+        await logAudit({
+          action: next ? 'role.grant' : 'role.revoke',
+          actorId,
+          actorName,
+          targetId: params.id,
+          targetName,
+          metadata: { role, prev, next },
+        })
+      }
+    }
+  }
+
   return NextResponse.json(data)
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions)
+  if (!session || !(session.user as any).isSuperUser) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const supabase = getSupabaseAdmin()
+
+  // Fetch target before delete for audit
+  const { data: targetUser } = await supabase
+    .from('users')
+    .select('id, discord_username, ingame_name')
+    .eq('id', params.id)
+    .maybeSingle()
+
+  const targetName = targetUser?.ingame_name || targetUser?.discord_username || params.id
+
+  const { error } = await supabase.from('users').delete().eq('id', params.id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAudit({
+    action: 'user.delete',
+    actorId: (session.user as any).userId,
+    actorName: session.user?.name ?? 'unknown',
+    targetId: params.id,
+    targetName,
+    metadata: {},
+  })
+
+  return NextResponse.json({ success: true })
 }

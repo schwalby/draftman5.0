@@ -2,219 +2,293 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { logAudit } from '@/lib/audit'
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string; matchId: string } }
 ) {
-  const { id: tournamentId, matchId } = params
-
   const session = await getServerSession(authOptions)
-  const isAdmin = session?.user?.isOrganizer || (session?.user as any)?.isSuperUser
-  const isCaptain = (session?.user as any)?.isCaptain
-  const botSecret = req.headers.get('x-bot-secret')
-  const validBot = botSecret === process.env.BOT_SECRET
-
-  if (!isAdmin && !isCaptain && !validBot) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
+  const supabase = getSupabaseAdmin()
   const body = await req.json()
-  const { winner_id, score_team1, score_team2, map, ktp_match_id, action, note } = body
+  const { action } = body
 
-  const { data: match, error: mErr } = await getSupabaseAdmin()
-    .from('tournament_matches')
-    .select('*')
-    .eq('id', matchId)
-    .eq('tournament_id', tournamentId)
-    .single()
-  if (mErr || !match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+  // Bot report — authenticated by secret header, not session
+  if (action === 'report') {
+    const botSecret = req.headers.get('x-bot-secret')
+    if (!botSecret || botSecret !== process.env.BOT_SECRET) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
-  // BOT REPORTS → awaiting_confirmation
-  if (action === 'report' || validBot) {
-    const { data: updated, error } = await getSupabaseAdmin()
+    const { winner_id, score_team1, score_team2, map, ktp_match_id } = body
+
+    const { data: match } = await supabase
+      .from('tournament_matches')
+      .select('*, team1:teams!team1_id(name), team2:teams!team2_id(name)')
+      .eq('id', params.matchId)
+      .maybeSingle()
+
+    const { error } = await supabase
       .from('tournament_matches')
       .update({
-        winner_id, score_team1, score_team2,
-        map: map ?? match.map,
-        ktp_match_id: ktp_match_id ?? match.ktp_match_id,
+        winner_id,
+        score_team1,
+        score_team2,
+        map: map ?? null,
+        ktp_match_id: ktp_match_id ?? null,
         status: 'awaiting_confirmation',
-        confirmed: false, confirmed_by: null, confirmed_at: null,
+        confirmed: false,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', matchId).select().single()
+      .eq('id', params.matchId)
+
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    await logEdit(matchId, null, 'bot', match, { winner_id, score_team1, score_team2 }, 'Bot reported — awaiting confirmation')
-    return NextResponse.json(updated)
+
+    // Determine winner name
+    const winnerName =
+      winner_id === match?.team1_id
+        ? (match?.team1 as any)?.name
+        : (match?.team2 as any)?.name
+
+    await logAudit({
+      action: 'match.report',
+      actorId: null,
+      actorName: 'KTP Score Bot',
+      targetId: params.matchId,
+      targetName: `${(match?.team1 as any)?.name ?? '?'} vs ${(match?.team2 as any)?.name ?? '?'}`,
+      metadata: {
+        tournament_id: params.id,
+        winner: winnerName,
+        score: `${score_team1}–${score_team2}`,
+        map: map ?? null,
+        ktp_match_id: ktp_match_id ?? null,
+      },
+    })
+
+    return NextResponse.json({ success: true })
   }
 
-  // CONFIRM → complete + recalculate
+  // All other actions require a valid session
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const isSuperUser = (session.user as any).isSuperUser
+  const isOrganizer = (session.user as any).isOrganizer
+  const isCaptain = (session.user as any).isCaptain
+  const canConfirm = isSuperUser || isOrganizer || isCaptain
+  const actorId = (session.user as any).userId
+  const actorName = session.user?.name ?? 'unknown'
+
+  const { data: match } = await supabase
+    .from('tournament_matches')
+    .select('*, team1:teams!team1_id(name), team2:teams!team2_id(name), winner:teams!winner_id(name)')
+    .eq('id', params.matchId)
+    .maybeSingle()
+
+  const matchLabel = `${(match?.team1 as any)?.name ?? '?'} vs ${(match?.team2 as any)?.name ?? '?'}`
+
   if (action === 'confirm') {
-    if (!isAdmin && !isCaptain) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    const userId = (session?.user as any)?.userId ?? null
-    const { data: updated, error } = await getSupabaseAdmin()
+    if (!canConfirm) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    const { error } = await supabase
       .from('tournament_matches')
       .update({
-        status: 'complete', confirmed: true,
-        confirmed_by: userId, confirmed_at: new Date().toISOString(),
+        status: 'complete',
+        confirmed: true,
+        confirmed_by: actorId,
+        confirmed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', matchId).select().single()
+      .eq('id', params.matchId)
+
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    await logEdit(matchId, userId, 'admin', match, { winner_id: match.winner_id, score_team1: match.score_team1, score_team2: match.score_team2 }, 'Confirmed')
-    if (match.stage === 'group' && match.group_id) await recalculateStandings(tournamentId, match.group_id)
-    if (match.next_match_id && match.winner_id) await advanceWinner(match.next_match_id, match.winner_id)
-    return NextResponse.json(updated)
+
+    // Recalculate standings if group stage
+    if (match?.group_id) {
+      await recalcStandings(supabase, params.id, match.group_id)
+    }
+
+    // Advance bracket
+    await advanceBracket(supabase, match, params.id)
+
+    await logAudit({
+      action: 'match.confirm',
+      actorId,
+      actorName,
+      targetId: params.matchId,
+      targetName: matchLabel,
+      metadata: {
+        tournament_id: params.id,
+        winner: (match?.winner as any)?.name ?? null,
+        score: `${match?.score_team1}–${match?.score_team2}`,
+        map: match?.map ?? null,
+      },
+    })
+
+    return NextResponse.json({ success: true })
   }
 
-  // REJECT → reset to pending
   if (action === 'reject') {
-    if (!isAdmin && !isCaptain) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    const userId = (session?.user as any)?.userId ?? null
-    const { data: updated, error } = await getSupabaseAdmin()
+    if (!canConfirm) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    const { reason } = body
+    const { error } = await supabase
       .from('tournament_matches')
       .update({
-        status: 'pending', winner_id: null, score_team1: null, score_team2: null,
-        confirmed: false, confirmed_by: null, confirmed_at: null,
+        status: 'pending',
+        winner_id: null,
+        score_team1: null,
+        score_team2: null,
+        confirmed: false,
+        confirmed_by: null,
+        confirmed_at: null,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', matchId).select().single()
+      .eq('id', params.matchId)
+
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    await logEdit(matchId, userId, 'admin', match, { winner_id: null, score_team1: null, score_team2: null }, note ?? 'Rejected — reset to pending')
-    if (match.stage === 'group' && match.group_id) await recalculateStandings(tournamentId, match.group_id)
-    return NextResponse.json(updated)
+
+    await logAudit({
+      action: 'match.reject',
+      actorId,
+      actorName,
+      targetId: params.matchId,
+      targetName: matchLabel,
+      metadata: { tournament_id: params.id, reason: reason ?? null },
+    })
+
+    return NextResponse.json({ success: true })
   }
 
-  // ADMIN MANUAL EDIT → complete immediately (no confirmation needed)
   if (action === 'edit') {
-    if (!isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    const userId = (session?.user as any)?.userId ?? null
-    const { data: updated, error } = await getSupabaseAdmin()
+    if (!isOrganizer && !isSuperUser) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { winner_id, score_team1, score_team2, map, reason } = body
+
+    // Save to audit edits table
+    await supabase.from('tournament_match_edits').insert({
+      match_id: params.matchId,
+      edited_by: actorId,
+      source: 'manual',
+      prev_winner_id: match?.winner_id,
+      new_winner_id: winner_id,
+      prev_score_team1: match?.score_team1,
+      prev_score_team2: match?.score_team2,
+      new_score_team1: score_team1,
+      new_score_team2: score_team2,
+      note: reason ?? null,
+    })
+
+    const { error } = await supabase
       .from('tournament_matches')
       .update({
-        winner_id, score_team1, score_team2,
-        map: map ?? match.map,
-        status: 'complete', confirmed: true,
-        confirmed_by: userId, confirmed_at: new Date().toISOString(),
+        winner_id,
+        score_team1,
+        score_team2,
+        map: map ?? match?.map,
+        status: 'complete',
+        confirmed: true,
+        confirmed_by: actorId,
+        confirmed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', matchId).select().single()
+      .eq('id', params.matchId)
+
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    await logEdit(matchId, userId, 'admin', match, { winner_id, score_team1, score_team2 }, note ?? 'Manual admin override')
-    if (match.stage === 'group' && match.group_id) await recalculateStandings(tournamentId, match.group_id)
-    if (match.next_match_id && winner_id) await advanceWinner(match.next_match_id, winner_id)
-    return NextResponse.json(updated)
+
+    if (match?.group_id) {
+      await recalcStandings(supabase, params.id, match.group_id)
+    }
+
+    await advanceBracket(supabase, { ...match, winner_id, score_team1, score_team2 }, params.id)
+
+    // Determine winner/loser names
+    const winnerName =
+      winner_id === match?.team1_id
+        ? (match?.team1 as any)?.name
+        : (match?.team2 as any)?.name
+
+    await logAudit({
+      action: 'match.edit',
+      actorId,
+      actorName,
+      targetId: params.matchId,
+      targetName: matchLabel,
+      metadata: {
+        tournament_id: params.id,
+        winner: winnerName,
+        prev_score: `${match?.score_team1 ?? '?'}–${match?.score_team2 ?? '?'}`,
+        new_score: `${score_team1}–${score_team2}`,
+        map: map ?? match?.map ?? null,
+        reason: reason ?? null,
+      },
+    })
+
+    return NextResponse.json({ success: true })
   }
 
-  return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
 
-async function logEdit(
-  matchId: string, editedBy: string | null, source: string,
-  prev: any, next: any, note: string
-) {
-  await getSupabaseAdmin().from('tournament_match_edits').insert({
-    match_id: matchId, edited_by: editedBy, source,
-    prev_winner_id: prev.winner_id, prev_score_team1: prev.score_team1, prev_score_team2: prev.score_team2,
-    new_winner_id: next.winner_id, new_score_team1: next.score_team1, new_score_team2: next.score_team2,
-    note,
-  })
-}
+// ── Helpers ────────────────────────────────────────────────────────────────
 
-async function recalculateStandings(tournamentId: string, groupId: string) {
-  console.log(`[standings] recalculating — tournament=${tournamentId} group=${groupId}`)
-
-  const { data: matches, error: matchErr } = await getSupabaseAdmin()
+async function recalcStandings(supabase: any, tournamentId: string, groupId: string) {
+  const { data: matches } = await supabase
     .from('tournament_matches')
     .select('*')
     .eq('group_id', groupId)
     .eq('status', 'complete')
 
-  if (matchErr) {
-    console.error('[standings] error fetching matches:', matchErr.message)
-    return
-  }
-  console.log(`[standings] found ${matches?.length ?? 0} complete matches`)
+  if (!matches) return
 
-  const { data: groupTeams, error: teamErr } = await getSupabaseAdmin()
+  const { data: groupTeams } = await supabase
     .from('tournament_group_teams')
     .select('team_id')
     .eq('group_id', groupId)
 
-  if (teamErr) {
-    console.error('[standings] error fetching group teams:', teamErr.message)
-    return
-  }
-  console.log(`[standings] found ${groupTeams?.length ?? 0} teams in group`)
+  if (!groupTeams) return
 
-  if (!matches || !groupTeams) {
-    console.error('[standings] missing matches or groupTeams — aborting')
-    return
-  }
-
-  const standings: Record<string, { wins: number; losses: number; points_for: number; points_against: number }> = {}
-  for (const { team_id } of groupTeams) {
-    standings[team_id] = { wins: 0, losses: 0, points_for: 0, points_against: 0 }
+  const stats: Record<string, { wins: number; losses: number; pf: number; pa: number }> = {}
+  for (const gt of groupTeams) {
+    stats[gt.team_id] = { wins: 0, losses: 0, pf: 0, pa: 0 }
   }
 
   for (const m of matches) {
-    if (!m.team1_id || !m.team2_id || !m.winner_id) {
-      console.log(`[standings] skipping match ${m.id} — missing team or winner`)
-      continue
-    }
+    if (!m.winner_id || !m.team1_id || !m.team2_id) continue
     const loserId = m.winner_id === m.team1_id ? m.team2_id : m.team1_id
-    if (standings[m.winner_id]) {
-      standings[m.winner_id].wins++
-      standings[m.winner_id].points_for += m.winner_id === m.team1_id ? (m.score_team1 ?? 0) : (m.score_team2 ?? 0)
-      standings[m.winner_id].points_against += m.winner_id === m.team1_id ? (m.score_team2 ?? 0) : (m.score_team1 ?? 0)
-    } else {
-      console.log(`[standings] winner ${m.winner_id} not found in group standings`)
+    if (stats[m.winner_id]) {
+      stats[m.winner_id].wins++
+      stats[m.winner_id].pf += m.score_team1 ?? 0
+      stats[m.winner_id].pa += m.score_team2 ?? 0
     }
-    if (standings[loserId]) {
-      standings[loserId].losses++
-      standings[loserId].points_for += loserId === m.team1_id ? (m.score_team1 ?? 0) : (m.score_team2 ?? 0)
-      standings[loserId].points_against += loserId === m.team1_id ? (m.score_team2 ?? 0) : (m.score_team1 ?? 0)
-    } else {
-      console.log(`[standings] loser ${loserId} not found in group standings`)
+    if (stats[loserId]) {
+      stats[loserId].losses++
+      stats[loserId].pf += m.score_team2 ?? 0
+      stats[loserId].pa += m.score_team1 ?? 0
     }
   }
 
-  console.log('[standings] computed:', JSON.stringify(standings))
-
-  const sorted = Object.entries(standings).sort(([, a], [, b]) => {
-    const wDiff = b.wins - a.wins
-    if (wDiff !== 0) return wDiff
-    return (b.points_for - b.points_against) - (a.points_for - a.points_against)
-  })
-
-  for (let i = 0; i < sorted.length; i++) {
-    const [team_id, s] = sorted[i]
-    const { error: updateErr } = await getSupabaseAdmin()
+  for (const [teamId, s] of Object.entries(stats)) {
+    await supabase
       .from('tournament_standings')
-      .update({ ...s, seed: i + 1, updated_at: new Date().toISOString() })
+      .update({ wins: s.wins, losses: s.losses, points_for: s.pf, points_against: s.pa })
       .eq('tournament_id', tournamentId)
-      .eq('group_id', groupId)
-      .eq('team_id', team_id)
-    if (updateErr) {
-      console.error(`[standings] failed to update team ${team_id}:`, updateErr.message)
-    } else {
-      console.log(`[standings] updated team ${team_id} seed=${i + 1} wins=${s.wins} losses=${s.losses}`)
-    }
+      .eq('team_id', teamId)
   }
-
-  console.log('[standings] recalculation complete')
 }
 
-async function advanceWinner(nextMatchId: string, winnerId: string) {
-  const { data: nextMatch } = await getSupabaseAdmin()
+async function advanceBracket(supabase: any, match: any, tournamentId: string) {
+  if (!match?.next_match_id || !match?.winner_id) return
+  const { data: nextMatch } = await supabase
     .from('tournament_matches')
     .select('team1_id, team2_id')
-    .eq('id', nextMatchId)
-    .single()
+    .eq('id', match.next_match_id)
+    .maybeSingle()
   if (!nextMatch) return
-  const slot = !nextMatch.team1_id ? 'team1_id' : 'team2_id'
-  await getSupabaseAdmin()
+  const updateField = nextMatch.team1_id ? 'team2_id' : 'team1_id'
+  await supabase
     .from('tournament_matches')
-    .update({ [slot]: winnerId, updated_at: new Date().toISOString() })
-    .eq('id', nextMatchId)
+    .update({ [updateField]: match.winner_id })
+    .eq('id', match.next_match_id)
 }
