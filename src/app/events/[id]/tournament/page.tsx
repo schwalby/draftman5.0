@@ -747,6 +747,7 @@ export default function TournamentPage() {
             <button style={S.ctxItem} onClick={() => openModal('reassign', ctx.match)}>⊞ Reassign teams</button>
           </>}
           {ctx.type === 'match-pending' && <>
+            <button style={S.ctxItem} onClick={() => openModal('bot-report', ctx.match)}>⚡ Simulate Bot Report</button>
             <button style={S.ctxItem} onClick={() => openModal('edit-match', ctx.match)}>✎ Enter result manually</button>
             <button style={S.ctxItem} onClick={() => openModal('reassign', ctx.match)}>⊞ Reassign teams</button>
           </>}
@@ -812,6 +813,40 @@ export default function TournamentPage() {
                 <div style={S.modalActions}>
                   <button style={{ ...S.btn, ...S.btnGhost }} onClick={() => setModal(null)}>CANCEL</button>
                   <button style={{ ...S.btn, ...S.btnPrimary }} onClick={() => editMatch(modal.match!)} disabled={saving}>SAVE</button>
+                </div>
+              </>
+            )}
+            {modal.type === 'bot-report' && modal.match && (
+              <>
+                <div style={S.modalTitle}>⚡ SIMULATE BOT REPORT</div>
+                <div style={S.modalSub}>{modal.match.team1?.name ?? 'TBD'} vs {modal.match.team2?.name ?? 'TBD'}</div>
+                <div style={S.modalWarning}>Submits scores as if the KTP Score Bot reported them. Match goes to Awaiting Confirmation.</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                  <div>
+                    <label style={S.modalLabel}>{modal.match.team1?.name ?? 'Team 1'} SCORE</label>
+                    <input style={S.modalInput} type="number" min={0} value={editScore1} onChange={e => setEditScore1(e.target.value)} placeholder="e.g. 362" />
+                  </div>
+                  <div>
+                    <label style={S.modalLabel}>{modal.match.team2?.name ?? 'Team 2'} SCORE</label>
+                    <input style={S.modalInput} type="number" min={0} value={editScore2} onChange={e => setEditScore2(e.target.value)} placeholder="e.g. 211" />
+                  </div>
+                </div>
+                <div style={S.modalActions}>
+                  <button style={{ ...S.btn, ...S.btnGhost }} onClick={() => setModal(null)}>CANCEL</button>
+                  <button
+                    style={{ ...S.btn, ...S.btnPrimary }}
+                    disabled={saving || editScore1 === '' || editScore2 === ''}
+                    onClick={async () => {
+                      setSaving(true)
+                      const ok = await patchMatch(modal.match!.id, {
+                        action: 'report',
+                        score_team1: parseInt(editScore1),
+                        score_team2: parseInt(editScore2),
+                      })
+                      setSaving(false)
+                      if (ok) { setModal(null); setEditScore1(''); setEditScore2('') }
+                    }}
+                  >SUBMIT REPORT</button>
                 </div>
               </>
             )}
