@@ -48,6 +48,7 @@ export default function TournamentPage() {
   const canConfirm = isAdmin || isCaptain
 
   const [tournament, setTournament] = useState<Tournament | null>(null)
+  const [eventName, setEventName] = useState<string>('')
   const [groups, setGroups] = useState<Group[]>([])
   const [groupTeams, setGroupTeams] = useState<any[]>([])
   const [matches, setMatches] = useState<Match[]>([])
@@ -88,6 +89,13 @@ export default function TournamentPage() {
       .select('*')
       .eq('event_id', eventId)
       .maybeSingle()
+
+    const { data: ev } = await sb
+      .from('events')
+      .select('name')
+      .eq('id', eventId)
+      .maybeSingle()
+    if (ev?.name) setEventName(ev.name)
     if (!t) { setLoading(false); return }
 
     const { data: grps } = await sb.from('tournament_groups').select('*').eq('tournament_id', t.id).order('label')
@@ -481,7 +489,7 @@ export default function TournamentPage() {
       <div style={S.page}>
         <div style={S.header}>
           <div>
-            <div style={S.title}>DRAFT</div>
+            <div style={S.title}>DRAFT{eventName ? ` · ${eventName}` : ''}</div>
             <div style={S.sub}>{groups.length} GROUPS · ROUND ROBIN + PLAYOFFS</div>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
