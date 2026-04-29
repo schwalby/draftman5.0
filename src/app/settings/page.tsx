@@ -54,6 +54,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [seedLog, setSeedLog] = useState<string[]>([])
+  const [showTestAccounts, setShowTestAccounts] = useState(false)
 
   // ── Auth gate ──────────────────────────────────────────────────
   // We check is_superuser from the DB directly on load — not from session
@@ -153,6 +154,9 @@ export default function SettingsPage() {
       filter === 'superuser' ? u.is_superuser : true
     return matchSearch && matchFilter
   })
+
+  const realUsers = visible.filter(u => !u.discord_id?.startsWith('1000000000000000'))
+  const fakeUsers = visible.filter(u => u.discord_id?.startsWith('1000000000000000'))
 
   // ── Modal content ──────────────────────────────────────────────
   const modalFieldLabel = modal?.field === 'is_organizer' ? 'Draft Admin' : 'SuperUser'
@@ -270,13 +274,13 @@ export default function SettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {visible.length === 0 ? (
+              {realUsers.length === 0 ? (
                 <tr>
                   <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-dim)', padding: 28, fontSize: 12 }}>
                     No users match this filter.
                   </td>
                 </tr>
-              ) : visible.map((u, idx) => {
+              ) : realUsers.map((u, idx) => {
                 const isSelf = u.id === session?.user?.userId
                 const badge = roleBadge(u)
                 const pfp = avatarUrl(u)
@@ -284,7 +288,7 @@ export default function SettingsPage() {
                 const initial = displayName[0].toUpperCase()
 
                 return (
-                  <tr key={u.id} style={{ borderBottom: idx < visible.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <tr key={u.id} style={{ borderBottom: idx < realUsers.length - 1 ? '1px solid var(--border)' : 'none' }}>
 
                     {/* Player cell */}
                     <td style={{ padding: '12px 16px' }}>
@@ -346,6 +350,72 @@ export default function SettingsPage() {
                       )}
                     </td>
 
+                  </tr>
+                )
+              })}
+
+              {/* Test accounts toggle row */}
+              {fakeUsers.length > 0 && (
+                <tr>
+                  <td colSpan={5} style={{ padding: 0 }}>
+                    <button
+                      onClick={() => setShowTestAccounts(p => !p)}
+                      style={{
+                        width: '100%', padding: '10px 16px', background: 'var(--surface2)',
+                        border: 'none', borderTop: '1px solid var(--border)',
+                        color: 'var(--text-dim)', fontFamily: 'var(--font-body)', fontSize: 11,
+                        cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8,
+                      }}
+                    >
+                      <span style={{ fontSize: 10 }}>{showTestAccounts ? '▾' : '▸'}</span>
+                      {showTestAccounts ? 'Hide' : 'Show'} test accounts ({fakeUsers.length})
+                    </button>
+                  </td>
+                </tr>
+              )}
+
+              {/* Fake users — collapsed by default */}
+              {showTestAccounts && fakeUsers.map((u, idx) => {
+                const isSelf = u.id === session?.user?.userId
+                const badge = roleBadge(u)
+                const pfp = avatarUrl(u)
+                const displayName = u.ingame_name || u.discord_username
+                const initial = displayName[0].toUpperCase()
+
+                return (
+                  <tr key={u.id} style={{ borderBottom: idx < fakeUsers.length - 1 ? '1px solid var(--border)' : 'none', opacity: 0.6 }}>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%',
+                          background: 'var(--surface2)', border: '1px solid var(--border)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontFamily: 'var(--font-heading)', fontSize: 11, color: 'var(--text-dim)',
+                          flexShrink: 0,
+                        }}>
+                          {pfp ? <img src={pfp} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initial}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{displayName}</div>
+                          <div style={{ fontSize: 10, color: 'var(--text-dim)', opacity: 0.6 }}>{u.discord_username}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{joinedDate(u.created_at)}</span>
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={{ fontFamily: 'var(--font-heading)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '2px 6px', borderRadius: 2, color: 'var(--text-dim)', background: 'transparent', border: '1px solid var(--border)', display: 'inline-block' }}>test</span>
+                    </td>
+                    <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                      <Toggle checked={u.is_organizer} color="green" onChange={val => requestToggle(u.id, 'is_organizer', val, displayName)} />
+                    </td>
+                    <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                      {isSelf
+                        ? <div style={{ position: 'relative', display: 'inline-flex' }}><Toggle checked={true} disabled /></div>
+                        : <Toggle checked={u.is_superuser} onChange={val => requestToggle(u.id, 'is_superuser', val, displayName)} />
+                      }
+                    </td>
                   </tr>
                 )
               })}
