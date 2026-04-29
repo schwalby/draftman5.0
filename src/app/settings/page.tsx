@@ -174,103 +174,16 @@ export default function SettingsPage() {
     const log = (msg: string) => setSeedLog(prev => [...prev, msg])
 
     try {
-      // 1. Fetch fake users
-      log('Fetching fake users...')
-      const usersRes = await fetch('/api/users')
-      const allUsers: User[] = await usersRes.json()
-      const fakeUsers = allUsers.filter(u => u.discord_id?.startsWith('1000000000000000'))
-      if (fakeUsers.length < 10) { log(`❌ Need at least 10 fake users, found ${fakeUsers.length}`); setSeeding(false); return }
-      log(`Found ${fakeUsers.length} fake users`)
-
-      // 2. Create event
-      log('Creating test event...')
-      const now = new Date()
-      const draftDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-      const eventRes = await fetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: `[TEST] Draft ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
-          type: 'draft',
-          format: '6v6',
-          status: 'scheduled',
-          half_length: 20,
-          capacity: 48,
-          slots_rifle: 2,
-          slots_third: 1,
-          slots_heavy: 2,
-          slots_sniper: 1,
-          maps: [],
-          starts_at: draftDate.toISOString(),
-          signup_opens_at: now.toISOString(),
-          checkin_opens_at: draftDate.toISOString(),
-          notes: 'Auto-generated test event — safe to delete',
-        }),
-      })
-      if (!eventRes.ok) { log('❌ Failed to create event'); setSeeding(false); return }
-      const eventData = await eventRes.json()
-      const event = eventData.event ?? eventData
-      log(`✓ Event created: ${event.name}`)
-
-      // 3. Sign up fake users with random classes
-      log('Signing up players...')
-      const classes = ['rifle', 'third', 'heavy', 'sniper', 'flex']
-      const twoClassPairs = [['rifle','third'],['rifle','heavy'],['third','heavy'],['heavy','sniper'],['rifle','sniper']]
-      let signedUp = 0
-      for (const u of fakeUsers) {
-        const useTwoClasses = Math.random() > 0.5
-        const cls = useTwoClasses
-          ? twoClassPairs[Math.floor(Math.random() * twoClassPairs.length)]
-          : [classes[Math.floor(Math.random() * classes.length)]]
-        const r = await fetch(`/api/events/${event.id}/signups`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: u.id, class: cls }),
-        })
-        if (r.ok) signedUp++
-      }
-      log(`✓ ${signedUp} players signed up`)
-
-      // 4. Create 8 teams with captains from first 8 fake users
-      log('Creating 8 teams...')
-      const NATO = ['Alpha','Bravo','Charlie','Delta','Echo','Foxtrot','Golf','Hotel']
-      const COLORS = ['#c0392b','#2980b9','#27ae60','#8e44ad','#d35400','#16a085','#2c3e50','#7f8c8d']
-      const teamIds: string[] = []
-      for (let i = 0; i < 8; i++) {
-        const captain = fakeUsers[i]
-        const r = await fetch(`/api/events/${event.id}/teams`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: NATO[i], color: COLORS[i], captain_id: captain.id, pick_order: i + 1 }),
-        })
-        if (r.ok) { const d = await r.json(); teamIds.push(d.team?.id || d.id) }
-      }
-      log(`✓ 8 teams created`)
-
-      // 5. Auto-draft remaining players (snake draft)
-      log('Running auto-draft...')
-      const pool = fakeUsers.slice(8) // skip captains
-      const SLOTS = 5
-      const totalPicks = 8 * SLOTS
-      let pickNum = 1
-      let poolIdx = 0
-      for (let pick = 0; pick < totalPicks && poolIdx < pool.length; pick++) {
-        const round = Math.floor(pick / 8)
-        const pos = pick % 8
-        const teamIdx = round % 2 === 0 ? pos : 7 - pos
-        const teamId = teamIds[teamIdx]
-        const player = pool[poolIdx++]
-        const cls = ['rifle','third','heavy','sniper','flex'][Math.floor(Math.random() * 5)]
-        await fetch(`/api/draft/${event.id}/picks`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: player.id, team_id: teamId, pick_number: pickNum++, class: cls }),
-        })
-      }
-      log(`✓ Draft complete`)
-      log('✓ Done! Redirecting to tournament setup...')
-
-      setTimeout(() => router.push(`/events/${event.id}/tournament-setup`), 1000)
+      log('Generating test draft...')
+      const res = await fetch('/api/admin/seed', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { log(`❌ ${data.error ?? 'Failed'}`); setSeeding(false); return }
+      log(`✓ Event created: ${data.eventName}`)
+      log('✓ Players signed up')
+      log('✓ Teams created')
+      log('✓ Draft complete')
+      log('Redirecting to tournament setup...')
+      setTimeout(() => router.push(`/events/${data.eventId}/tournament-setup`), 800)
     } catch (e) {
       log(`❌ Error: ${String(e)}`)
       setSeeding(false)
