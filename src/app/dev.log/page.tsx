@@ -95,6 +95,13 @@ const entries: Entry[] = [
     body: 'Renamed Tournament → Draft throughout the UI. Fixed the event status flow so events go to in_progress on start, not completed. Built a declare champion feature. Dashboard now shows a completed section with the winner inline. Smart navigation button added to the event detail page. Per-team slot filtering added to the draft pool. Third class fully added as a distinct type with its own label, color, and render logic. Class assignment in the confirm modal partially working — picker not triggering for multi-class players, flagged for next session.',
     tags: ['Terminology sweep', 'Declare champion', 'Draft pool filter', 'Third class', 'Status flow fix'],
   },
+  {
+    session: '13',
+    date: 'April 29, 2026',
+    heading: 'Bugs squashed, dev tools land.',
+    body: 'Fixed two long-standing draft board bugs: captain\'s signup class now counts against team slot totals so their role can\'t be drafted twice, and the confirm modal class picker now correctly shows options for multi-class players. Bracket match cards got a status bar overhaul — CONFIRMED, COMPLETE, AWAITING CONFIRMATION, LIVE, and PENDING all render correctly. Event name added to the draft heading so you always know which draft you\'re in. Manage Players drawer wired into the draft board with a dedicated button in the control bar. SignupDrawer updated with a capacity prop (no more hardcoded 48), Third class in the legend, and an onUpdate callback that refreshes the pool after a ringer is promoted. Settings page now splits real and fake users, with test accounts collapsed behind a toggle by default. Dev tools section added: one-click seed tool generates a full 6v6 test draft via a dedicated /api/admin/seed route that bypasses the session user check. Dev mode auto-grant added — NEXT_PUBLIC_DEV_MODE=true automatically gives Draft Admin access to any real user on first login, disabled by removing the env var before go-live. Simulate Bot Report added as a right-click option on pending bracket matches — auto-generates a random score and submits it as if the KTP bot reported it, sending the match to Awaiting Confirmation for full queue testing.',
+    tags: ['Captain slot fix', 'Class picker fix', 'Bracket status bar', 'Manage Players', 'Seed tool', 'Dev mode', 'Simulate bot report'],
+  },
 ];
 
 export default function DevLog() {
