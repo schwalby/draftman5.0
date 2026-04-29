@@ -658,7 +658,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 400, fontSize: 13, color: 'var(--khaki)' }}>{available.length}</span>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '4px 10px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text)', outline: 'none', width: 150 }} />
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-                {['all', 'rifle', 'light', 'heavy', 'sniper', 'flex'].filter(cls => !isClassFull(cls)).map(cls => (
+                {['all', 'rifle', 'third', 'heavy', 'sniper', 'flex'].filter(cls => !isClassFull(cls)).map(cls => (
                   <button key={cls} onClick={() => setClassFilter(cls)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 2, cursor: 'pointer', transition: 'all 0.15s', border: classFilter === cls ? '1px solid var(--khaki)' : '1px solid var(--border)', color: classFilter === cls ? 'var(--khaki)' : cls === 'all' ? 'var(--text-dim)' : CLS_COLOR[cls], background: classFilter === cls ? 'rgba(200,184,122,0.07)' : 'transparent' }}>{cls === 'all' ? 'All' : CLS_LABEL[cls]}</button>
                 ))}
               </div>
