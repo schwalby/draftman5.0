@@ -13,7 +13,7 @@ export async function GET() {
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
     .from('users')
-    .select('id, ingame_name, is_organizer, is_superuser, steam_id')
+    .select('id, ingame_name, is_organizer, is_superuser, steam_id, steam_name, steam_avatar')
     .eq('id', session.user.userId)
     .maybeSingle()
 
@@ -30,12 +30,13 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json()
   const allowed: Record<string, unknown> = {}
 
-  // Handle Steam ID — validate and normalize before saving
   if ('steam_id' in body) {
     const raw = (body.steam_id ?? '').toString().trim()
 
     if (!raw) {
       allowed.steam_id = null
+      allowed.steam_name = null
+      allowed.steam_avatar = null
     } else {
       const id64 = toSteamId64(raw)
       if (!id64) {
@@ -45,8 +46,8 @@ export async function PATCH(req: NextRequest) {
         )
       }
 
-      const exists = await validateSteamId64(id64)
-      if (!exists) {
+      const player = await validateSteamId64(id64)
+      if (!player) {
         return NextResponse.json(
           { error: 'Steam account not found. Double-check your Steam ID.' },
           { status: 400 }
@@ -54,6 +55,8 @@ export async function PATCH(req: NextRequest) {
       }
 
       allowed.steam_id = id64
+      allowed.steam_name = player.personaname || null
+      allowed.steam_avatar = player.avatarfull || null
     }
   }
 

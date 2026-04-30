@@ -42,6 +42,8 @@ export default function PortalPage() {
   // Steam ID state
   const [steamId, setSteamId] = useState<string>('')
   const [steamIdInput, setSteamIdInput] = useState<string>('')
+  const [steamName, setSteamName] = useState<string>('')
+  const [steamAvatar, setSteamAvatar] = useState<string>('')
   const [steamEditing, setSteamEditing] = useState(false)
   const [steamSaving, setSteamSaving] = useState(false)
   const [steamError, setSteamError] = useState<string | null>(null)
@@ -71,6 +73,8 @@ export default function PortalPage() {
         if (data?.steam_id) {
           setSteamId(data.steam_id)
           setSteamIdInput(data.steam_id)
+          setSteamName(data.steam_name ?? '')
+          setSteamAvatar(data.steam_avatar ?? '')
         }
       })
   }, [status])
@@ -90,7 +94,10 @@ export default function PortalPage() {
         const err = await res.json()
         setSteamError(err.error ?? 'Failed to save')
       } else {
-        setSteamId(val)
+        const saved = await res.json()
+        setSteamId(saved.steam_id ?? val)
+        setSteamName(saved.steam_name ?? '')
+        setSteamAvatar(saved.steam_avatar ?? '')
         setSteamEditing(false)
       }
     } catch {
@@ -348,34 +355,51 @@ export default function PortalPage() {
                   </div>
                 </div>
               ) : (
-                /* State: saved, read-only */
+                /* State: saved — show Steam profile card */
                 <div style={{
                   border: '1px solid var(--border)',
                   borderRadius: 3,
                   padding: '10px 12px',
                   background: 'var(--surface)',
+                  display: 'flex',
+                  gap: 10,
+                  alignItems: 'center',
                 }}>
-                  <div style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: 11,
-                    color: 'var(--text-dim)',
-                    marginBottom: 7,
-                    wordBreak: 'break-all',
-                  }}>
-                    {steamId}
+                  {/* Avatar */}
+                  {steamAvatar ? (
+                    <img
+                      src={steamAvatar}
+                      alt={steamName || 'Steam avatar'}
+                      style={{ width: 44, height: 44, borderRadius: 2, border: '1px solid rgba(200,184,122,0.25)', flexShrink: 0, objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div style={{ width: 44, height: 44, borderRadius: 2, border: '1px dashed rgba(200,184,122,0.2)', background: 'var(--bg)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, opacity: 0.3 }}>
+                      &#128100;
+                    </div>
+                  )}
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {steamName && (
+                      <div style={{ fontSize: 12, color: 'var(--text)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {steamName}
+                      </div>
+                    )}
+                    <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--text-dim)', marginBottom: 7, wordBreak: 'break-all' }}>
+                      {steamId}
+                    </div>
+                    <button
+                      onClick={() => { setSteamIdInput(steamId); setSteamEditing(true); setSteamError(null) }}
+                      style={{
+                        fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300,
+                        letterSpacing: '0.1em', textTransform: 'uppercase',
+                        padding: '3px 9px', borderRadius: 2, cursor: 'pointer',
+                        border: '1px solid var(--border)',
+                        background: 'transparent', color: 'var(--text-dim)',
+                      }}
+                    >
+                      Edit
+                    </button>
                   </div>
-                  <button
-                    onClick={() => { setSteamIdInput(steamId); setSteamEditing(true); setSteamError(null) }}
-                    style={{
-                      fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300,
-                      letterSpacing: '0.1em', textTransform: 'uppercase',
-                      padding: '4px 10px', borderRadius: 2, cursor: 'pointer',
-                      border: '1px solid var(--border)',
-                      background: 'transparent', color: 'var(--text-dim)',
-                    }}
-                  >
-                    Edit
-                  </button>
                 </div>
               )}
             </div>

@@ -11,6 +11,13 @@
 
 const STEAM_ID64_BASE = BigInt('76561197960265728')
 
+export interface SteamPlayer {
+  steamid: string
+  personaname: string
+  avatarfull: string
+  profileurl: string
+}
+
 /**
  * Convert any supported Steam ID format to SteamID64 string.
  * Returns null if the format is unrecognized.
@@ -37,24 +44,24 @@ export function toSteamId64(input: string): string | null {
 
 /**
  * Validate a SteamID64 against the Steam Web API.
- * Returns true if the account exists, false otherwise.
+ * Returns the player data if found, null if not found.
  */
-export async function validateSteamId64(steamId64: string): Promise<boolean> {
+export async function validateSteamId64(steamId64: string): Promise<SteamPlayer | null> {
   const apiKey = process.env.STEAM_API_KEY
   if (!apiKey) {
     console.warn('[steam] STEAM_API_KEY not set — skipping validation')
-    return true // fail open if key missing
+    return { steamid: steamId64, personaname: '', avatarfull: '', profileurl: '' }
   }
 
   try {
     const url = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${apiKey}&steamids=${steamId64}`
     const res = await fetch(url)
-    if (!res.ok) return false
+    if (!res.ok) return null
     const data = await res.json()
-    const players = data?.response?.players ?? []
-    return players.length > 0
+    const players: SteamPlayer[] = data?.response?.players ?? []
+    return players.length > 0 ? players[0] : null
   } catch (err) {
     console.error('[steam] Validation error:', err)
-    return false
+    return null
   }
 }
