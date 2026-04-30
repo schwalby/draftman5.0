@@ -33,6 +33,7 @@ interface FormState {
   signupOpens: string;
   checkinTime: string;
   notes: string;
+  streamUrl: string;
 }
 
 const initialState: FormState = {
@@ -47,6 +48,7 @@ const initialState: FormState = {
   signupOpens: '',
   checkinTime: '',
   notes: '',
+  streamUrl: '',
 };
 
 function buildCheckinAt(date: string, time: string): string | null {
@@ -91,6 +93,7 @@ export default function NewEventPage() {
     signup_opens_at: f.signupOpens || null,
     checkin_opens_at: buildCheckinAt(f.draftDate, f.checkinTime),
     notes: f.notes || null,
+    stream_url: f.streamUrl || null,
     status: 'draft',
   });
 
@@ -377,6 +380,18 @@ export default function NewEventPage() {
                 value={form.notes}
                 onChange={e => updateForm({ notes: e.target.value })}
               />
+            </Field>
+
+            <Field label="Stream URL (optional)">
+              <input
+                style={inputStyle}
+                placeholder="https://twitch.tv/yourchannel"
+                value={form.streamUrl}
+                onChange={e => updateForm({ streamUrl: e.target.value })}
+              />
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 5, letterSpacing: '0.04em' }}>
+                Twitch or YouTube — shown to players on the draft holding page.
+              </div>
             </Field>
 
             <BtnRow>

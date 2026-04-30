@@ -36,6 +36,7 @@ interface FormState {
   signupOpens: string;
   checkinOpens: string;
   notes: string;
+  streamUrl: string;
 }
 
 const toLocalDatetime = (iso: string | null) => {
@@ -83,6 +84,7 @@ export default function EditEventPage() {
           signupOpens: toLocalDatetime(ev.signup_opens_at),
           checkinOpens: toLocalDatetime(ev.checkin_opens_at),
           notes: ev.notes || '',
+          streamUrl: ev.stream_url || '',
         });
         setLoading(false);
       });
@@ -104,6 +106,7 @@ export default function EditEventPage() {
     signup_opens_at: f.signupOpens || null,
     checkin_opens_at: f.checkinOpens || null,
     notes: f.notes || null,
+    stream_url: f.streamUrl || null,
   });
 
   const saveToDb = useCallback(async (f: FormState) => {
@@ -275,6 +278,18 @@ export default function EditEventPage() {
 
             <Field label="Notes (optional)">
               <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 80 }} placeholder="Any additional info for players..." value={form.notes} onChange={e => updateForm({ notes: e.target.value })} />
+            </Field>
+
+            <Field label="Stream URL (optional)">
+              <input
+                style={inputStyle}
+                placeholder="https://twitch.tv/yourchannel"
+                value={form.streamUrl}
+                onChange={e => updateForm({ streamUrl: e.target.value })}
+              />
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 5, letterSpacing: '0.04em' }}>
+                Twitch or YouTube — shown to players on the draft holding page.
+              </div>
             </Field>
 
             <BtnRow>
