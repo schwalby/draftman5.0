@@ -234,10 +234,10 @@ async function findMatch(parsed: ParsedEmbed): Promise<MatchResult | null> {
   }
 
   // Find the teams for our players
-  const matchedTeamIds = [...new Set(teamPlayers
+  const matchedTeamIds = Array.from(new Set(teamPlayers
     .filter(tp => (tp.teams as any)?.event_id === best.eventId)
     .map(tp => tp.team_id)
-  )]
+  ))
 
   // Find the tournament match that involves these teams
   const targetMatch = matches.find(m =>
