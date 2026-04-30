@@ -109,6 +109,13 @@ const entries: Entry[] = [
     body: 'Three major systems shipped in one session. The audit log captures every meaningful action on the platform — match edits, confirmations, rejections, role changes, signup flags, notes, ringer toggles, user deletes, and champion declarations — all written to a new audit_log table via a shared logAudit() helper. The log page lives at a hidden URL, SuperUser only, with keyword search and action filtering. Steam ID collection was added next: players enter their Steam ID on the portal, it validates against the Steam Web API, stores the raw input for display and SteamID64 for bot matching, and pulls their Steam avatar and display name automatically. Event signup is now gated — no Steam ID, no signup. Finally, DRAFT_MAN5.0 went live as a Discord bot: it watches the #results-screenshots channel, parses KTP Score Bot embeds on match complete, extracts Steam IDs, cross-references drafted rosters, and auto-reports confirmed results to the API. The bot runs as a separate Railway service and was online and watching the channel before the session ended.',
     tags: ['Audit log', 'Steam ID validation', 'Steam avatar', 'Signup gate', 'Discord bot live', 'Railway bot service'],
   },
+  {
+    session: '15',
+    date: 'April 30, 2026',
+    heading: 'The whole nav gets a spine.',
+    body: 'Topbar fully standardized across every page — sidebar ripped out of dashboard, portal, and events. Nav links now derived automatically from session role, no props needed. The items prop is gone, replaced with a breadcrumbs prop across all 11 affected pages. Portal page redesigned: welcome header, two-column profile row (Discord card left, Steam card right with avatar, Steam name, raw ID, and edit button), and open event cards with action buttons pinned to the bottom. Draft holding page fully designed but not yet built — role-gated access to the draft board, with a player-facing page that renders in three states: stream embed with pick ticker and secondary streams row, a streamless fallback with pick count, and an auto-flip to team reveal when the draft completes via Supabase realtime. Requires a stream_url column on the events table and a field in the wizard and edit page.',
+    tags: ['Nav standardization', 'Topbar breadcrumbs', 'Sidebar removed', 'Portal redesign', 'Draft holding page designed'],
+  },
 ];
 
 export default function DevLog() {
