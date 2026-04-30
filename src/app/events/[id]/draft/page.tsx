@@ -617,7 +617,8 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'var(--font-body)' }}>
           <HoldingTopbar event={event} eventId={eventId} session={session} />
-          <div style={{ maxWidth: 780, margin: '0 auto', padding: '20px 20px 40px', width: '100%' }}>
+          <style>{`@keyframes holdingPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(90,156,90,0.5)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(90,156,90,0)}}@media(max-width:600px){.h-content{padding:16px 14px 32px!important}.h-status{flex-wrap:wrap!important}.h-count{font-size:60px!important}}`}</style>
+          <div className="h-content" style={{ maxWidth: 780, margin: '0 auto', padding: '20px 20px 40px', width: '100%' }}>
             <div style={{ textAlign: 'center', padding: '24px 0 20px', borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
               <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--khaki)', marginBottom: 6 }}>Draft Complete</div>
               <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 26, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text)' }}>{event?.name}</div>
@@ -676,9 +677,9 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'var(--font-body)' }}>
           <HoldingTopbar event={event} eventId={eventId} session={session} />
-          <div style={{ maxWidth: 780, margin: '0 auto', padding: '20px 20px 40px', width: '100%' }}>
+          <div className="h-content" style={{ maxWidth: 780, margin: '0 auto', padding: '20px 20px 40px', width: '100%' }}>
             {/* Status line */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-dim)', marginBottom: 10, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            <div className="h-status" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-dim)', marginBottom: 10, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green-light)', flexShrink: 0, animation: 'holdingPulse 2s ease-in-out infinite' }} />
               <span style={{ color: 'var(--green-light)' }}>Draft in progress</span>
               <span style={{ color: 'var(--text-muted, #555750)', margin: '0 2px' }}>·</span>
@@ -715,7 +716,6 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               </div>
             </div>
           </div>
-          <style>{`@keyframes holdingPulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(90,156,90,0.5)} 50%{opacity:.7;box-shadow:0 0 0 5px rgba(90,156,90,0)} }`}</style>
         </div>
       )
     }
@@ -724,21 +724,20 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'var(--font-body)' }}>
         <HoldingTopbar event={event} eventId={eventId} session={session} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 18, padding: 40 }}>
+        <div className="h-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 18, padding: 40 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--green-light)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green-light)', animation: 'holdingPulse 2s ease-in-out infinite' }} />
             Draft in progress
           </div>
           <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 30, letterSpacing: '0.1em', textTransform: 'uppercase', lineHeight: 1.1 }}>{event?.name}</div>
           <div>
-            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 80, color: 'var(--khaki)', lineHeight: 1 }}>{picks.length}</div>
+            <div className="h-count" style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 80, color: 'var(--khaki)', lineHeight: 1 }}>{picks.length}</div>
             <div style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: -8 }}>picks made</div>
           </div>
           <div style={{ maxWidth: 360, color: 'var(--text-dim)', fontSize: 12, lineHeight: 1.7 }}>
             Hang tight — teams are being assembled right now. Results will appear here when the draft is complete.
           </div>
         </div>
-        <style>{`@keyframes holdingPulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(90,156,90,0.5)} 50%{opacity:.7;box-shadow:0 0 0 5px rgba(90,156,90,0)} }`}</style>
       </div>
     )
   }

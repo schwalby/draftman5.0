@@ -259,13 +259,25 @@ export default function EventPage() {
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <Topbar breadcrumbs={[{ label: event.name }]} />
 
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 24px' }}>
+      <style>{`
+        @media (max-width: 600px) {
+          .ev-main { padding: 20px 16px 60px !important; }
+          .ev-title { font-size: 24px !important; }
+          .ev-admin-btns { flex-direction: column !important; }
+          .ev-admin-btns button { width: 100% !important; }
+          .ev-steam-warn { flex-direction: column !important; }
+          .ev-steam-warn button { width: 100% !important; }
+          .ev-signup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .ev-ringer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+      `}</style>
+      <div className="ev-main" style={{ maxWidth: 860, margin: '0 auto', padding: '32px 24px' }}>
 
         {/* Event header */}
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div>
-              <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 36, color: 'var(--text)', marginBottom: 6 }}>
+              <h1 className="ev-title" style={{ fontFamily: 'var(--font-heading)', fontSize: 36, color: 'var(--text)', marginBottom: 6 }}>
                 {event.name}
               </h1>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -277,7 +289,7 @@ export default function EventPage() {
             </div>
 
             {isOrganizer && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div className="ev-admin-btns" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                   onClick={() => setDrawerOpen(true)}
                   style={{
@@ -350,7 +362,7 @@ export default function EventPage() {
               border: '1px solid rgba(200,132,42,0.35)',
               borderRadius: 6, padding: '16px 20px',
               marginBottom: 28,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
             }}>
               <div>
                 <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: '#c8842a', marginBottom: 2 }}>
@@ -455,7 +467,7 @@ export default function EventPage() {
           {confirmed.length === 0 ? (
             <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '20px 0' }}>No signups yet.</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '2px 12px', marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '2px 12px', marginBottom: 24 }} className="ev-signup-grid">
               {confirmed.map((s, idx) => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0' }}>
                   <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 18, flexShrink: 0, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
@@ -481,7 +493,7 @@ export default function EventPage() {
                 <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-dim)' }}>Ringer List</span>
                 <div style={{ flex: 1, height: '0.5px', background: 'var(--border)' }} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '2px 12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '2px 12px' }} className="ev-ringer-grid">
                 {ringers.map((s, idx) => (
                   <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0', opacity: 0.65 }}>
                     <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 18, flexShrink: 0, textAlign: 'right' }}>

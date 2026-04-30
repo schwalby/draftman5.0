@@ -139,12 +139,20 @@ export default function PortalPage() {
   return (
     <>
       <Topbar />
+      <style>{`
+        @media (max-width: 600px) {
+          .portal-main { padding: 20px 16px 60px !important; }
+          .portal-welcome { font-size: 22px !important; }
+          .portal-profile-grid { grid-template-columns: 1fr !important; }
+          .portal-events-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
 
-      <main style={{ maxWidth: 760, margin: '0 auto', padding: '36px 24px 80px' }}>
+      <main className="portal-main" style={{ maxWidth: 760, margin: '0 auto', padding: '36px 24px 80px' }}>
 
         {/* Welcome header */}
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 32, letterSpacing: '0.04em', color: 'var(--text)', lineHeight: 1 }}>
+          <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 32, letterSpacing: '0.04em', color: 'var(--text)', lineHeight: 1 }} className="portal-welcome">
             Welcome back, {displayName}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
@@ -153,7 +161,7 @@ export default function PortalPage() {
         </div>
 
         {/* Profile cards — Discord left, Steam right */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 36 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 36 }} className="portal-profile-grid">
 
           {/* Discord card */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 20px' }}>
@@ -291,7 +299,7 @@ export default function PortalPage() {
               <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No events open right now. Check back soon.</div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }} className="portal-events-grid">
               {events.map(event => {
                 const mySignup = event.my_signup
                 const isSignedUp = !!mySignup
