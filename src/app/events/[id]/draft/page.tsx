@@ -46,6 +46,7 @@ interface Event {
   name: string
   format: string
   status: string
+  stream_url?: string | null
 }
 
 interface ContextMenu {
@@ -603,6 +604,145 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner /></div>
   }
 
+  // HOLDING PAGE — players who are not admin and not a captain of any team
+  const isCaptainOfAnyTeam = sortedTeams.some(t => t.captain_id === myUserId)
+  const showHoldingPage = !isAdmin && !isCaptainOfAnyTeam
+
+  if (showHoldingPage) {
+    const streamUrl = event?.stream_url ?? null
+    const recentPicks = [...picks].sort((a, b) => b.pick_number - a.pick_number).slice(0, 5)
+
+    // State 3: draft complete — team reveal
+    if (isDraftDone) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'var(--font-body)' }}>
+          <HoldingTopbar event={event} eventId={eventId} session={session} />
+          <div style={{ maxWidth: 780, margin: '0 auto', padding: '20px 20px 40px', width: '100%' }}>
+            <div style={{ textAlign: 'center', padding: '24px 0 20px', borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
+              <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--khaki)', marginBottom: 6 }}>Draft Complete</div>
+              <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 26, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text)' }}>{event?.name}</div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+              {sortedTeams.map(team => {
+                const tp = picks.filter(p => p.team_id === team.id).sort((a, b) => a.pick_number - b.pick_number)
+                return (
+                  <div key={team.id} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderTop: `3px solid ${team.color}`, padding: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ width: 9, height: 9, borderRadius: '50%', background: team.color, flexShrink: 0 }} />
+                      <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{getTeamDisplayName(team)}</div>
+                    </div>
+                    {/* Captain row */}
+                    {team.captain_id && (() => {
+                      const capSignup = signups.find(s => s.user_id === team.captain_id)
+                      const capCls = capSignup?.class[0] || 'flex'
+                      return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 0', fontSize: 12 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: CLS_COLOR[capCls] || 'var(--flex)', flexShrink: 0 }} />
+                          <span style={{ flex: 1, color: 'var(--khaki)' }}>{captainDisplayName(team)} <span style={{ fontSize: 9 }}>♛</span></span>
+                          <span style={{ fontSize: 10, color: 'var(--text-muted, #555750)' }}>{CLS_LABEL[capCls]}</span>
+                        </div>
+                      )
+                    })()}
+                    {/* Drafted players */}
+                    {tp.map(pick => (
+                      <div key={pick.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 0', fontSize: 12 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: CLS_COLOR[pick.class || 'flex'] || 'var(--flex)', flexShrink: 0 }} />
+                        <span style={{ flex: 1, color: 'var(--text)' }}>{pickDisplayName(pick)}</span>
+                        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{CLS_LABEL[pick.class || 'flex']}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{ textAlign: 'center', marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)', color: 'var(--text-dim)', fontSize: 11, lineHeight: 1.9 }}>
+              Teams are set — good luck everyone.<br />
+              Check Discord for match schedules.
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // State 1: draft in progress + stream configured
+    if (streamUrl) {
+      const embedUrl = streamUrl.includes('twitch.tv')
+        ? streamUrl.replace('https://www.twitch.tv/', 'https://player.twitch.tv/?channel=').replace('https://twitch.tv/', 'https://player.twitch.tv/?channel=') + '&parent=' + (typeof window !== 'undefined' ? window.location.hostname : 'localhost')
+        : streamUrl.includes('youtube.com/watch?v=')
+          ? streamUrl.replace('youtube.com/watch?v=', 'youtube.com/embed/')
+          : streamUrl
+      const roundNum = sortedTeams.length > 0 ? Math.floor(picks.length / sortedTeams.length) + 1 : 1
+      const totalRounds = SLOTS_PER_TEAM
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'var(--font-body)' }}>
+          <HoldingTopbar event={event} eventId={eventId} session={session} />
+          <div style={{ maxWidth: 780, margin: '0 auto', padding: '20px 20px 40px', width: '100%' }}>
+            {/* Status line */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-dim)', marginBottom: 10, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green-light)', flexShrink: 0, animation: 'holdingPulse 2s ease-in-out infinite' }} />
+              <span style={{ color: 'var(--green-light)' }}>Draft in progress</span>
+              <span style={{ color: 'var(--text-muted, #555750)', margin: '0 2px' }}>·</span>
+              {event?.name}
+              <span style={{ color: 'var(--text-muted, #555750)', margin: '0 2px' }}>·</span>
+              Round {roundNum} · Pick {picks.length + 1} of {sortedTeams.length * SLOTS_PER_TEAM}
+            </div>
+            {/* Stream embed */}
+            <div style={{ width: '100%', aspectRatio: '16/9', background: '#0c0e0c', border: '1px solid var(--border)' }}>
+              <iframe
+                src={embedUrl}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                allowFullScreen
+              />
+            </div>
+            {/* Ticker */}
+            <div style={{ marginTop: 8, background: 'var(--surface2)', border: '1px solid var(--border)', padding: '7px 12px', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0, paddingRight: 12, borderRight: '1px solid var(--border)', marginRight: 12 }}>Latest picks</div>
+              <div style={{ display: 'flex', alignItems: 'center', flex: 1, overflow: 'hidden', gap: 0 }}>
+                {recentPicks.map(pick => {
+                  const team = sortedTeams.find(t => t.id === pick.team_id)
+                  return (
+                    <div key={pick.id} style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', fontSize: 11, paddingRight: 18 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: team?.color || 'var(--text-dim)', flexShrink: 0 }} />
+                      <span style={{ color: 'var(--text)' }}>{pickDisplayName(pick)}</span>
+                      <span style={{ color: 'var(--text-dim)' }}>→</span>
+                      <span style={{ color: 'var(--text-dim)' }}>{getTeamDisplayName(team!)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ marginLeft: 'auto', flexShrink: 0, fontSize: 10, color: 'var(--text-dim)', paddingLeft: 12, borderLeft: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
+                Round {roundNum} of {totalRounds}
+              </div>
+            </div>
+          </div>
+          <style>{`@keyframes holdingPulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(90,156,90,0.5)} 50%{opacity:.7;box-shadow:0 0 0 5px rgba(90,156,90,0)} }`}</style>
+        </div>
+      )
+    }
+
+    // State 2: draft in progress, no stream
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'var(--font-body)' }}>
+        <HoldingTopbar event={event} eventId={eventId} session={session} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 18, padding: 40 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--green-light)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green-light)', animation: 'holdingPulse 2s ease-in-out infinite' }} />
+            Draft in progress
+          </div>
+          <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 30, letterSpacing: '0.1em', textTransform: 'uppercase', lineHeight: 1.1 }}>{event?.name}</div>
+          <div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 80, color: 'var(--khaki)', lineHeight: 1 }}>{picks.length}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: -8 }}>picks made</div>
+          </div>
+          <div style={{ maxWidth: 360, color: 'var(--text-dim)', fontSize: 12, lineHeight: 1.7 }}>
+            Hang tight — teams are being assembled right now. Results will appear here when the draft is complete.
+          </div>
+        </div>
+        <style>{`@keyframes holdingPulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(90,156,90,0.5)} 50%{opacity:.7;box-shadow:0 0 0 5px rgba(90,156,90,0)} }`}</style>
+      </div>
+    )
+  }
+
   const mins = Math.floor(timerSecs / 60)
   const secs = timerSecs % 60
   const timerStr = `${mins}:${secs.toString().padStart(2, '0')}`
@@ -969,6 +1109,31 @@ export default function DraftPage({ params }: { params: { id: string } }) {
 
       <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }`}</style>
     </div>
+  )
+}
+
+function HoldingTopbar({ event, eventId, session }: { event: Event | null; eventId: string; session: any }) {
+  return (
+    <header style={{ height: 46, background: 'var(--surface)', borderBottom: '1px solid var(--border)', borderLeft: '3px solid var(--khaki)', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 6, flexShrink: 0, position: 'sticky', top: 0, zIndex: 100 }}>
+      <Link href="/portal" style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 15, letterSpacing: '0.06em', color: 'var(--khaki)', textDecoration: 'none', whiteSpace: 'nowrap' }}>DRAFTMAN5.0</Link>
+      <nav style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: 'var(--text-dim)' }}>
+        <span style={{ color: 'var(--border)', padding: '0 4px' }}>›</span>
+        <Link href="/events" style={{ color: 'var(--text-dim)', textDecoration: 'none', padding: '0 4px' }}>Events</Link>
+        <span style={{ color: 'var(--border)', padding: '0 4px' }}>›</span>
+        <Link href={`/events/${eventId}`} style={{ color: 'var(--text-dim)', textDecoration: 'none', padding: '0 4px' }}>{event?.name || 'Event'}</Link>
+        <span style={{ color: 'var(--border)', padding: '0 4px' }}>›</span>
+        <span style={{ color: 'var(--text)', padding: '0 4px' }}>Draft</span>
+      </nav>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {session?.user?.discordId && session?.user?.discordAvatar
+          ? <img src={`https://cdn.discordapp.com/avatars/${session.user.discordId}/${session.user.discordAvatar}.png`} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border)' }} alt="" />
+          : <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--khaki)' }}>
+              {(session?.user?.ingameName || session?.user?.discordUsername || '?')[0].toUpperCase()}
+            </div>
+        }
+        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{session?.user?.ingameName || session?.user?.discordUsername}</span>
+      </div>
+    </header>
   )
 }
 
