@@ -116,6 +116,13 @@ const entries: Entry[] = [
     body: 'Topbar fully standardized across every page — sidebar ripped out of dashboard, portal, and events. Nav links now derived automatically from session role, no props needed. The items prop is gone, replaced with a breadcrumbs prop across all 11 affected pages. Portal page redesigned: welcome header, two-column profile row (Discord card left, Steam card right with avatar, Steam name, raw ID, and edit button), and open event cards with action buttons pinned to the bottom. Draft holding page fully designed but not yet built — role-gated access to the draft board, with a player-facing page that renders in three states: stream embed with pick ticker and secondary streams row, a streamless fallback with pick count, and an auto-flip to team reveal when the draft completes via Supabase realtime. Requires a stream_url column on the events table and a field in the wizard and edit page.',
     tags: ['Nav standardization', 'Topbar breadcrumbs', 'Sidebar removed', 'Portal redesign', 'Draft holding page designed'],
   },
+  {
+    session: '16',
+    date: 'April 30, 2026',
+    heading: 'Built for the phone.',
+    body: 'The draft holding page went from design to shipped: role-gated access at the draft route, with a player-facing page that renders in three states depending on draft status and whether a stream URL is configured. Stream embeds handle both Twitch and YouTube via URL transform. stream_url column added to the events table and wired into the wizard and edit page. Then the full mobile responsive pass: landing page title no longer overflows, dashboard event cards stack vertically with buttons wrapping below, portal profile cards and event grids collapse to single column, event detail player grid drops from four columns to two, and the draft holding page tightens up on small screens. The Topbar got a hamburger menu — on mobile the nav links hide and a drawer slides down with all links and sign out. One component change, every page fixed.',
+    tags: ['Draft holding page', 'stream_url', 'Mobile responsive', 'Hamburger menu', 'Topbar'],
+  },
 ];
 
 export default function DevLog() {
