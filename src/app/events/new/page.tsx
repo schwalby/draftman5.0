@@ -177,7 +177,7 @@ export default function NewEventPage() {
 
   return (
     <>
-      <Topbar items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'New Event', href: '/events/new' }]} />
+      <Topbar />
       <div style={{ minHeight: '100vh', padding: '24px 16px' }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
 

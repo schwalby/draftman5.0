@@ -223,7 +223,7 @@ export default function RulesEditPage() {
 
   return (
     <>
-      <Topbar items={[{ label: 'Rules & Format', href: '/rules' }, { label: 'Edit', href: '/rules/edit' }]} />
+      <Topbar breadcrumbs={[{ label: 'Rules', href: '/rules' }, { label: 'Edit' }]} />
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '36px 24px 100px', fontFamily: 'var(--font-body)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, gap: 16 }}>
           <div>

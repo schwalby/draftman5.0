@@ -451,14 +451,14 @@ export default function TournamentPage() {
 
   if (loading) return (
     <div>
-      <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Draft', href: '#' }]} />
+      <Topbar breadcrumbs={[{ label: 'Event', href: `/events/${eventId}` }, { label: 'Draft' }]} />
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-dim)', fontFamily: 'var(--font-body)' }}>Loading...</div>
     </div>
   )
 
   if (!tournament) return (
     <div>
-      <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Draft', href: '#' }]} />
+      <Topbar breadcrumbs={[{ label: 'Event', href: `/events/${eventId}` }, { label: 'Draft' }]} />
       <div style={{ padding: 40, textAlign: 'center' }}>
         <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14, letterSpacing: 2, color: 'var(--text-dim)', marginBottom: 16 }}>NO DRAFT FOUND</div>
         {isAdmin && <button style={{ ...S.btn, ...S.btnPrimary }} onClick={() => router.push(`/events/${eventId}/tournament/setup`)}>CREATE DRAFT</button>}
@@ -484,7 +484,7 @@ export default function TournamentPage() {
 
   return (
     <div>
-      <Topbar items={[{ label: 'Events', href: '/dashboard' }, { label: 'Event', href: `/events/${eventId}` }, { label: 'Draft', href: '#' }]} />
+      <Topbar breadcrumbs={[{ label: 'Event', href: `/events/${eventId}` }, { label: 'Draft' }]} />
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
       <div style={S.page}>
         <div style={S.header}>

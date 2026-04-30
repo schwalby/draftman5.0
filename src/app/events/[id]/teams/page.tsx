@@ -254,10 +254,7 @@ export default function TeamSetupPage() {
 
   return (
     <>
-      <Topbar items={[
-        { label: eventName || 'Event', href: `/events/${eventId}` },
-        { label: 'Team Setup', href: `/events/${eventId}/teams` },
-      ]} />
+      <Topbar breadcrumbs={[{ label: eventName || 'Event', href: `/events/${eventId}` }, { label: 'Team Setup' }]} />
 
       <SignupDrawer eventId={eventId} isOpen={drawerOpen} onClose={handleDrawerClose} />
 

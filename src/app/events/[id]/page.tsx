@@ -221,14 +221,14 @@ export default function EventPage() {
   if (loading) return (
     <>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <Topbar items={[{ label: 'Events', href: '/dashboard' }]} />
+      <Topbar />
       <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 80 }}><Spinner /></div>
     </>
   );
 
   if (!event) return (
     <>
-      <Topbar items={[{ label: 'Events', href: '/dashboard' }]} />
+      <Topbar />
       <div style={{ textAlign: 'center', paddingTop: 80, color: 'var(--text-dim)' }}>Event not found.</div>
     </>
   );
@@ -257,10 +257,7 @@ export default function EventPage() {
   return (
     <>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <Topbar items={[
-        { label: 'Events', href: '/dashboard' },
-        { label: event.name, href: `/events/${eventId}` },
-      ]} />
+      <Topbar breadcrumbs={[{ label: event.name }]} />
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 24px' }}>
 

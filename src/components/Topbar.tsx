@@ -1,202 +1,288 @@
-'use client'
+'use client';
 
-import { useSession, signOut } from 'next-auth/react'
-import { usePathname } from 'next/navigation'
-import Link from 'next/link'
-import Image from 'next/image'
-import { useState, useEffect } from 'react'
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 
-interface TopbarProps {
-  items?: { label: string; href: string }[]
+interface BreadcrumbItem {
+  label: string;
+  href?: string;
 }
 
-export function Topbar({ items = [] }: TopbarProps) {
-  const { data: session } = useSession()
-  const pathname = usePathname()
-  const [theme, setTheme] = useState<'light' | 'slate'>('light')
+interface TopbarProps {
+  breadcrumbs?: BreadcrumbItem[];
+}
 
-  const discordId = (session?.user as any)?.discordId
-  const discordAvatar = (session?.user as any)?.discordAvatar
-  const ingameName = (session?.user as any)?.ingameName
-  const discordUsername = (session?.user as any)?.discordUsername
+export function Topbar({ breadcrumbs }: TopbarProps) {
+  const { data: session } = useSession();
+  const pathname = usePathname();
 
-  const avatarUrl =
-    discordId && discordAvatar
-      ? `https://cdn.discordapp.com/avatars/${discordId}/${discordAvatar}.png`
-      : null
+  const isOrganizer = session?.user?.isOrganizer;
+  const isSuperUser = (session?.user as any)?.isSuperUser;
+  const isAdmin = isOrganizer || isSuperUser;
 
-  const initial = (ingameName || discordUsername || '?')[0].toUpperCase()
+  const avatar = (session?.user as any)?.discordAvatar;
+  const discordId = (session?.user as any)?.discordId;
+  const username = (session?.user as any)?.discordUsername || session?.user?.name || '?';
+  const initial = username.charAt(0).toUpperCase();
 
-  // Load saved theme on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('draftman-theme') as 'light' | 'slate' | null
-      if (saved === 'slate') setTheme('slate')
-    } catch(e) {}
-  }, [])
+  const avatarUrl = avatar && discordId
+    ? `https://cdn.discordapp.com/avatars/${discordId}/${avatar}.png`
+    : null;
 
-  const handleTheme = (t: 'light' | 'slate') => {
-    setTheme(t)
-    document.documentElement.setAttribute('data-theme', t === 'slate' ? 'slate' : '')
-    try { localStorage.setItem('draftman-theme', t) } catch(e) {}
+  // Determine which top-level section is "active" based on pathname
+  function getActiveSection(): string {
+    if (pathname === '/dashboard' || pathname === '/events/new' || pathname.includes('/edit')) return 'dashboard';
+    if (pathname.startsWith('/portal')) return 'portal';
+    if (pathname.startsWith('/events')) return 'events';
+    if (pathname === '/rules') return 'rules';
+    if (pathname === '/settings') return 'settings';
+    return '';
   }
 
-  return (
-    <nav style={{
+  const activeSection = getActiveSection();
+
+  interface NavLink {
+    key: string;
+    label: string;
+    href: string;
+    show: boolean;
+  }
+
+  const navLinks: NavLink[] = [
+    { key: 'dashboard', label: 'Dashboard', href: '/dashboard', show: !!isAdmin },
+    { key: 'portal',    label: 'Portal',    href: '/portal',    show: true },
+    { key: 'events',    label: 'Events',    href: '/events',    show: true },
+    { key: 'rules',     label: 'Rules',     href: '/rules',     show: true },
+    { key: 'settings',  label: 'Settings',  href: '/settings',  show: !!isSuperUser },
+  ].filter(l => l.show);
+
+  const styles: Record<string, React.CSSProperties> = {
+    topbar: {
       position: 'sticky',
       top: 0,
       zIndex: 100,
+      height: '48px',
+      background: 'var(--surface)',
+      borderBottom: '1px solid var(--border)',
+      borderLeft: '3px solid var(--khaki)',
+      display: 'flex',
+      alignItems: 'center',
+      padding: '0',
+      overflow: 'hidden',
+    },
+    logo: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      textDecoration: 'none',
+      color: 'var(--khaki)',
+      fontFamily: 'var(--font-heading)',
+      fontSize: '14px',
+      letterSpacing: '0.05em',
+      whiteSpace: 'nowrap' as const,
+      padding: '0 20px',
+      height: '48px',
+      borderRight: '1px solid var(--border)',
+      flexShrink: 0,
+    },
+    logoIcon: {
+      width: '22px',
+      height: '22px',
+      background: 'var(--khaki)',
+      borderRadius: '3px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    nav: {
       display: 'flex',
       alignItems: 'center',
       height: '48px',
-      background: 'var(--surface)',
-      borderLeft: '3px solid var(--khaki)',
-      borderBottom: '1px solid var(--border)',
-      padding: '0 20px',
-      gap: 0,
-    }}>
+      flexShrink: 0,
+    },
+    navLink: {
+      display: 'flex',
+      alignItems: 'center',
+      height: '48px',
+      padding: '0 16px',
+      color: 'var(--text-muted)',
+      textDecoration: 'none',
+      fontSize: '11px',
+      letterSpacing: '0.09em',
+      textTransform: 'uppercase' as const,
+      borderRight: '1px solid var(--border)',
+      whiteSpace: 'nowrap' as const,
+      transition: 'color 0.15s, background 0.15s',
+    },
+    navLinkActive: {
+      color: 'var(--khaki)',
+      background: 'rgba(200,184,122,0.1)',
+      cursor: 'default',
+      pointerEvents: 'none' as const,
+    },
+    breadcrumb: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      height: '48px',
+      padding: '0 16px',
+      borderRight: '1px solid var(--border)',
+      fontSize: '11px',
+      letterSpacing: '0.06em',
+      textTransform: 'uppercase' as const,
+      flexShrink: 0,
+      minWidth: 0,
+    },
+    breadcrumbLink: {
+      color: 'var(--text-muted)',
+      textDecoration: 'none',
+      whiteSpace: 'nowrap' as const,
+    },
+    breadcrumbCurrent: {
+      color: 'var(--text)',
+      whiteSpace: 'nowrap' as const,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      maxWidth: '200px',
+    },
+    breadcrumbSep: {
+      color: 'var(--text-dim)',
+      opacity: 0.4,
+      flexShrink: 0,
+    },
+    right: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      marginLeft: 'auto',
+      padding: '0 16px',
+      flexShrink: 0,
+    },
+    themeToggle: {
+      width: '28px',
+      height: '28px',
+      borderRadius: '50%',
+      background: 'var(--surface2, var(--surface))',
+      border: '1px solid var(--border)',
+      color: 'var(--text-muted)',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '13px',
+    },
+    avatar: {
+      width: '28px',
+      height: '28px',
+      borderRadius: '50%',
+      border: '1px solid var(--border)',
+      background: 'rgba(200,184,122,0.15)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--khaki)',
+      fontSize: '11px',
+      fontWeight: 'bold' as const,
+      overflow: 'hidden',
+      flexShrink: 0,
+    },
+    signOut: {
+      background: 'none',
+      border: 'none',
+      color: 'var(--text-muted)',
+      fontSize: '11px',
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase' as const,
+      cursor: 'pointer',
+      padding: '4px 0',
+      fontFamily: 'var(--font-body)',
+    },
+  };
 
-      {/* Logo — wordmark + icon */}
-      <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', flexShrink: 0 }}>
-        <span style={{
-          fontFamily: 'var(--font-heading)',
-          fontSize: '15px',
-          letterSpacing: '0.08em',
-          color: 'var(--khaki)',
-          lineHeight: 1,
-        }}>
-          DRAFTMAN5.0
-        </span>
-        <Image
-          src="/icon.png"
-          alt="DRAFT MAN"
-          width={26}
-          height={26}
-          style={{ borderRadius: '50%', objectFit: 'cover' }}
-        />
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'slate' ? 'light' : 'slate';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('draftman-theme', next);
+  }
+
+  return (
+    <div style={styles.topbar}>
+      {/* Logo */}
+      <Link href="/dashboard" style={styles.logo}>
+        <div style={styles.logoIcon}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon.png" alt="DM5" width={16} height={16} style={{ display: 'block' }} />
+        </div>
+        DRAFTMAN5.0
       </Link>
 
-      {/* Divider */}
-      <div style={{ width: '1px', height: '20px', background: 'var(--border-strong)', margin: '0 12px', flexShrink: 0 }} />
-
       {/* Nav links */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
-        <Link
-          href="/rules"
-          style={{
-            fontSize: '11px',
-            color: pathname === '/rules' ? 'var(--khaki)' : 'var(--text-dim)',
-            textDecoration: 'none',
-            letterSpacing: '0.04em',
-          }}
-        >
-          Rules
-        </Link>
-        <Link
-          href="/portal"
-          style={{
-            fontSize: '11px',
-            color: pathname === '/portal' ? 'var(--khaki)' : 'var(--text-dim)',
-            textDecoration: 'none',
-            letterSpacing: '0.04em',
-          }}
-        >
-          Portal
-        </Link>
-      </div>
+      <nav style={styles.nav}>
+        {navLinks.map(link => {
+          const isActive = link.key === activeSection;
+          return isActive ? (
+            <span
+              key={link.key}
+              style={{ ...styles.navLink, ...styles.navLinkActive }}
+            >
+              {link.label}
+            </span>
+          ) : (
+            <Link
+              key={link.key}
+              href={link.href}
+              style={styles.navLink}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
+      </nav>
 
-      {/* Breadcrumb */}
-      {items.length > 0 && (
-        <>
-          <div style={{ width: '1px', height: '20px', background: 'var(--border-strong)', margin: '0 12px', flexShrink: 0 }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-            {items.map((item, i) => (
-              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                {i > 0 && <span style={{ color: 'var(--border-strong)', fontSize: '10px' }}>›</span>}
-                {i < items.length - 1 ? (
-                  <Link href={item.href} style={{ fontSize: '11px', color: 'var(--text-dim)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                    {item.label}
-                  </Link>
+      {/* Breadcrumbs (event sub-pages etc.) */}
+      {breadcrumbs && breadcrumbs.length > 0 && (
+        <div style={styles.breadcrumb}>
+          {breadcrumbs.map((crumb, i) => {
+            const isLast = i === breadcrumbs.length - 1;
+            return (
+              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {i > 0 && <span style={styles.breadcrumbSep}>›</span>}
+                {isLast || !crumb.href ? (
+                  <span style={styles.breadcrumbCurrent}>{crumb.label}</span>
                 ) : (
-                  <span style={{ fontSize: '11px', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {item.label}
-                  </span>
+                  <Link href={crumb.href} style={styles.breadcrumbLink}>{crumb.label}</Link>
                 )}
               </span>
-            ))}
-          </div>
-        </>
+            );
+          })}
+        </div>
       )}
 
       {/* Right side */}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+      <div style={styles.right}>
+        <button style={styles.themeToggle} onClick={toggleTheme} title="Toggle theme">
+          ◑
+        </button>
 
-        {/* Theme toggle */}
-        <div style={{ display: 'flex', gap: '2px' }}>
-          {(['light', 'slate'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => handleTheme(t)}
-              style={{
-                padding: '3px 8px',
-                fontSize: '9px',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                border: '1px solid var(--border-strong)',
-                borderRadius: '3px',
-                cursor: 'pointer',
-                background: theme === t ? 'var(--khaki)' : 'transparent',
-                color: theme === t ? 'var(--bg)' : 'var(--text-dim)',
-                fontFamily: 'var(--font-body)',
-              }}
-            >
-              {t === 'light' ? 'Light' : 'Dark'}
-            </button>
-          ))}
+        <div style={styles.avatar}>
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt={username} width={28} height={28} style={{ display: 'block' }} />
+          ) : (
+            initial
+          )}
         </div>
 
-        {/* Sign out */}
-        {session && (
-          <button
-            onClick={() => signOut({ callbackUrl: '/' })}
-            style={{
-              fontSize: '10px',
-              color: 'var(--text-dim)',
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              borderRadius: '3px',
-              padding: '3px 8px',
-              cursor: 'pointer',
-              letterSpacing: '0.06em',
-              fontFamily: 'var(--font-body)',
-            }}
-          >
-            Sign Out
-          </button>
-        )}
-
-        {/* Avatar */}
-        {session && (
-          avatarUrl ? (
-            <Image
-              src={avatarUrl}
-              alt={discordUsername || ''}
-              width={28}
-              height={28}
-              style={{ borderRadius: '50%', border: '1px solid var(--border-strong)' }}
-            />
-          ) : (
-            <div style={{
-              width: '28px', height: '28px', borderRadius: '50%',
-              background: 'var(--surface2)', border: '1px solid var(--border-strong)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '11px', color: 'var(--khaki)',
-            }}>
-              {initial}
-            </div>
-          )
-        )}
+        <button
+          style={styles.signOut}
+          onClick={() => signOut({ callbackUrl: '/' })}
+        >
+          Sign Out
+        </button>
       </div>
-    </nav>
-  )
+    </div>
+  );
 }

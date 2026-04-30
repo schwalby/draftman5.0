@@ -93,7 +93,7 @@ export default function PlayerProfilePage() {
   if (status === 'loading' || loading) {
     return (
       <>
-        <Topbar items={[{ label: 'Player Profile', href: '#' }]} />
+        <Topbar breadcrumbs={[{ label: 'Player Profile' }]} />
         <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 80 }}><Spinner /></div>
       </>
     )
@@ -102,7 +102,7 @@ export default function PlayerProfilePage() {
   if (!profile) {
     return (
       <>
-        <Topbar items={[{ label: 'Player Profile', href: '#' }]} />
+        <Topbar breadcrumbs={[{ label: 'Player Profile' }]} />
         <div style={{ textAlign: 'center', paddingTop: 80, color: 'var(--text-dim)' }}>Player not found.</div>
       </>
     )
@@ -124,10 +124,7 @@ export default function PlayerProfilePage() {
 
   return (
     <>
-      <Topbar items={[
-        { label: 'Players', href: '/dashboard' },
-        { label: displayName, href: `/portal/${userId}` },
-      ]} />
+      <Topbar breadcrumbs={[{ label: displayName }]} />
 
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 24px' }}>
 

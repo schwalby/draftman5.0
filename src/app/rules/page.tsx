@@ -50,7 +50,7 @@ export default function RulesPage() {
 
   return (
     <>
-      <Topbar items={[{ label: 'Rules & Format', href: '/rules' }]} />
+      <Topbar />
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '40px 24px 80px' }}>
         <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 40, color: 'var(--khaki)', marginBottom: 6 }}>
           Rules &amp; Format

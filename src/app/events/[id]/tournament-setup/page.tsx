@@ -177,11 +177,7 @@ export default function TournamentSetupPage() {
   if (status === 'loading' || teams.length === 0) {
     return (
       <>
-        <Topbar items={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: event?.name ?? 'Event', href: `/events/${eventId}` },
-          { label: 'Draft Setup', href: `/events/${eventId}/tournament-setup` },
-        ]} />
+        <Topbar breadcrumbs={[{ label: event?.name ?? 'Event', href: `/events/${eventId}` }, { label: 'Draft Setup' }]} />
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontFamily: 'var(--font-body)', fontSize: 13 }}>
           Loading...
         </div>
@@ -191,11 +187,7 @@ export default function TournamentSetupPage() {
 
   return (
     <>
-      <Topbar items={[
-        { label: 'Dashboard', href: '/dashboard' },
-        { label: event?.name ?? 'Event', href: `/events/${eventId}` },
-        { label: 'Draft Setup', href: `/events/${eventId}/tournament-setup` },
-      ]} />
+      <Topbar breadcrumbs={[{ label: event?.name ?? 'Event', href: `/events/${eventId}` }, { label: 'Draft Setup' }]} />
 
       <div style={{ minHeight: '100vh', padding: '40px 24px' }}>
         <div style={{ maxWidth: 700, margin: '0 auto' }}>

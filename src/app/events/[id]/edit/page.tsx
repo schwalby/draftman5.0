@@ -171,10 +171,7 @@ export default function EditEventPage() {
 
   return (
     <>
-      <Topbar items={[
-        { label: 'Dashboard', href: '/dashboard' },
-        { label: form.name || 'Edit Event', href: `/events/${eventId}/edit` },
-      ]} />
+      <Topbar breadcrumbs={[{ label: form.name || 'Edit Event' }]} />
       <div style={{ minHeight: '100vh', padding: '24px 16px' }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
 

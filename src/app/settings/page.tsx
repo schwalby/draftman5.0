@@ -272,7 +272,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <Topbar items={[{ label: 'Settings', href: '/settings' }]} />
+      <Topbar />
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '36px 24px' }}>
 

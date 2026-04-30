@@ -161,7 +161,7 @@ export default function AuditPage() {
 
   return (
     <>
-      <Topbar items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Audit Log', href: '/admin/audit' }]} />
+      <Topbar />
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1.5rem' }}>
 
         <div style={{ marginBottom: '1.5rem' }}>
