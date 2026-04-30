@@ -96,18 +96,18 @@ const entries: Entry[] = [
     tags: ['Terminology sweep', 'Declare champion', 'Draft pool filter', 'Third class', 'Status flow fix'],
   },
   {
-    session: '14',
-    date: 'April 30, 2026',
-    heading: 'Audit trail, Steam IDs, and the bot goes live.',
-    body: 'Three major systems shipped in one session. The audit log captures every meaningful action on the platform — match edits, confirmations, rejections, role changes, signup flags, notes, ringer toggles, user deletes, and champion declarations — all written to a new audit_log table via a shared logAudit() helper. The log page lives at a hidden URL, SuperUser only, with keyword search and action filtering. Steam ID collection was added next: players enter their Steam ID on the portal, it validates against the Steam Web API, stores the raw input for display and SteamID64 for bot matching, and pulls their Steam avatar and display name automatically. Event signup is now gated — no Steam ID, no signup. Finally, DRAFT_MAN5.0 went live as a Discord bot: it watches the #results-screenshots channel, parses KTP Score Bot embeds on match complete, extracts Steam IDs, cross-references drafted rosters, and auto-reports confirmed results to the API. The bot runs as a separate Railway service and was online and watching the channel before the session ended.',
-    tags: ['Audit log', 'Steam ID validation', 'Steam avatar', 'Signup gate', 'Discord bot live', 'Railway bot service'],
-  },
-  {
     session: '13',
     date: 'April 29, 2026',
     heading: 'Bugs squashed, dev tools land.',
     body: 'Fixed two long-standing draft board bugs: captain\'s signup class now counts against team slot totals so their role can\'t be drafted twice, and the confirm modal class picker now correctly shows options for multi-class players. Bracket match cards got a status bar overhaul — CONFIRMED, COMPLETE, AWAITING CONFIRMATION, LIVE, and PENDING all render correctly. Event name added to the draft heading so you always know which draft you\'re in. Manage Players drawer wired into the draft board with a dedicated button in the control bar. SignupDrawer updated with a capacity prop (no more hardcoded 48), Third class in the legend, and an onUpdate callback that refreshes the pool after a ringer is promoted. Settings page now splits real and fake users, with test accounts collapsed behind a toggle by default. Dev tools section added: one-click seed tool generates a full 6v6 test draft via a dedicated /api/admin/seed route that bypasses the session user check. Dev mode auto-grant added — NEXT_PUBLIC_DEV_MODE=true automatically gives Draft Admin access to any real user on first login, disabled by removing the env var before go-live. Simulate Bot Report added as a right-click option on pending bracket matches — auto-generates a random score and submits it as if the KTP bot reported it, sending the match to Awaiting Confirmation for full queue testing.',
     tags: ['Captain slot fix', 'Class picker fix', 'Bracket status bar', 'Manage Players', 'Seed tool', 'Dev mode', 'Simulate bot report'],
+  },
+  {
+    session: '14',
+    date: 'April 30, 2026',
+    heading: 'Audit trail, Steam IDs, and the bot goes live.',
+    body: 'Three major systems shipped in one session. The audit log captures every meaningful action on the platform — match edits, confirmations, rejections, role changes, signup flags, notes, ringer toggles, user deletes, and champion declarations — all written to a new audit_log table via a shared logAudit() helper. The log page lives at a hidden URL, SuperUser only, with keyword search and action filtering. Steam ID collection was added next: players enter their Steam ID on the portal, it validates against the Steam Web API, stores the raw input for display and SteamID64 for bot matching, and pulls their Steam avatar and display name automatically. Event signup is now gated — no Steam ID, no signup. Finally, DRAFT_MAN5.0 went live as a Discord bot: it watches the #results-screenshots channel, parses KTP Score Bot embeds on match complete, extracts Steam IDs, cross-references drafted rosters, and auto-reports confirmed results to the API. The bot runs as a separate Railway service and was online and watching the channel before the session ended.',
+    tags: ['Audit log', 'Steam ID validation', 'Steam avatar', 'Signup gate', 'Discord bot live', 'Railway bot service'],
   },
 ];
 
