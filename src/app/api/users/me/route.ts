@@ -13,7 +13,7 @@ export async function GET() {
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
     .from('users')
-    .select('id, ingame_name, is_organizer, is_superuser, steam_id, steam_name, steam_avatar')
+    .select('id, ingame_name, is_organizer, is_superuser, steam_id, steam_id_64, steam_name, steam_avatar')
     .eq('id', session.user.userId)
     .maybeSingle()
 
@@ -35,6 +35,7 @@ export async function PATCH(req: NextRequest) {
 
     if (!raw) {
       allowed.steam_id = null
+      allowed.steam_id_64 = null
       allowed.steam_name = null
       allowed.steam_avatar = null
     } else {
@@ -54,7 +55,8 @@ export async function PATCH(req: NextRequest) {
         )
       }
 
-      allowed.steam_id = id64
+      allowed.steam_id = raw
+      allowed.steam_id_64 = id64
       allowed.steam_name = player.personaname || null
       allowed.steam_avatar = player.avatarfull || null
     }
