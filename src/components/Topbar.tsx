@@ -89,8 +89,6 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
     logoIcon: {
       width: '22px',
       height: '22px',
-      background: 'var(--khaki)',
-      borderRadius: '3px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
