@@ -14,16 +14,5 @@ const nextConfig = {
       },
     ],
   },
-  typescript: {
-    ignoreBuildErrors: false,
-  },
-  webpack: (config) => {
-    config.externals = config.externals || []
-    return config
-  },
-  transpilePackages: [],
-  outputFileTracingExcludes: {
-    '*': ['bot/**'],
-  },
 }
 export default nextConfig
