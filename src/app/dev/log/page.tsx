@@ -96,6 +96,13 @@ const entries: Entry[] = [
     tags: ['Terminology sweep', 'Declare champion', 'Draft pool filter', 'Third class', 'Status flow fix'],
   },
   {
+    session: '14',
+    date: 'April 30, 2026',
+    heading: 'Audit trail, Steam IDs, and the bot goes live.',
+    body: 'Three major systems shipped in one session. The audit log captures every meaningful action on the platform — match edits, confirmations, rejections, role changes, signup flags, notes, ringer toggles, user deletes, and champion declarations — all written to a new audit_log table via a shared logAudit() helper. The log page lives at a hidden URL, SuperUser only, with keyword search and action filtering. Steam ID collection was added next: players enter their Steam ID on the portal, it validates against the Steam Web API, stores the raw input for display and SteamID64 for bot matching, and pulls their Steam avatar and display name automatically. Event signup is now gated — no Steam ID, no signup. Finally, DRAFT_MAN5.0 went live as a Discord bot: it watches the #results-screenshots channel, parses KTP Score Bot embeds on match complete, extracts Steam IDs, cross-references drafted rosters, and auto-reports confirmed results to the API. The bot runs as a separate Railway service and was online and watching the channel before the session ended.',
+    tags: ['Audit log', 'Steam ID validation', 'Steam avatar', 'Signup gate', 'Discord bot live', 'Railway bot service'],
+  },
+  {
     session: '13',
     date: 'April 29, 2026',
     heading: 'Bugs squashed, dev tools land.',
