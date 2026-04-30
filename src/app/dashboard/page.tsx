@@ -309,7 +309,14 @@ export default function DashboardPage() {
     <div style={s.page}>
       <Topbar />
 
-      <main style={s.main}>
+      <style>{`
+        @media (max-width: 640px) {
+          .db-main { padding: 20px 16px 60px !important; }
+          .db-card { flex-direction: column !important; align-items: flex-start !important; }
+          .db-actions { flex-wrap: wrap !important; margin-top: 10px; }
+        }
+      `}</style>
+      <main style={s.main} className="db-main">
         <div style={s.pageHeader}>
           <div style={s.pageTitle}>Organizer Dashboard</div>
           <Link href="/events/new" style={s.newEventBtn}>+ New Event</Link>
@@ -337,7 +344,7 @@ export default function DashboardPage() {
                     : 0;
 
                   return (
-                    <div key={event.id} style={s.eventCard}>
+                    <div key={event.id} style={s.eventCard} className="db-card">
                       <div style={s.eventInfo}>
                         <div style={s.eventName}>{event.name}</div>
                         <div style={s.eventMeta}>
@@ -379,7 +386,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      <div style={s.actions}>
+                      <div style={s.actions} className="db-actions">
                         {/* View / navigate */}
                         <Link href={getNavHref(event)} style={s.actionBtn}>
                           {section === 'in_progress' ? 'Resume →' : 'View'}

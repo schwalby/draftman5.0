@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { useState } from 'react';
 
 interface BreadcrumbItem {
   label: string;
@@ -41,6 +42,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
   }
 
   const activeSection = getActiveSection();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   interface NavLink {
     key: string;
@@ -199,6 +201,23 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
     },
   };
 
+  const mobileStyles = `
+    @media (max-width: 640px) {
+      .tb-nav { display: none !important; }
+      .tb-hamburger { display: flex !important; }
+      .tb-signout { display: none !important; }
+      .tb-mobile-drawer { display: flex !important; }
+      .tb-breadcrumb { display: none !important; }
+    }
+    .tb-hamburger { display: none; flex-direction: column; gap: 4px; padding: 8px; cursor: pointer; background: none; border: none; flex-shrink: 0; }
+    .tb-hamburger span { display: block; width: 16px; height: 1.5px; background: var(--text-dim); border-radius: 1px; transition: all 0.2s; }
+    .tb-mobile-drawer { display: none; position: fixed; top: 48px; left: 0; right: 0; background: var(--surface); border-bottom: 1px solid var(--border); flex-direction: column; z-index: 99; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .tb-mobile-drawer a, .tb-mobile-drawer span.drawer-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); text-decoration: none; }
+    .tb-mobile-drawer a.active-item { color: var(--khaki); }
+    .tb-mobile-drawer .drawer-arrow { color: var(--text-muted); font-size: 10px; }
+    .tb-mobile-drawer .drawer-signout { color: var(--text-muted); cursor: pointer; background: none; border: none; font-family: var(--font-body); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; width: 100%; text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+  `;
+
   function toggleTheme() {
     const current = document.documentElement.getAttribute('data-theme');
     const next = current === 'slate' ? 'light' : 'slate';
@@ -208,6 +227,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
 
   return (
     <div style={styles.topbar}>
+      <style>{mobileStyles}</style>
       {/* Logo */}
       <Link href="/dashboard" style={styles.logo}>
         <div style={styles.logoIcon}>
@@ -218,7 +238,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
       </Link>
 
       {/* Nav links */}
-      <nav style={styles.nav}>
+      <nav style={styles.nav} className="tb-nav">
         {navLinks.map(link => {
           const isActive = link.key === activeSection;
           return isActive ? (
@@ -239,6 +259,34 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
           );
         })}
       </nav>
+
+      {/* Hamburger — mobile only */}
+      <button className="tb-hamburger" onClick={() => setMenuOpen(o => !o)} aria-label="Menu">
+        <span style={menuOpen ? { transform: 'translateY(5.5px) rotate(45deg)' } : {}} />
+        <span style={menuOpen ? { opacity: 0 } : {}} />
+        <span style={menuOpen ? { transform: 'translateY(-5.5px) rotate(-45deg)' } : {}} />
+      </button>
+
+      {/* Mobile nav drawer */}
+      {menuOpen && (
+        <div className="tb-mobile-drawer">
+          {navLinks.map(link => {
+            const isActive = link.key === activeSection;
+            return isActive ? (
+              <span key={link.key} className="drawer-item active-item" onClick={() => setMenuOpen(false)}>
+                {link.label} <span className="drawer-arrow">›</span>
+              </span>
+            ) : (
+              <Link key={link.key} href={link.href} className={`active-item-no`} onClick={() => setMenuOpen(false)} style={{ color: 'var(--text-dim)', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid var(--border)', fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {link.label} <span className="drawer-arrow">›</span>
+              </Link>
+            );
+          })}
+          <button className="drawer-signout" onClick={() => { setMenuOpen(false); signOut({ callbackUrl: '/' }); }}>
+            Sign Out
+          </button>
+        </div>
+      )}
 
       {/* Breadcrumbs (event sub-pages etc.) */}
       {breadcrumbs && breadcrumbs.length > 0 && (
@@ -276,6 +324,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
 
         <button
           style={styles.signOut}
+          className="tb-signout"
           onClick={() => signOut({ callbackUrl: '/' })}
         >
           Sign Out
