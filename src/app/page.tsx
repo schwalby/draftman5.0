@@ -41,6 +41,13 @@ export default function LandingPage() {
       justifyContent: 'center',
       padding: '60px 24px',
     }}>
+      <style>{`
+        @media (max-width: 600px) {
+          .lp-title { font-size: 40px !important; }
+          .lp-cards { flex-direction: column !important; }
+          .lp-cards > div { flex: unset !important; width: 100% !important; }
+        }
+      `}</style>
 
       {/* Pill */}
       <div style={{
@@ -78,7 +85,7 @@ export default function LandingPage() {
         color: 'var(--khaki)',
         lineHeight: 1,
         marginBottom: 10,
-      }}>
+      }} className="lp-title">
         DRAFTMAN5.0
       </div>
 
@@ -138,7 +145,7 @@ export default function LandingPage() {
       </div>
 
       {/* Feature cards */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 48, width: '100%', maxWidth: 560 }}>
+      <div className="lp-cards" style={{ display: 'flex', gap: 12, marginBottom: 48, width: '100%', maxWidth: 560 }}>
         {[
           {
             icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>,
