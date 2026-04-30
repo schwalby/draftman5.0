@@ -65,3 +65,10 @@ export async function validateSteamId64(steamId64: string): Promise<SteamPlayer 
     return null
   }
 }
+
+
+export function toSteamId3(steamId64: string): string {
+  const id64 = BigInt(steamId64)
+  const accountId = id64 - STEAM_ID64_BASE
+  return '[U:1:' + accountId.toString() + ']'
+}
