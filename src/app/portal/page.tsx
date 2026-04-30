@@ -144,36 +144,52 @@ export default function PortalPage() {
 
       <main style={{ maxWidth: 760, margin: '0 auto', padding: '36px 24px 80px' }}>
 
-        {/* Missing Steam ID banner */}
-        {!hasSteamId && (
-          <div style={{
-            background: 'rgba(200,132,42,0.06)',
-            border: '1px solid rgba(200,132,42,0.35)',
-            borderRadius: 4, padding: '10px 14px', marginBottom: 20,
-            fontSize: 12, color: '#c8842a', display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <span>&#9888;</span>
-            Add your Steam ID below before you can sign up for events.
-          </div>
-        )}
+        {/* Profile row — Discord left, Steam right */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 36 }}>
 
-        {/* Welcome row */}
-        <div style={{ marginBottom: 36 }}>
-          <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 32, letterSpacing: '0.04em', color: 'var(--text)', lineHeight: 1 }}>
-            Welcome back, {displayName}
+          {/* Discord card */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 20px' }}>
+            <div style={{
+              fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em',
+              color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 12,
+            }}>Discord</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                background: 'var(--surface2)', border: '1px solid var(--border)',
+                overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'var(--font-heading)', fontSize: 18, color: 'var(--khaki)',
+              }}>
+                {user?.discordId && user?.discordAvatar
+                  ? <img src={`https://cdn.discordapp.com/avatars/${user.discordId}/${user.discordAvatar}.png`} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : displayName[0]?.toUpperCase()
+                }
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {displayName}
+                </div>
+                {user?.discordUsername && user.discordUsername !== displayName && (
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>@{user.discordUsername}</div>
+                )}
+                <div style={{
+                  display: 'inline-block', marginTop: 4,
+                  fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  padding: '2px 7px', borderRadius: 2,
+                  border: '1px solid rgba(200,184,122,0.3)', color: 'var(--khaki)',
+                }}>
+                  {(user as any)?.isSuperUser ? 'SuperUser' : user?.isOrganizer ? 'Draft Admin' : (user as any)?.isCaptain ? 'Captain' : 'Player'}
+                </div>
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>
-            Day of Defeat 1.3 · Draft Events
-          </div>
-        </div>
 
-        {/* Steam ID section */}
-        <div style={{ marginBottom: 36 }}>
-          <div style={{
-            fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em',
-            color: 'var(--text-dim)', textTransform: 'uppercase',
-            paddingBottom: 8, borderBottom: '1px solid var(--border)', marginBottom: 12
-          }}>Steam Profile</div>
+          {/* Steam card */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 20px' }}>
+            <div style={{
+              fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em',
+              color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 12,
+            }}>Steam Profile</div>
 
           {!hasSteamId || steamEditing ? (
             <div>
@@ -259,6 +275,7 @@ export default function PortalPage() {
               </div>
             </div>
           )}
+          </div>
         </div>
 
         {/* Open Events */}
