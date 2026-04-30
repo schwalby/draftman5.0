@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Topbar } from '@/components/Topbar';
 import SignupDrawer from '@/components/SignupDrawer';
@@ -62,6 +62,7 @@ const CLASSES = ['rifle', 'third', 'heavy', 'sniper', 'flex'];
 export default function EventPage() {
   const { data: session } = useSession();
   const params = useParams();
+  const router = useRouter();
   const eventId = params.id as string;
 
   const [event, setEvent] = useState<Event | null>(null);
@@ -74,6 +75,7 @@ export default function EventPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draftInProgress, setDraftInProgress] = useState(false);
   const [tournamentExists, setTournamentExists] = useState(false);
+  const [hasSteamId, setHasSteamId] = useState<boolean | null>(null); // null = loading
 
   const isOrganizer = session?.user?.isOrganizer;
   const userId = session?.user?.userId;
@@ -121,11 +123,21 @@ export default function EventPage() {
         .maybeSingle();
       setTournamentExists(!!data);
     };
+    const fetchSteamId = async () => {
+      const res = await fetch('/api/users/me');
+      if (res.ok) {
+        const data = await res.json();
+        setHasSteamId(!!data?.steam_id);
+      } else {
+        setHasSteamId(false);
+      }
+    };
     fetchEvent();
     fetchSignups();
     fetchPicks();
     fetchTournament();
-  }, [eventId, userId]);
+    if (session) fetchSteamId();
+  }, [eventId, userId, session]);
 
   // Realtime signups
   useEffect(() => {
@@ -192,7 +204,6 @@ export default function EventPage() {
     submittingRef.current = false;
   };
 
-  // Smart navigation — goes directly to the right page based on event state
   function getActionButton(): { label: string; href: string } | null {
     if (!isOrganizer) return null;
     if (event?.status === 'completed' || tournamentExists) {
@@ -205,7 +216,6 @@ export default function EventPage() {
   }
 
   const actionButton = getActionButton();
-
   const displayName = (s: Signup) => s.users?.ingame_name || s.users?.discord_username || 'Unknown';
 
   if (loading) return (
@@ -246,6 +256,7 @@ export default function EventPage() {
 
   return (
     <>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <Topbar items={[
         { label: 'Events', href: '/dashboard' },
         { label: event.name, href: `/events/${eventId}` },
@@ -268,7 +279,6 @@ export default function EventPage() {
               </div>
             </div>
 
-            {/* Organizer controls */}
             {isOrganizer && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
@@ -316,7 +326,7 @@ export default function EventPage() {
           )}
         </div>
 
-        {/* Signup form — hidden when draft is in progress */}
+        {/* Signup form */}
         {session && (
           draftInProgress ? (
             <div style={{
@@ -335,6 +345,35 @@ export default function EventPage() {
                   Signups are closed. The draft is currently underway.
                 </div>
               </div>
+            </div>
+          ) : !hasSteamId && !mySignup ? (
+            /* No Steam ID — block signup */
+            <div style={{
+              background: 'rgba(200,132,42,0.06)',
+              border: '1px solid rgba(200,132,42,0.35)',
+              borderRadius: 6, padding: '16px 20px',
+              marginBottom: 28,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            }}>
+              <div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: '#c8842a', marginBottom: 2 }}>
+                  Steam ID required to sign up
+                </div>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)' }}>
+                  Add your Steam ID in the Player Portal before signing up for events.
+                </div>
+              </div>
+              <button
+                onClick={() => router.push('/portal')}
+                style={{
+                  padding: '7px 14px', borderRadius: 4, cursor: 'pointer', flexShrink: 0,
+                  fontSize: 11, fontFamily: 'var(--font-body)',
+                  background: 'rgba(200,132,42,0.1)', color: '#c8842a',
+                  border: '0.5px solid rgba(200,132,42,0.4)',
+                }}
+              >
+                Go to Portal →
+              </button>
             </div>
           ) : (
             <div style={{ background: 'var(--surface)', border: '0.5px solid var(--border)', borderRadius: 6, padding: '20px', marginBottom: 28 }}>
@@ -407,7 +446,6 @@ export default function EventPage() {
             </span>
           </div>
 
-          {/* Class dot legend */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
             {Object.entries(CLASS_COLORS).filter(([c]) => c !== 'light').map(([cls, color]) => (
               <div key={cls} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-dim)' }}>

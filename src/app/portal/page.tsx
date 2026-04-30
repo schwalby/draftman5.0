@@ -39,6 +39,13 @@ export default function PortalPage() {
   const [loading, setLoading] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
 
+  // Steam ID state
+  const [steamId, setSteamId] = useState<string>('')
+  const [steamIdInput, setSteamIdInput] = useState<string>('')
+  const [steamEditing, setSteamEditing] = useState(false)
+  const [steamSaving, setSteamSaving] = useState(false)
+  const [steamError, setSteamError] = useState<string | null>(null)
+
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/')
   }, [status, router])
@@ -55,14 +62,55 @@ export default function PortalPage() {
     setDarkMode(!darkMode)
   }
 
+  // Fetch current user's steam_id on load
+  useEffect(() => {
+    if (status !== 'authenticated') return
+    fetch('/api/users/me')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.steam_id) {
+          setSteamId(data.steam_id)
+          setSteamIdInput(data.steam_id)
+        }
+      })
+  }, [status])
+
+  async function saveSteamId() {
+    const val = steamIdInput.trim()
+    if (!val) return
+    setSteamError(null)
+    setSteamSaving(true)
+    try {
+      const res = await fetch('/api/users/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ steam_id: val }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        setSteamError(err.error ?? 'Failed to save')
+      } else {
+        setSteamId(val)
+        setSteamEditing(false)
+      }
+    } catch {
+      setSteamError('Network error')
+    }
+    setSteamSaving(false)
+  }
+
+  function cancelEdit() {
+    setSteamIdInput(steamId)
+    setSteamEditing(false)
+    setSteamError(null)
+  }
+
   const fetchEvents = useCallback(async () => {
     setLoading(true)
     const res = await fetch('/api/events')
     if (res.ok) {
       const data = await res.json()
       const open = data.filter((e: Event) => e.status === 'scheduled' || e.status === 'active')
-
-      // Check picks for each event
       const enriched = await Promise.all(open.map(async (ev: Event) => {
         try {
           const picksRes = await fetch(`/api/draft/${ev.id}/picks`)
@@ -72,7 +120,6 @@ export default function PortalPage() {
           return { ...ev, has_picks: false }
         }
       }))
-
       setEvents(enriched)
     }
     setLoading(false)
@@ -96,6 +143,8 @@ export default function PortalPage() {
   const discordAvatarUrl = user?.discordId && user?.discordAvatar
     ? `https://cdn.discordapp.com/avatars/${user.discordId}/${user.discordAvatar}.png`
     : null
+
+  const hasSteamId = !!steamId
 
   const navLink = (active = false): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 8,
@@ -192,12 +241,143 @@ export default function PortalPage() {
       <main style={{ marginLeft: 220, flex: 1, padding: '36px 40px 80px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ width: '100%', maxWidth: 760 }}>
 
-          <div style={{ marginBottom: 36 }}>
-            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 32, letterSpacing: '0.04em', color: 'var(--text)', lineHeight: 1 }}>
-              Welcome back, {displayName}
+          {/* Missing Steam ID banner */}
+          {!hasSteamId && (
+            <div style={{
+              background: 'rgba(200,132,42,0.06)',
+              border: '1px solid rgba(200,132,42,0.35)',
+              borderRadius: 4,
+              padding: '10px 14px',
+              marginBottom: 20,
+              fontSize: 12,
+              color: '#c8842a',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}>
+              <span>&#9888;</span>
+              Add your Steam ID below before you can sign up for events.
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>
-              Day of Defeat 1.3 · Draft Events
+          )}
+
+          {/* Welcome row */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24, marginBottom: 36, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 32, letterSpacing: '0.04em', color: 'var(--text)', lineHeight: 1 }}>
+                Welcome back, {displayName}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>
+                Day of Defeat 1.3 · Draft Events
+              </div>
+            </div>
+
+            {/* Steam ID widget */}
+            <div style={{ minWidth: 220 }}>
+              <div style={{
+                fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300,
+                letterSpacing: '0.16em', color: 'var(--text-dim)',
+                textTransform: 'uppercase', marginBottom: 5,
+              }}>
+                Steam ID
+              </div>
+
+              {/* State: no Steam ID or editing */}
+              {(!hasSteamId || steamEditing) ? (
+                <div style={{
+                  border: `1px solid ${hasSteamId ? 'rgba(200,184,122,0.35)' : 'rgba(200,132,42,0.5)'}`,
+                  borderRadius: 3,
+                  padding: '10px 12px',
+                  background: hasSteamId ? 'var(--surface)' : 'rgba(200,132,42,0.05)',
+                }}>
+                  {!hasSteamId && (
+                    <div style={{ fontSize: 10, color: '#c8842a', marginBottom: 7, letterSpacing: '0.04em' }}>
+                      No Steam ID on file
+                    </div>
+                  )}
+                  <input
+                    value={steamIdInput}
+                    onChange={e => setSteamIdInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveSteamId() }}
+                    placeholder="STEAM_0:0:XXXXXXX"
+                    style={{
+                      width: '100%',
+                      background: 'var(--bg)',
+                      border: '1px solid rgba(200,184,122,0.25)',
+                      borderRadius: 2,
+                      padding: '6px 8px',
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 11,
+                      color: 'var(--text)',
+                      marginBottom: 7,
+                      outline: 'none',
+                    }}
+                    autoFocus={steamEditing}
+                  />
+                  {steamError && (
+                    <div style={{ fontSize: 10, color: 'var(--rust)', marginBottom: 6 }}>{steamError}</div>
+                  )}
+                  <div style={{ display: 'flex', gap: 5 }}>
+                    <button
+                      onClick={saveSteamId}
+                      disabled={steamSaving || !steamIdInput.trim()}
+                      style={{
+                        fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300,
+                        letterSpacing: '0.1em', textTransform: 'uppercase',
+                        padding: '4px 10px', borderRadius: 2, cursor: 'pointer',
+                        border: '1px solid rgba(200,132,42,0.5)',
+                        background: 'rgba(200,132,42,0.1)', color: '#c8842a',
+                        opacity: steamSaving || !steamIdInput.trim() ? 0.5 : 1,
+                      }}
+                    >
+                      {steamSaving ? '...' : 'Save'}
+                    </button>
+                    {steamEditing && (
+                      <button
+                        onClick={cancelEdit}
+                        style={{
+                          fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300,
+                          letterSpacing: '0.1em', textTransform: 'uppercase',
+                          padding: '4px 10px', borderRadius: 2, cursor: 'pointer',
+                          border: '1px solid var(--border)',
+                          background: 'transparent', color: 'var(--text-dim)',
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* State: saved, read-only */
+                <div style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '10px 12px',
+                  background: 'var(--surface)',
+                }}>
+                  <div style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 11,
+                    color: 'var(--text-dim)',
+                    marginBottom: 7,
+                    wordBreak: 'break-all',
+                  }}>
+                    {steamId}
+                  </div>
+                  <button
+                    onClick={() => { setSteamIdInput(steamId); setSteamEditing(true); setSteamError(null) }}
+                    style={{
+                      fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300,
+                      letterSpacing: '0.1em', textTransform: 'uppercase',
+                      padding: '4px 10px', borderRadius: 2, cursor: 'pointer',
+                      border: '1px solid var(--border)',
+                      background: 'transparent', color: 'var(--text-dim)',
+                    }}
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -220,6 +400,7 @@ export default function PortalPage() {
                   const isSignedUp = !!mySignup
                   const inProgress = !!event.has_picks
                   const typeLabel = event.type === 'draft' ? 'Draft' : 'Community Event'
+                  const canSignup = hasSteamId
 
                   return (
                     <div key={event.id} style={{
@@ -229,7 +410,6 @@ export default function PortalPage() {
                       borderRadius: 4, padding: 18,
                       display: 'flex', flexDirection: 'column', gap: 10
                     }}>
-                      {/* Card top */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                         <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.3 }}>{event.name}</div>
                         <span style={{
@@ -244,14 +424,12 @@ export default function PortalPage() {
                         </span>
                       </div>
 
-                      {/* Meta */}
                       <div style={{ fontSize: 11, color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', gap: 3 }}>
                         {event.starts_at && <span>📅 {formatDateTime(event.starts_at)}</span>}
                         <span>⚔ {event.format} · {typeLabel} · {event.half_length} min halves</span>
                         <span>👥 {event.signup_count ?? 0} / {event.capacity} signed up</span>
                       </div>
 
-                      {/* Signup status */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                         {inProgress ? (
                           <span style={{ color: 'var(--green-light)' }}>🔒 Draft in progress — signups closed</span>
@@ -260,13 +438,14 @@ export default function PortalPage() {
                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: isSignedUp ? 'var(--khaki)' : 'var(--text-dim)', opacity: isSignedUp ? 1 : 0.4, flexShrink: 0 }} />
                             {isSignedUp
                               ? <span style={{ color: 'var(--text-dim)' }}>Signed up as <span style={{ color: 'var(--text)' }}>{mySignup.class.map((c: string) => c.charAt(0).toUpperCase() + c.slice(1)).join(' / ')}</span></span>
-                              : <span style={{ color: 'var(--text-dim)' }}>Not signed up</span>
+                              : !canSignup
+                                ? <span style={{ color: '#c8842a' }}>Add Steam ID to sign up</span>
+                                : <span style={{ color: 'var(--text-dim)' }}>Not signed up</span>
                             }
                           </>
                         )}
                       </div>
 
-                      {/* Action */}
                       <Link href={`/events/${event.id}`} style={{
                         fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
                         letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px',
@@ -280,6 +459,8 @@ export default function PortalPage() {
                         background: inProgress
                           ? 'rgba(90,156,90,0.08)'
                           : isSignedUp ? 'transparent' : 'rgba(200,184,122,0.08)',
+                        pointerEvents: (!canSignup && !isSignedUp && !inProgress) ? 'none' : 'auto',
+                        opacity: (!canSignup && !isSignedUp && !inProgress) ? 0.4 : 1,
                       }}>
                         {inProgress ? 'View Event' : isSignedUp ? 'View Event' : 'Sign Up'}
                       </Link>
