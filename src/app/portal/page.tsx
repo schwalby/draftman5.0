@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { toSteamId3 } from '@/lib/steam'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Spinner } from '@/components/Spinner'
@@ -386,7 +385,7 @@ export default function PortalPage() {
                       </div>
                     )}
                     <div style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--text-dim)', marginBottom: 7, wordBreak: 'break-all' }}>
-                      {steamId ? toSteamId3(steamId) : ''}
+                      {steamId}
                     </div>
                     <button
                       onClick={() => { setSteamIdInput(steamId); setSteamEditing(true); setSteamError(null) }}
