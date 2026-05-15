@@ -43,7 +43,7 @@ const MATCH_THRESHOLD       = 8
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  realtime: { transport: ws },
+  realtime: { transport: ws as any },
 })
 
 // ── Slash command definitions ─────────────────────────────────────────────────
