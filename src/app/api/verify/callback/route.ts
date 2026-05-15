@@ -186,5 +186,5 @@ export async function GET(req: NextRequest) {
     // Same — Steam data is saved, redirect to success, log for manual follow-up
   }
 
-  return NextResponse.redirect(new URL('/verify?success=1', req.url))
+  return NextResponse.redirect(new URL('/verify?success=1', base))
 }
