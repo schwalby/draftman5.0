@@ -105,7 +105,7 @@ async function sendVerifyLink(
     if (res.status === 429) {
       const msg = '⏳ Too many verification attempts. Please wait 10 minutes and try again.'
       if (isFollowUp) {
-        await (interaction as ButtonInteraction).followUp({ content: msg, ephemeral: true })
+        await (interaction as ButtonInteraction).followUp({ content: msg, flags: 64 })
       } else {
         await interaction.editReply({ content: msg })
       }
@@ -115,7 +115,7 @@ async function sendVerifyLink(
     console.error('[bot] /verify token request failed:', res.status, errData)
     const msg = '❌ Something went wrong generating your verification link. Please try again.'
     if (isFollowUp) {
-      await (interaction as ButtonInteraction).followUp({ content: msg, ephemeral: true })
+      await (interaction as ButtonInteraction).followUp({ content: msg, flags: 64 })
     } else {
       await interaction.editReply({ content: msg })
     }
@@ -131,7 +131,7 @@ async function sendVerifyLink(
   if (data.already_verified) {
     const msg = `✅ You're already verified! Your Steam account **${data.steam_name ?? ''}** is linked.`
     if (isFollowUp) {
-      await (interaction as ButtonInteraction).followUp({ content: msg, ephemeral: true })
+      await (interaction as ButtonInteraction).followUp({ content: msg, flags: 64 })
     } else {
       await interaction.editReply({ content: msg })
     }
@@ -149,7 +149,7 @@ async function sendVerifyLink(
   ].join('\n')
 
   if (isFollowUp) {
-    await (interaction as ButtonInteraction).followUp({ content, ephemeral: true })
+    await (interaction as ButtonInteraction).followUp({ content, flags: 64 })
   } else {
     await interaction.editReply({ content })
   }
@@ -157,37 +157,38 @@ async function sendVerifyLink(
 
 // ── /verify handler ───────────────────────────────────────────────────────────
 async function handleVerify(interaction: ChatInputCommandInteraction) {
-  await interaction.deferReply({ ephemeral: true })
+  await interaction.deferReply({ flags: 64 })
 
   const discordId       = interaction.user.id
   const discordUsername = interaction.user.username
 
   try {
     const user = await getUserRecord(discordId)
+    console.log(`[bot] /verify — discord_id: ${discordId}, user found: ${!!user}`)
 
     if (!user) {
-      // No DRAFTMAN account — prompt them to log in first
       const loginBtn = new ButtonBuilder()
         .setCustomId(`verify_loggedin_${discordId}`)
-        .setLabel("✓  I'm logged in — send me the link")
+        .setLabel("✓  I'm signed in — send me the link")
         .setStyle(ButtonStyle.Success)
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(loginBtn)
 
       await interaction.editReply({
         content: [
-          `**You need to log into DRAFTMAN5.0 first.**`,
+          `**You need to create a DRAFTMAN5.0 account first.**`,
           ``,
-          `Click the link below to sign in with your Discord account, then come back and click the button.`,
+          `Click the link below to sign in with Discord. It will log you in automatically — no extra steps.`,
           ``,
-          `🔗 ${API_BASE_URL}`,
+          `🔗 ${API_BASE_URL}/api/auth/signin/discord`,
+          ``,
+          `Once you're signed in, come back and click the button below.`,
         ].join('\n'),
         components: [row],
       })
       return
     }
 
-    // User exists — send the Steam verify link
     await sendVerifyLink(interaction, discordId, discordUsername)
 
   } catch (err) {
@@ -198,7 +199,7 @@ async function handleVerify(interaction: ChatInputCommandInteraction) {
   }
 }
 
-// ── Button: "I'm logged in" ───────────────────────────────────────────────────
+// ── Button: "I'm signed in" ───────────────────────────────────────────────────
 async function handleVerifyLoggedIn(interaction: ButtonInteraction) {
   await interaction.deferUpdate()
 
@@ -207,17 +208,18 @@ async function handleVerifyLoggedIn(interaction: ButtonInteraction) {
 
   try {
     const user = await getUserRecord(discordId)
+    console.log(`[bot] verify_loggedin — discord_id: ${discordId}, user found: ${!!user}`)
 
     if (!user) {
       await interaction.followUp({
         content: [
-          `❌ We still can't find your account. Make sure you've logged in at:`,
+          `❌ We still can't find your account. Make sure you clicked the sign-in link and completed the Discord login at:`,
           ``,
-          `🔗 ${API_BASE_URL}`,
+          `🔗 ${API_BASE_URL}/api/auth/signin/discord`,
           ``,
-          `Once you've logged in with Discord, click the button again.`,
+          `Once you're signed in, click the button again.`,
         ].join('\n'),
-        ephemeral: true,
+        flags: 64,
       })
       return
     }
@@ -228,7 +230,7 @@ async function handleVerifyLoggedIn(interaction: ButtonInteraction) {
     console.error('[bot] verify_loggedin error:', err)
     await interaction.followUp({
       content: '❌ An unexpected error occurred. Please try again or contact a moderator.',
-      ephemeral: true,
+      flags: 64,
     })
   }
 }
