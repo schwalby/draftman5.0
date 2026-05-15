@@ -10,6 +10,7 @@ import {
   ChatInputCommandInteraction,
 } from 'discord.js'
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 
 // ── Env validation ────────────────────────────────────────────────────────────
 const REQUIRED_ENV = [
@@ -41,7 +42,9 @@ const RESULTS_CHANNEL_ID    = process.env.RESULTS_CHANNEL_ID!
 const MATCH_THRESHOLD       = 8
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  realtime: { transport: ws },
+})
 
 // ── Slash command definitions ─────────────────────────────────────────────────
 const commands = [
