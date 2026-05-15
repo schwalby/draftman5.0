@@ -29,10 +29,6 @@ function formatDateTime(iso: string | null) {
 }
 
 function VerifiedBanner({ steamName, onDismiss }: { steamName: string; onDismiss: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 8000)
-    return () => clearTimeout(t)
-  }, [onDismiss])
 
   return (
     <div style={{
