@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Spinner } from '@/components/Spinner'
 import { Topbar } from '@/components/Topbar'
+import { Suspense } from 'react'
 
 interface Event {
   id: string
@@ -27,17 +28,87 @@ function formatDateTime(iso: string | null) {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-export default function PortalPage() {
+function VerifiedBanner({ steamName, onDismiss }: { steamName: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 8000)
+    return () => clearTimeout(t)
+  }, [onDismiss])
+
+  return (
+    <div style={{
+      padding: '20px 24px',
+      display: 'flex',
+      justifyContent: 'center',
+      animation: 'verifiedSlideDown 0.4s ease',
+    }}>
+      <style>{`
+        @keyframes verifiedSlideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+      <div style={{
+        background: 'rgba(76,175,125,0.08)',
+        border: '1px solid rgba(76,175,125,0.25)',
+        borderRadius: 8,
+        padding: '18px 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 20,
+        maxWidth: 680,
+        width: '100%',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: '50%',
+            background: 'rgba(76,175,125,0.12)',
+            border: '1px solid rgba(76,175,125,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--green-light)', fontSize: 20, flexShrink: 0,
+          }}>✓</div>
+          <div>
+            <div style={{
+              fontFamily: 'var(--font-heading)', fontWeight: 300,
+              fontSize: 20, letterSpacing: '0.04em',
+              color: 'var(--green-light)', marginBottom: 4,
+            }}>
+              You&apos;re verified — welcome to DRAFTMAN5.0
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.6 }}>
+              Your Steam account <span style={{ color: 'var(--text)' }}>{steamName}</span> is linked.
+              You can now sign up for drafts and 12 mans.
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={onDismiss}
+          style={{
+            background: 'none', border: 'none', color: 'var(--text-dim)',
+            fontSize: 20, cursor: 'pointer', padding: '4px 8px',
+            lineHeight: 1, flexShrink: 0,
+          }}
+        >×</button>
+      </div>
+    </div>
+  )
+}
+
+function PortalContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const justVerified = searchParams.get('verified') === '1'
 
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
+  const [showVerifiedBanner, setShowVerifiedBanner] = useState(justVerified)
 
   const [steamId, setSteamId] = useState<string>('')
   const [steamIdInput, setSteamIdInput] = useState<string>('')
   const [steamName, setSteamName] = useState<string>('')
   const [steamAvatar, setSteamAvatar] = useState<string>('')
+  const [steamVerified, setSteamVerified] = useState(false)
   const [steamEditing, setSteamEditing] = useState(false)
   const [steamSaving, setSteamSaving] = useState(false)
   const [steamError, setSteamError] = useState<string | null>(null)
@@ -56,6 +127,7 @@ export default function PortalPage() {
           setSteamIdInput(data.steam_id)
           setSteamName(data.steam_name ?? '')
           setSteamAvatar(data.steam_avatar ?? '')
+          setSteamVerified(data.steam_verified ?? false)
         }
       })
   }, [status])
@@ -148,7 +220,15 @@ export default function PortalPage() {
         }
       `}</style>
 
-      <main className="portal-main" style={{ maxWidth: 760, margin: '0 auto', padding: '36px 24px 80px' }}>
+      {/* Verified banner */}
+      {showVerifiedBanner && (
+        <VerifiedBanner
+          steamName={steamName || 'your account'}
+          onDismiss={() => setShowVerifiedBanner(false)}
+        />
+      )}
+
+      <main className="portal-main" style={{ maxWidth: 760, margin: '0 auto', padding: showVerifiedBanner ? '8px 24px 80px' : '36px 24px 80px' }}>
 
         {/* Welcome header */}
         <div style={{ marginBottom: 28 }}>
@@ -198,10 +278,22 @@ export default function PortalPage() {
 
           {/* Steam card */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 20px' }}>
-            <div style={{
-              fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em',
-              color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 12,
-            }}>Steam Profile</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{
+                fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em',
+                color: 'var(--text-dim)', textTransform: 'uppercase',
+              }}>Steam Profile</div>
+              {steamVerified && (
+                <span style={{
+                  fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  padding: '2px 7px', borderRadius: 2, display: 'inline-flex', alignItems: 'center', gap: 4,
+                  border: '1px solid rgba(76,175,125,0.3)', color: 'var(--green-light)',
+                  background: 'rgba(76,175,125,0.08)',
+                }}>
+                  ✓ Verified
+                </span>
+              )}
+            </div>
 
             {!hasSteamId || steamEditing ? (
               <div>
@@ -351,7 +443,6 @@ export default function PortalPage() {
                       )}
                     </div>
 
-                    {/* Button pinned to bottom */}
                     <Link href={`/events/${event.id}`} style={{
                       marginTop: 'auto',
                       fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
@@ -408,5 +499,13 @@ export default function PortalPage() {
 
       </main>
     </>
+  )
+}
+
+export default function PortalPage() {
+  return (
+    <Suspense fallback={<><Topbar /><div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner /></div></>}>
+      <PortalContent />
+    </Suspense>
   )
 }
