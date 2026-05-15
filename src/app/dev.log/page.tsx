@@ -123,6 +123,27 @@ const entries: Entry[] = [
     body: 'The draft holding page went from design to shipped: role-gated access at the draft route, with a player-facing page that renders in three states depending on draft status and whether a stream URL is configured. Stream embeds handle both Twitch and YouTube via URL transform. stream_url column added to the events table and wired into the wizard and edit page. Then the full mobile responsive pass: landing page title no longer overflows, dashboard event cards stack vertically with buttons wrapping below, portal profile cards and event grids collapse to single column, event detail player grid drops from four columns to two, and the draft holding page tightens up on small screens. The Topbar got a hamburger menu — on mobile the nav links hide and a drawer slides down with all links and sign out. One component change, every page fixed.',
     tags: ['Draft holding page', 'stream_url', 'Mobile responsive', 'Hamburger menu', 'Topbar'],
   },
+  {
+    session: '17',
+    date: 'May 1, 2026',
+    heading: 'Steam verification designed.',
+    body: 'Designed and built the full Steam OAuth verification flow — seven files generated, downloaded, but not yet installed pending a security review. The flow: player runs /verify in Discord, bot DMs a one-time link, player clicks through to a verify page, logs in with Steam, and the platform validates account age (30+ days), DoD ownership (App ID 30), and profile visibility. On pass, the bot grants the Verified Discord role and sends a confirmation DM. Discovery: Discord native Linked Roles cannot expose Steam ID to bots, so a custom Steam OpenID 2.0 flow was required. Six bugs identified in code review before installation: URLSearchParams cast, race condition on token consumption, missing rate limiting, misleading error for missing timecreated, Manage Roles permission gap, and fire-and-forget grant call.',
+    tags: ['Steam verify designed', 'Steam OpenID 2.0', 'One-time tokens', 'Six bugs flagged', 'Not yet installed'],
+  },
+  {
+    session: '18',
+    date: 'May 14, 2026',
+    heading: 'Security audit and bot planning.',
+    body: 'Ran a full API route security scan across all 25 routes — every route confirmed to have session checks, 401/403 responses, and appropriate role gating. Identified that NEXT_PUBLIC_DEV_MODE=true was live in Railway, granting Draft Admin to all logged-in users — left intentionally for testing but flagged for removal before go-live. Investigated CVE-2026-31431 (Copy Fail Linux LPE) — assessed as Railway\'s responsibility to patch, low risk given app-layer auth posture. Built comprehensive player experience documentation and system flowcharts covering player journey, admin flow, roles, draft mechanics, and data/systems architecture. Planned and specced the unified 1911.gg bot: Feature Set 1 (verification), Feature Set 2 (draft/tournament bridge), and Feature Set 3 (12 man queue as NeatQueue replacement). Documented live NeatQueue behavior via screenshots for reference.',
+    tags: ['Security audit', 'CVE-2026-31431', 'API auth confirmed', 'Player docs', 'Flowcharts', 'Bot spec'],
+  },
+  {
+    session: '19',
+    date: 'May 15, 2026',
+    heading: 'Verify ships. Portal gets smarter.',
+    body: 'The Steam verify feature went from designed-but-blocked to fully live. Six bugs patched across five files: URLSearchParams now uses .forEach() for correct Steam OpenID validation, token consumption made atomic with a single UPDATE+WHERE to prevent race conditions, rate limiting added (3 attempts per 10 minutes per Discord ID), missing timecreated now redirects to the correct error state, the grant call is now properly awaited with error logging, and the ws package was added to the bot for Supabase realtime on Node 20. The verify page was redesigned from a floating card to a full landing-page-style experience matching the DRAFTMAN5.0 aesthetic — big logo, grid background, feature cards. Successful verification now redirects to /portal?verified=1 instead of a static success page. The portal received a verified banner (centered, green, dismissable, no auto-dismiss), a ✓ Verified badge on the Steam card, and the Edit button moved to the card header. The bot verify flow was redesigned: it now checks for a DRAFTMAN account first — if not found, it sends an ephemeral message with a login link and an "I\'m logged in" button, so players never have to retype the command. discord.js ButtonBuilder and ActionRowBuilder wired in for the first time.',
+    tags: ['Steam verify live', 'Six bugs patched', 'Verify page redesigned', 'Portal verified banner', 'Verified badge', 'Bot button interactions', 'Atomic token consumption', 'ws package'],
+  },
 ];
 
 export default function DevLog() {
@@ -166,7 +187,7 @@ export default function DevLog() {
             color: 'var(--text-dim)',
             letterSpacing: '0.06em',
           }}>
-            {entries.length} sessions · April 2026 · Next.js + Supabase + Discord OAuth
+            {entries.length} sessions · April–May 2026 · Next.js + Supabase + Discord OAuth
           </div>
         </div>
 
