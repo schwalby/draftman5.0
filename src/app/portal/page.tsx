@@ -279,6 +279,9 @@ function PortalContent() {
                 fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em',
                 color: 'var(--text-dim)', textTransform: 'uppercase',
               }}>Steam Profile</div>
+              {!steamEditing && hasSteamId && (
+                <button onClick={() => { setSteamIdInput(steamId); setSteamEditing(true); setSteamError(null) }} style={{ fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: 2, cursor: 'pointer', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-dim)' }}>Edit</button>
+              )}
             </div>
 
             {!hasSteamId || steamEditing ? (
@@ -357,17 +360,7 @@ function PortalContent() {
                       ✓ Verified
                     </span>
                   )}
-                  <button
-                    onClick={() => { setSteamIdInput(steamId); setSteamEditing(true); setSteamError(null) }}
-                    style={{
-                      fontSize: 9, fontFamily: 'var(--font-heading)', fontWeight: 300,
-                      letterSpacing: '0.1em', textTransform: 'uppercase',
-                      padding: '3px 9px', borderRadius: 2, cursor: 'pointer',
-                      border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-dim)',
-                    }}
-                  >
-                    Edit
-                  </button>
+
                 </div>
               </div>
             )}
