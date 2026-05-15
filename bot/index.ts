@@ -103,7 +103,11 @@ async function handleVerify(interaction: ChatInputCommandInteraction) {
       return
     }
 
-    const data = await res.json()
+    const data = await res.json() as {
+      already_verified?: boolean
+      steam_name?: string
+      url?: string
+    }
 
     // Already verified
     if (data.already_verified) {
