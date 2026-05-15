@@ -8,6 +8,10 @@ import {
   Routes,
   SlashCommandBuilder,
   ChatInputCommandInteraction,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
+  ButtonInteraction,
 } from 'discord.js'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
@@ -69,91 +73,162 @@ async function registerCommands() {
   }
 }
 
+// ── Helper: check if user exists in DB ───────────────────────────────────────
+async function getUserRecord(discordId: string) {
+  const { data } = await supabase
+    .from('users')
+    .select('id, steam_verified, steam_name, steam_id')
+    .eq('discord_id', discordId)
+    .maybeSingle()
+  return data
+}
+
+// ── Helper: send Steam verify link ───────────────────────────────────────────
+async function sendVerifyLink(
+  interaction: ChatInputCommandInteraction | ButtonInteraction,
+  discordId: string,
+  discordUsername: string,
+  isFollowUp = false
+) {
+  const res = await fetch(`${API_BASE_URL}/api/verify/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-bot-secret': BOT_SECRET,
+    },
+    body: JSON.stringify({ discord_id: discordId, discord_username: discordUsername }),
+  })
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}))
+
+    if (res.status === 429) {
+      const msg = '⏳ Too many verification attempts. Please wait 10 minutes and try again.'
+      if (isFollowUp) {
+        await (interaction as ButtonInteraction).followUp({ content: msg, ephemeral: true })
+      } else {
+        await interaction.editReply({ content: msg })
+      }
+      return
+    }
+
+    console.error('[bot] /verify token request failed:', res.status, errData)
+    const msg = '❌ Something went wrong generating your verification link. Please try again.'
+    if (isFollowUp) {
+      await (interaction as ButtonInteraction).followUp({ content: msg, ephemeral: true })
+    } else {
+      await interaction.editReply({ content: msg })
+    }
+    return
+  }
+
+  const data = await res.json() as {
+    already_verified?: boolean
+    steam_name?: string
+    url?: string
+  }
+
+  if (data.already_verified) {
+    const msg = `✅ You're already verified! Your Steam account **${data.steam_name ?? ''}** is linked.`
+    if (isFollowUp) {
+      await (interaction as ButtonInteraction).followUp({ content: msg, ephemeral: true })
+    } else {
+      await interaction.editReply({ content: msg })
+    }
+    return
+  }
+
+  const content = [
+    `**DRAFT MAN 5.0 — Steam Verification**`,
+    ``,
+    `Click the link below to link your Steam account. The link expires in **15 minutes**.`,
+    ``,
+    `🔗 ${data.url}`,
+    ``,
+    `Your Steam profile must be **public** during verification. You can set it back to private once done.`,
+  ].join('\n')
+
+  if (isFollowUp) {
+    await (interaction as ButtonInteraction).followUp({ content, ephemeral: true })
+  } else {
+    await interaction.editReply({ content })
+  }
+}
+
 // ── /verify handler ───────────────────────────────────────────────────────────
 async function handleVerify(interaction: ChatInputCommandInteraction) {
-  // Defer reply as ephemeral — only the user sees it
   await interaction.deferReply({ ephemeral: true })
 
   const discordId       = interaction.user.id
   const discordUsername = interaction.user.username
 
   try {
-    // Ask the platform to generate a one-time token
-    const res = await fetch(`${API_BASE_URL}/api/verify/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-bot-secret': BOT_SECRET,
-      },
-      body: JSON.stringify({ discord_id: discordId, discord_username: discordUsername }),
-    })
+    const user = await getUserRecord(discordId)
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
+    if (!user) {
+      // No DRAFTMAN account — prompt them to log in first
+      const loginBtn = new ButtonBuilder()
+        .setCustomId(`verify_loggedin_${discordId}`)
+        .setLabel("✓  I'm logged in — send me the link")
+        .setStyle(ButtonStyle.Success)
 
-      // Rate limited
-      if (res.status === 429) {
-        await interaction.editReply({
-          content: '⏳ Too many verification attempts. Please wait 10 minutes and try again.',
-        })
-        return
-      }
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(loginBtn)
 
-      console.error('[bot] /verify token request failed:', res.status, errData)
       await interaction.editReply({
-        content: '❌ Something went wrong generating your verification link. Please try again.',
+        content: [
+          `**You need to log into DRAFTMAN5.0 first.**`,
+          ``,
+          `Click the link below to sign in with your Discord account, then come back and click the button.`,
+          ``,
+          `🔗 ${API_BASE_URL}`,
+        ].join('\n'),
+        components: [row],
       })
       return
     }
 
-    const data = await res.json() as {
-      already_verified?: boolean
-      steam_name?: string
-      url?: string
-    }
+    // User exists — send the Steam verify link
+    await sendVerifyLink(interaction, discordId, discordUsername)
 
-    // Already verified
-    if (data.already_verified) {
-      await interaction.editReply({
-        content: `✅ You're already verified! Your Steam account **${data.steam_name ?? ''}** is linked.`,
-      })
-      return
-    }
-
-    // DM the user the link
-    try {
-      const dmChannel = await interaction.user.createDM()
-      await dmChannel.send({
-        content: [
-          `**DRAFT MAN 5.0 — Steam Verification**`,
-          ``,
-          `Click the link below to link your Steam account. The link expires in **15 minutes**.`,
-          ``,
-          `🔗 ${data.url}`,
-          ``,
-          `Your Steam profile must be **public** during verification. You can set it back to private once done.`,
-        ].join('\n'),
-      })
-
-      await interaction.editReply({
-        content: `📬 Check your DMs! A verification link has been sent.`,
-      })
-    } catch {
-      // User has DMs disabled — send the link as an ephemeral reply instead
-      await interaction.editReply({
-        content: [
-          `Your DMs are disabled, so here's your verification link directly:`,
-          ``,
-          `🔗 ${data.url}`,
-          ``,
-          `This link expires in **15 minutes**. Your Steam profile must be **public** during verification.`,
-        ].join('\n'),
-      })
-    }
   } catch (err) {
     console.error('[bot] /verify error:', err)
     await interaction.editReply({
       content: '❌ An unexpected error occurred. Please try again or contact a moderator.',
+    })
+  }
+}
+
+// ── Button: "I'm logged in" ───────────────────────────────────────────────────
+async function handleVerifyLoggedIn(interaction: ButtonInteraction) {
+  await interaction.deferUpdate()
+
+  const discordId       = interaction.user.id
+  const discordUsername = interaction.user.username
+
+  try {
+    const user = await getUserRecord(discordId)
+
+    if (!user) {
+      await interaction.followUp({
+        content: [
+          `❌ We still can't find your account. Make sure you've logged in at:`,
+          ``,
+          `🔗 ${API_BASE_URL}`,
+          ``,
+          `Once you've logged in with Discord, click the button again.`,
+        ].join('\n'),
+        ephemeral: true,
+      })
+      return
+    }
+
+    await sendVerifyLink(interaction, discordId, discordUsername, true)
+
+  } catch (err) {
+    console.error('[bot] verify_loggedin error:', err)
+    await interaction.followUp({
+      content: '❌ An unexpected error occurred. Please try again or contact a moderator.',
+      ephemeral: true,
     })
   }
 }
@@ -223,7 +298,6 @@ function parseKTPEmbed(embed: Embed): ParsedEmbed | null {
   const description = embed.description ?? ''
   const fields = embed.fields ?? []
   const statusField = fields.find(f => f.name.toLowerCase() === 'status')
-  const scoresField = fields.find(f => f.name.toLowerCase() === 'scores')
 
   if (!statusField) return null
 
@@ -239,7 +313,6 @@ function parseKTPEmbed(embed: Embed): ParsedEmbed | null {
   const scoreMatch = statusText.match(/Final:\s*(\d+)-(\d+)/i)
   const alliesScore = scoreMatch ? parseInt(scoreMatch[1]) : 0
   const axisScore   = scoreMatch ? parseInt(scoreMatch[2]) : 0
-  const score       = scoreMatch ? `${scoreMatch[1]}-${scoreMatch[2]}` : '0-0'
 
   const footer = embed.footer?.text ?? ''
   const mapMatch    = footer.match(/Map:\s*([^\s|]+)/i)
@@ -258,7 +331,7 @@ function parseKTPEmbed(embed: Embed): ParsedEmbed | null {
     return {
       date: title, alliesPlayers: all, axisPlayers: [],
       alliesScore, axisScore, winningSide, map, ktpMatchId,
-      complete, score
+      complete,
     } as any
   }
 
@@ -410,25 +483,32 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers,   // needed for Manage Roles / member lookups
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
   ],
 })
 
-// Bug fix: 'ready' is deprecated in discord.js v14+ — use 'clientReady'
 client.once('clientReady', async () => {
   console.log(`[bot] DRAFT_MAN5.0 online as ${client.user?.tag}`)
   console.log(`[bot] Watching channel: ${RESULTS_CHANNEL_ID}`)
   await registerCommands()
 })
 
-// ── Slash command interactions ─────────────────────────────────────────────────
+// ── Interactions ──────────────────────────────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand()) return
+  if (interaction.isChatInputCommand()) {
+    if (interaction.commandName === 'verify') {
+      await handleVerify(interaction)
+    }
+    return
+  }
 
-  if (interaction.commandName === 'verify') {
-    await handleVerify(interaction)
+  if (interaction.isButton()) {
+    if (interaction.customId.startsWith('verify_loggedin_')) {
+      await handleVerifyLoggedIn(interaction)
+    }
+    return
   }
 })
 
