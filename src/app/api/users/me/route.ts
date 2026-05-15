@@ -13,7 +13,7 @@ export async function GET() {
   const supabase = getSupabaseAdmin()
   const { data, error } = await supabase
     .from('users')
-    .select('id, ingame_name, is_organizer, is_superuser, steam_id, steam_id_64, steam_name, steam_avatar')
+    .select('id, ingame_name, is_organizer, is_superuser, steam_id, steam_id_64, steam_name, steam_avatar, steam_verified')
     .eq('id', session.user.userId)
     .maybeSingle()
 
