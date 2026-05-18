@@ -337,6 +337,46 @@ async function updateQueueEmbed() {
   queueMessageId = msg.id
 }
 
+// ── Queue persistence ─────────────────────────────────────────────────────────
+async function persistQueue() {
+  // Clear and rewrite entire queue state
+  await supabase.from('twelve_man_queue_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  if (queuePlayers.length === 0) return
+  await supabase.from('twelve_man_queue_state').insert(
+    queuePlayers.map((p, i) => ({
+      discord_user_id: p.discordId,
+      discord_username: p.discordUsername,
+      joined_at: new Date(p.joinedAt).toISOString(),
+      is_waitlist: false,
+    }))
+  )
+}
+
+async function clearPersistedQueue() {
+  await supabase.from('twelve_man_queue_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+}
+
+async function loadQueueFromDB() {
+  const { data } = await supabase
+    .from('twelve_man_queue_state')
+    .select('*')
+    .eq('is_waitlist', false)
+    .order('joined_at', { ascending: true })
+
+  if (!data || data.length === 0) {
+    console.log('[12man] No persisted queue state found')
+    return
+  }
+
+  queuePlayers = data.map((r: any) => ({
+    discordId: r.discord_user_id,
+    discordUsername: r.discord_username,
+    joinedAt: new Date(r.joined_at).getTime(),
+  }))
+
+  console.log(`[12man] Restored ${queuePlayers.length} players from DB`)
+}
+
 // ── Re-queue all players (cancel protection) ──────────────────────────────────
 async function requeueAllPlayers(players: QueuePlayer[]) {
   // Put them at the front of the queue
@@ -351,6 +391,7 @@ async function requeueAllPlayers(players: QueuePlayer[]) {
   }
 
   await updateQueueEmbed()
+  await persistQueue()
   console.log(`[12man] Re-queued ${toAdd.length} players after match cancellation`)
 }
 
@@ -436,6 +477,7 @@ async function initiateMatch(overridePlayers?: QueuePlayer[]) {
     queuePlayers = []
     queueWaitlist = []
     await updateQueueEmbed()
+    await clearPersistedQueue()
   }
 
   activeMatch.activityTimer = setTimeout(() => runActivityCheck(), botConfig.activity_window_minutes * 60 * 1000)
@@ -1134,14 +1176,15 @@ async function handle12ManCommand(interaction: ChatInputCommandInteraction) {
       await interaction.editReply({ content: '❌ A match is already in progress.' })
       return
     }
-    if (queuePlayers.length < 2) {
-      await interaction.editReply({ content: '❌ Need at least 2 players in the queue to force start.' })
+    if (queuePlayers.length < 1) {
+      await interaction.editReply({ content: '❌ Need at least 1 player in the queue to force start.' })
       return
     }
     const players = [...queuePlayers]
     queuePlayers = []
     queueWaitlist = []
     await updateQueueEmbed()
+    await clearPersistedQueue()
     await initiateMatch(players)
     await interaction.editReply({ content: `✅ Force started with ${players.length} players.` })
     return
@@ -1215,6 +1258,7 @@ async function handle12ManCommand(interaction: ChatInputCommandInteraction) {
       }
       queuePlayers.push({ discordId: target.id, discordUsername: target.username, joinedAt: Date.now() })
       await updateQueueEmbed()
+      await persistQueue()
       if (queuePlayers.length >= botConfig.queue_size) await initiateMatch()
       await interaction.editReply({ content: `✅ **${target.username}** added to the queue.` })
       return
@@ -1230,6 +1274,7 @@ async function handle12ManCommand(interaction: ChatInputCommandInteraction) {
       }
       queuePlayers.splice(idx, 1)
       await updateQueueEmbed()
+      await persistQueue()
       await interaction.editReply({ content: `✅ **${target.username}** removed from the queue.` })
       return
     }
@@ -1453,6 +1498,8 @@ const client = new Client({
 client.once('clientReady', async () => {
   console.log(`[bot] DRAFT_MAN5.0 online as ${client.user?.tag}`)
   await loadConfig()
+  await loadQueueFromDB()
+  await updateQueueEmbed()
   await registerCommands()
 })
 
@@ -1500,6 +1547,7 @@ client.on('interactionCreate', async (interaction) => {
     queuePlayers.push({ discordId: interaction.user.id, discordUsername: interaction.user.username, joinedAt: Date.now() })
     await interaction.deferUpdate()
     await updateQueueEmbed()
+    await persistQueue()
     if (queuePlayers.length >= botConfig.queue_size) await initiateMatch()
     return
   }
@@ -1515,6 +1563,7 @@ client.on('interactionCreate', async (interaction) => {
     queuePlayers.splice(idx, 1)
     await interaction.deferUpdate()
     await updateQueueEmbed()
+    await persistQueue()
     return
   }
 
