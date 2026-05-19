@@ -1098,6 +1098,8 @@ async function loadMatchCounter() {
     console.log(`[12man] Match counter restored to ${matchCounter}`)
   }
 }
+
+async function registerCommands() {
   const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN)
   try {
     await rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID), { body: commands })
