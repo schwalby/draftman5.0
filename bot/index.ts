@@ -912,8 +912,7 @@ async function cleanupMatch() {
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
   clearAllTimers(activeMatch)
   for (const id of [activeMatch.textChannelId, activeMatch.gatherVoiceId, activeMatch.teamAVoiceId, activeMatch.teamBVoiceId].filter(Boolean) as string[]) {
-    const ch = guild?.channels.cache.get(id)
-    if (ch) await safeOp(() => (ch as any).delete() as Promise<void>, `delete channel ${id}`)
+    try { await guild?.channels.cache.get(id)?.delete() } catch { /* already gone */ }
   }
   activeMatch = null
   console.log('[12man] Match cleaned up')
@@ -982,7 +981,7 @@ const commands = [
         .addUserOption(o => o.setName('player').setDescription('Player')))
     .addSubcommand(s =>
       s.setName('player').setDescription('Manage queue players')
-        .addStringOption(o => o.setName('action').setRequired(true)
+        .addStringOption(o => o.setName('action').setDescription('add, remove, ban, unban, or sub').setRequired(true)
           .addChoices(
             { name: 'add', value: 'add' }, { name: 'remove', value: 'remove' },
             { name: 'ban', value: 'ban' }, { name: 'unban', value: 'unban' },
