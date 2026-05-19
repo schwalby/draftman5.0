@@ -606,7 +606,11 @@ async function resolveCaptainVote(eligible: QueuePlayer[]) {
   const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
 
   const tally: Record<string, number> = {}
-  for (const id of Object.values(activeMatch.captainVotes)) tally[id] = (tally[id] ?? 0) + 1
+  for (const voteStr of Object.values(activeMatch.captainVotes)) {
+    for (const id of voteStr.split(',').filter(Boolean)) {
+      tally[id] = (tally[id] ?? 0) + 1
+    }
+  }
 
   const sorted = [...eligible].sort((a, b) => (tally[b.discordId] ?? 0) - (tally[a.discordId] ?? 0))
   const top = sorted[0]
@@ -619,7 +623,7 @@ async function resolveCaptainVote(eligible: QueuePlayer[]) {
   activeMatch.captainA = top
   activeMatch.captainB = second
 
-  const votedIds = Object.keys(activeMatch.captainVotes)
+  const votedIds = Object.keys(activeMatch.captainVotes).filter(id => activeMatch!.captainVotes[id].length > 0)
   const votedNames = votedIds.map(id => activeMatch!.players.find(p => p.discordId === id)?.discordUsername).filter(Boolean)
   const notVotedNames = realPlayers(activeMatch.players).filter(p => !votedIds.includes(p.discordId)).map(p => p.discordUsername)
 
@@ -1061,6 +1065,7 @@ const commands = [
     .addSubcommand(s => s.setName('clear').setDescription('Clear the queue'))
     .addSubcommand(s => s.setName('forcestart').setDescription('Force start with current players'))
     .addSubcommand(s => s.setName('cancel').setDescription('Cancel active match and re-queue all'))
+    .addSubcommand(s => s.setName('settings').setDescription('View and change bot settings'))
     .addSubcommand(s => s.setName('testmode').setDescription('Toggle test mode'))
     .addSubcommand(s => s.setName('config').setDescription('View current config'))
     .addSubcommand(s =>
@@ -1112,6 +1117,51 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
     await clearPersistedQueue()
     await updateQueueEmbed()
     await interaction.editReply({ content: '✅ Queue cleared.' })
+    return
+  }
+
+  if (sub === 'settings') {
+    await interaction.deferReply()
+    const embed = new EmbedBuilder()
+      .setTitle('⚙️ DRAFT MAN 5.0 — Settings')
+      .setColor(0x5865F2)
+      .addFields(
+        { name: '🎮 Queue Size',            value: `${botConfig.queue_size}`,              inline: true },
+        { name: '⏱️ Timeout (min)',          value: `${botConfig.timeout_minutes}`,         inline: true },
+        { name: '🎤 Activity Window (min)',  value: `${botConfig.activity_window_minutes}`, inline: true },
+        { name: '🔄 Sub Window (min)',       value: `${botConfig.sub_window_minutes}`,      inline: true },
+        { name: '👑 Captain Cooldown',       value: `${botConfig.captain_cooldown_games} games`, inline: true },
+        { name: '🗺️ Maps Shown Per Vote',    value: `${botConfig.map_count === 0 ? 'All' : botConfig.map_count}`, inline: true },
+        { name: '✅ Vote Threshold',          value: `${botConfig.vote_threshold}`,          inline: true },
+        { name: '⚔️ Captain Vote (sec)',     value: `${botConfig.captain_vote_seconds}`,   inline: true },
+        { name: '🗺️ Map Vote (sec)',          value: `${botConfig.map_vote_seconds}`,        inline: true },
+        { name: '🖥️ Server Vote (sec)',      value: `${botConfig.server_vote_seconds}`,    inline: true },
+        { name: '🎨 Header Style',           value: botConfig.header_style,                inline: true },
+        { name: '📋 Vote Order',             value: botConfig.vote_order.join(' → '),      inline: true },
+        { name: '🖥️ Server Locations',       value: botConfig.server_locations.join(', '), inline: false },
+        { name: '🧪 Test Mode',              value: TEST_MODE ? '✅ ON' : '❌ OFF',          inline: true },
+      )
+
+    const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('setting_queue_size').setLabel('Queue Size').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setting_map_count').setLabel('Maps Per Vote').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setting_vote_threshold').setLabel('Vote Threshold').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setting_captain_cooldown').setLabel('Captain Cooldown').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setting_header_style').setLabel('Header Style').setStyle(ButtonStyle.Secondary),
+    )
+    const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('setting_captain_vote_seconds').setLabel('Captain Vote Time').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setting_map_vote_seconds').setLabel('Map Vote Time').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setting_server_vote_seconds').setLabel('Server Vote Time').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setting_activity_window').setLabel('Activity Window').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setting_sub_window').setLabel('Sub Window').setStyle(ButtonStyle.Success),
+    )
+    const row3 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('setting_vote_order').setLabel('Vote Order').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('setting_testmode').setLabel(`Test Mode: ${TEST_MODE ? 'ON' : 'OFF'}`).setStyle(TEST_MODE ? ButtonStyle.Success : ButtonStyle.Danger),
+    )
+
+    await interaction.editReply({ embeds: [embed], components: [row1, row2, row3] })
     return
   }
 
@@ -1440,18 +1490,38 @@ client.on('interactionCreate', async interaction => {
     return
   }
 
-  // Captain vote
+  // Captain vote — allow switching, max 2 votes per player
   if (id.startsWith('captvote_')) {
     if (!activeMatch) return
     const idx = parseInt(id.split('_')[1])
     const candidate = activeMatch.captainCandidates[idx]
     if (!candidate) return
     if (user.id === candidate.discordId) { await interaction.reply({ content: '❌ Cannot vote for yourself.', flags: 64 }); return }
-    if (activeMatch.captainVotes[user.id]) { await interaction.reply({ content: '⚠️ Already voted.', flags: 64 }); return }
     if (!isFake({ discordId: user.id, discordUsername: '', joinedAt: 0 }) && !activeMatch.players.find(p => p.discordId === user.id)) {
       await interaction.reply({ content: '❌ Not in this match.', flags: 64 }); return
     }
-    activeMatch.captainVotes[user.id] = candidate.discordId
+
+    // Get existing votes for this player (stored as comma-separated string)
+    const existing = activeMatch.captainVotes[user.id] ? activeMatch.captainVotes[user.id].split(',') : []
+
+    // If already voted for this candidate, remove that vote (toggle off)
+    if (existing.includes(candidate.discordId)) {
+      const updated = existing.filter(v => v !== candidate.discordId)
+      activeMatch.captainVotes[user.id] = updated.join(',')
+      await interaction.reply({ content: `↩️ Removed vote for **${candidate.discordUsername}**. You have ${2 - updated.length} vote(s) remaining.`, flags: 64 })
+    } else if (existing.length >= 2) {
+      // Already used 2 votes — swap oldest
+      existing.shift()
+      existing.push(candidate.discordId)
+      activeMatch.captainVotes[user.id] = existing.join(',')
+      await interaction.reply({ content: `🔄 Switched vote to **${candidate.discordUsername}**.`, flags: 64 })
+    } else {
+      existing.push(candidate.discordId)
+      activeMatch.captainVotes[user.id] = existing.join(',')
+      const remaining = 2 - existing.length
+      await interaction.reply({ content: `✅ Voted for **${candidate.discordUsername}**.${remaining > 0 ? ` You have **${remaining}** vote remaining.` : ''}`, flags: 64 })
+    }
+
     const guild = interaction.guild
     const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
     if (activeMatch.captainVoteListMsgId) {
@@ -1469,35 +1539,35 @@ client.on('interactionCreate', async interaction => {
     return
   }
 
-  // Map vote
+  // Map vote — allow switching
   if (id.startsWith('mapvote_')) {
     if (!activeMatch) return
     const map = activeMatch.mapOptions[parseInt(id.split('_')[1])]
     if (!map) return
-    if (activeMatch.mapVotes[user.id]) { await interaction.reply({ content: '⚠️ Already voted.', flags: 64 }); return }
+    const switched = !!activeMatch.mapVotes[user.id]
     activeMatch.mapVotes[user.id] = map
     const ch = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
     if (activeMatch.mapVoteListMsgId) {
       const m = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteListMsgId!), 'fetch map vote list')
       if (m) await safeOp(() => m.edit({ content: ansi(voteList(activeMatch!.mapOptions, activeMatch!.mapVotes, true)) }), 'update map vote list')
     }
-    await interaction.reply({ content: `✅ Voted for **${map}**.`, flags: 64 })
+    await interaction.reply({ content: `${switched ? '🔄 Switched' : '✅ Voted'} for **${map}**.`, flags: 64 })
     return
   }
 
-  // Server vote
+  // Server vote — allow switching
   if (id.startsWith('servervote_')) {
     if (!activeMatch) return
     const server = botConfig.server_locations[parseInt(id.split('_')[1])]
     if (!server) return
-    if (activeMatch.serverVotes[user.id]) { await interaction.reply({ content: '⚠️ Already voted.', flags: 64 }); return }
+    const switched = !!activeMatch.serverVotes[user.id]
     activeMatch.serverVotes[user.id] = server
     const ch = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
     if (activeMatch.serverVoteListMsgId) {
       const m = await safeOp(() => ch.messages.fetch(activeMatch!.serverVoteListMsgId!), 'fetch server vote list')
       if (m) await safeOp(() => m.edit({ content: ansi(voteList(botConfig.server_locations, activeMatch!.serverVotes, true)) }), 'update server vote list')
     }
-    await interaction.reply({ content: `✅ Voted for **${server}**.`, flags: 64 })
+    await interaction.reply({ content: `${switched ? '🔄 Switched' : '✅ Voted'} for **${server}**.`, flags: 64 })
     return
   }
 
@@ -1508,6 +1578,101 @@ client.on('interactionCreate', async interaction => {
     if (user.id !== active.discordId && !isFake(active)) { await interaction.reply({ content: '❌ Not your turn.', flags: 64 }); return }
     await interaction.deferUpdate()
     await handlePick(parseInt(id.split('_')[1]))
+    return
+  }
+
+  // Settings buttons
+  if (id.startsWith('setting_')) {
+    if (!await isAdmin(interaction)) { await interaction.reply({ content: '❌ Admin only.', flags: 64 }); return }
+
+    const settingKey = id.replace('setting_', '')
+
+    if (settingKey === 'testmode') {
+      TEST_MODE = !TEST_MODE
+      await interaction.reply({ content: `🧪 Test mode: **${TEST_MODE ? 'ON' : 'OFF'}**`, flags: 64 })
+      return
+    }
+
+    if (settingKey === 'header_style') {
+      const styles = ['shadow', 'small', 'box', 'hybrid']
+      const current = styles.indexOf(botConfig.header_style)
+      botConfig.header_style = styles[(current + 1) % styles.length] as BotConfig['header_style']
+      await supabase.from('twelve_man_config').update({ header_style: botConfig.header_style }).eq('guild_id', DISCORD_GUILD_ID)
+      await interaction.reply({ content: `🎨 Header style: **${botConfig.header_style}**`, flags: 64 })
+      return
+    }
+
+    if (settingKey === 'vote_order') {
+      await interaction.reply({ content: `📋 Current vote order: **${botConfig.vote_order.join(' → ')}**\nReply with new order as comma-separated values, e.g.: \`captain,map,server,draft\`\n*(This setting must be updated directly in the database for now)*`, flags: 64 })
+      return
+    }
+
+    // Numeric settings — prompt with current value
+    const numericMap: Record<string, { label: string; key: keyof BotConfig }> = {
+      queue_size:            { label: 'Queue Size', key: 'queue_size' },
+      map_count:             { label: 'Maps Per Vote (0 = all)', key: 'map_count' },
+      vote_threshold:        { label: 'Vote Threshold', key: 'vote_threshold' },
+      captain_cooldown:      { label: 'Captain Cooldown (games)', key: 'captain_cooldown_games' },
+      captain_vote_seconds:  { label: 'Captain Vote Duration (seconds)', key: 'captain_vote_seconds' },
+      map_vote_seconds:      { label: 'Map Vote Duration (seconds)', key: 'map_vote_seconds' },
+      server_vote_seconds:   { label: 'Server Vote Duration (seconds)', key: 'server_vote_seconds' },
+      activity_window:       { label: 'Activity Window (minutes)', key: 'activity_window_minutes' },
+      sub_window:            { label: 'Sub Window (minutes)', key: 'sub_window_minutes' },
+    }
+
+    const setting = numericMap[settingKey]
+    if (!setting) { await interaction.reply({ content: '❌ Unknown setting.', flags: 64 }); return }
+
+    const current = botConfig[setting.key]
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId(`setval_${settingKey}_minus`).setLabel('−').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`setval_${settingKey}_current`).setLabel(`${current}`).setStyle(ButtonStyle.Secondary).setDisabled(true),
+      new ButtonBuilder().setCustomId(`setval_${settingKey}_plus`).setLabel('+').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`setval_${settingKey}_save`).setLabel('Save').setStyle(ButtonStyle.Primary),
+    )
+
+    await interaction.reply({ content: `**${setting.label}**\nCurrent: **${current}**\nUse − and + to adjust, then Save.`, components: [row], flags: 64 })
+    return
+  }
+
+  // Settings value adjusters
+  if (id.startsWith('setval_')) {
+    if (!await isAdmin(interaction)) { await interaction.reply({ content: '❌ Admin only.', flags: 64 }); return }
+
+    const parts = id.split('_')
+    const action = parts[parts.length - 1]
+    const settingKey = parts.slice(1, -1).join('_')
+
+    const numericMap: Record<string, keyof BotConfig> = {
+      queue_size: 'queue_size', map_count: 'map_count', vote_threshold: 'vote_threshold',
+      captain_cooldown: 'captain_cooldown_games', captain_vote_seconds: 'captain_vote_seconds',
+      map_vote_seconds: 'map_vote_seconds', server_vote_seconds: 'server_vote_seconds',
+      activity_window: 'activity_window_minutes', sub_window: 'sub_window_minutes',
+    }
+
+    const configKey = numericMap[settingKey]
+    if (!configKey) { await interaction.reply({ content: '❌ Unknown setting.', flags: 64 }); return }
+
+    let current = botConfig[configKey] as number
+    if (action === 'minus') current = Math.max(0, current - 1)
+    else if (action === 'plus') current = current + 1
+    else if (action === 'save') {
+      await supabase.from('twelve_man_config').update({ [configKey]: current }).eq('guild_id', DISCORD_GUILD_ID)
+      await interaction.reply({ content: `✅ **${configKey}** saved as **${current}**.`, flags: 64 })
+      return
+    }
+
+    ;(botConfig as any)[configKey] = current
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId(`setval_${settingKey}_minus`).setLabel('−').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`setval_${settingKey}_current`).setLabel(`${current}`).setStyle(ButtonStyle.Secondary).setDisabled(true),
+      new ButtonBuilder().setCustomId(`setval_${settingKey}_plus`).setLabel('+').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`setval_${settingKey}_save`).setLabel('Save').setStyle(ButtonStyle.Primary),
+    )
+
+    await interaction.update({ components: [row] })
     return
   }
 
