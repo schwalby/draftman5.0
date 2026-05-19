@@ -1,6 +1,5 @@
 import 'dotenv/config'
 import {
-  Client,
   GatewayIntentBits,
   Message,
   Embed,
@@ -22,13 +21,17 @@ import {
   PermissionsBitField,
   WebhookClient,
 } from 'discord.js'
-import { createClient } from '@supabase/supabase-js'
-import ws from 'ws'
 
 // ── Phase 2: messaging module imports ─────────────────────────────────────────
 import { A, ansi, timeLeft, voteList } from './messaging/ansi'
 import { getHeader } from './messaging/headers'
 import { buttonRows } from './messaging/embeds'
+
+// ── Phase 3: infrastructure singleton imports ─────────────────────────────────
+import { client } from './core/client'
+import { supabase } from './core/supabase'
+import { safeOp } from './core/safeOp'
+import { queueWebhook, webhookSend, matchSend as _matchSend, botWebhookOptions } from './messaging/WebhookSender'
 
 // ── Env validation ────────────────────────────────────────────────────────────
 const REQUIRED_ENV = [
@@ -45,8 +48,6 @@ const DISCORD_CLIENT_ID     = process.env.DISCORD_CLIENT_ID!
 const DISCORD_GUILD_ID      = process.env.DISCORD_GUILD_ID!
 const DISCORD_VERIFIED_ROLE = process.env.DISCORD_VERIFIED_ROLE_ID!
 const BOT_SECRET            = process.env.BOT_SECRET!
-const SUPABASE_URL          = process.env.SUPABASE_URL!
-const SUPABASE_KEY          = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const API_BASE_URL          = process.env.API_BASE_URL!
 const RESULTS_CHANNEL_ID    = process.env.RESULTS_CHANNEL_ID!
 const QUEUE_CHANNEL_ID      = process.env.QUEUE_CHANNEL_ID!
@@ -55,12 +56,7 @@ const MATCH_THRESHOLD       = 8
 
 let TEST_MODE = process.env.TEST_MODE === 'true'
 
-// Queue channel webhook (permanent, created manually in Discord)
-const queueWebhook = process.env.QUEUE_WEBHOOK_URL
-  ? new WebhookClient({ url: process.env.QUEUE_WEBHOOK_URL })
-  : null
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { realtime: { transport: ws as any } })
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface QueuePlayer {
@@ -184,40 +180,13 @@ function setTimer(match: ActiveMatch, key: TimerKey, fn: () => void, ms: number)
   match.timers.set(key, setTimeout(fn, ms))
 }
 
-// ── Safe Discord operation ────────────────────────────────────────────────────
-async function safeOp<T>(fn: () => Promise<T>, label: string): Promise<T | null> {
-  try { return await fn() }
-  catch (err) { console.error(`[bot] ${label}:`, err); return null }
-}
-
-// ── Webhook send helper ───────────────────────────────────────────────────────
-function botWebhookOptions() {
-  return {
-    username: 'DRAFT MAN 5.0',
-    avatarURL: client.user?.avatarURL() ?? undefined,
-  }
-}
-
-async function webhookSend(
-  webhook: WebhookClient,
-  payload: Parameters<WebhookClient['send']>[0],
-  label: string
-) {
-  return safeOp(() => webhook.send({ ...botWebhookOptions(), ...payload }), label)
-}
-
-// Send to match channel — uses webhook if available, falls back to bot
+// ── Config loader ─────────────────────────────────────────────────────────────
+// Local matchSend wrapper — preserves existing call signature throughout index.ts
+// Routes to WebhookSender.matchSend with activeMatch context
 async function matchSend(payload: Parameters<WebhookClient['send']>[0], label: string) {
   if (!activeMatch) return null
-  if (activeMatch.matchWebhook) {
-    return webhookSend(activeMatch.matchWebhook, payload, label)
-  }
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-  return safeOp(() => ch.send(payload as any), label)
+  return _matchSend(payload, label, activeMatch.matchWebhook, activeMatch.textChannelId, DISCORD_GUILD_ID)
 }
-
-// ── Config loader ─────────────────────────────────────────────────────────────
 async function loadConfig() {
   const { data } = await supabase.from('twelve_man_config').select('*').eq('guild_id', DISCORD_GUILD_ID).maybeSingle()
   if (!data) { console.log('[bot] Using default config'); return }
@@ -1425,14 +1394,7 @@ async function processDraftResult(parsed: ParsedKTP) {
     .catch(err => console.error('[bot] Report error:', err))
 }
 
-// ── Client ────────────────────────────────────────────────────────────────────
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.MessageContent,
-  ],
-})
+// ── Client event handlers ─────────────────────────────────────────────────────
 
 client.once('clientReady', async () => {
   console.log(`[bot] Online as ${client.user?.tag} | TEST_MODE: ${TEST_MODE}`)
