@@ -60,11 +60,67 @@ const A = {
   cyan:   '\u001b[2;36m',
   white:  '\u001b[2;37m',
   bold:   '\u001b[1m',
+  purple: '\u001b[2;35m',
+  coral:  '\u001b[1;31m',
+  gold:   '\u001b[1;33m',
+  teal:   '\u001b[1;36m',
 }
 const ansi = (text: string) => `\`\`\`ansi\n${text}\n\`\`\``
 const timeLeft = (endTime: number) => {
   const s = Math.max(0, Math.ceil((endTime - Date.now()) / 1000))
   return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`
+}
+
+// ── Header generator ──────────────────────────────────────────────────────────
+type HeaderKey = 'draftman' | 'queuePopped' | 'captainVote' | 'captainsSelected' | 'mapSelection' | 'serverLocation' | 'snakeDraft' | 'matchSummary' | 'winner'
+
+const HEADERS_SHADOW: Record<HeaderKey, string> = {
+  draftman: `${A.gold}██████╗ ██████╗  █████╗ ███████╗████████╗    ███╗   ███╗ █████╗ ███╗  ██╗    ███████╗    ██████╗\n██╔══██╗██╔══██╗██╔══██╗██╔════╝╚══██╔══╝    ████╗ ████║██╔══██╗████╗ ██║    ██╔════╝   ██╔████╗\n██║  ██║██████╔╝███████║█████╗     ██║       ██╔████╔██║███████║██╔██╗██║    ███████╗   ██║██╔██║\n██║  ██║██╔══██╗██╔══██║██╔══╝    ██║        ██║╚██╔╝██║██╔══██║██║╚████║    ╚════██║   ████╔╝██║\n██████╔╝██║  ██║██║  ██║██║       ██║        ██║ ╚═╝ ██║██║  ██║██║ ╚███║    ███████║██╗╚██████╔╝\n╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝       ╚═╝        ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚══╝    ╚══════╝╚═╝ ╚═════╝${A.reset}`,
+  queuePopped: `${A.purple} ██████╗ ██╗   ██╗███████╗██╗   ██╗███████╗    ██████╗  ██████╗ ██████╗ ██████╗ ███████╗██████╗\n██╔═══██╗██║   ██║██╔════╝██║   ██║██╔════╝    ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗\n██║   ██║██║   ██║█████╗  ██║   ██║█████╗      ██████╔╝██║   ██║██████╔╝██████╔╝█████╗  ██║  ██║\n██║▄▄ ██║██║   ██║██╔══╝  ██║   ██║██╔══╝      ██╔═══╝ ██║   ██║██╔═══╝ ██╔═══╝ ██╔══╝  ██║  ██║\n╚██████╔╝╚██████╔╝███████╗╚██████╔╝███████╗    ██║     ╚██████╔╝██║     ██║     ███████╗██████╔╝\n ╚══▀▀═╝  ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝    ╚═╝      ╚═════╝ ╚═╝     ╚═╝     ╚══════╝╚═════╝${A.reset}`,
+  captainVote: `${A.gold}██╗   ██╗ ██████╗ ████████╗███████╗    ███████╗ ██████╗ ██████╗      ██████╗ █████╗ ██████╗ ████████╗ █████╗ ██╗███╗  ██╗███████╗\n██║   ██║██╔═══██╗╚══██╔══╝██╔════╝    ██╔════╝██╔═══██╗██╔══██╗    ██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██║████╗ ██║██╔════╝\n██║   ██║██║   ██║   ██║   █████╗      █████╗  ██║   ██║██████╔╝    ██║     ███████║██████╔╝   ██║   ███████║██║██╔██╗██║███████╗\n╚██╗ ██╔╝██║   ██║   ██║   ██╔══╝      ██╔══╝  ██║   ██║██╔══██╗    ██║     ██╔══██║██╔═══╝    ██║   ██╔══██║██║██║╚████║╚════██║\n ╚████╔╝ ╚██████╔╝   ██║   ███████╗    ██║     ╚██████╔╝██║  ██║    ╚██████╗██║  ██║██║        ██║   ██║  ██║██║██║ ╚███║███████║\n  ╚═══╝   ╚═════╝    ╚═╝   ╚══════╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝     ╚═════╝╚═╝  ╚═╝╚═╝        ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚══╝╚══════╝${A.reset}`,
+  captainsSelected: `${A.green} ██████╗ █████╗ ██████╗ ████████╗ █████╗ ██╗███╗  ██╗███████╗    ███████╗███████╗██╗     ███████╗ ██████╗████████╗███████╗██████╗\n██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██║████╗ ██║██╔════╝    ██╔════╝██╔════╝██║     ██╔════╝██╔════╝╚══██╔══╝██╔════╝██╔══██╗\n██║     ███████║██████╔╝   ██║   ███████║██║██╔██╗██║███████╗    ███████╗█████╗  ██║     █████╗  ██║        ██║   █████╗  ██║  ██║\n██║     ██╔══██║██╔═══╝    ██║   ██╔══██║██║██║╚████║╚════██║    ╚════██║██╔══╝  ██║     ██╔══╝  ██║        ██║   ██╔══╝  ██║  ██║\n╚██████╗██║  ██║██║        ██║   ██║  ██║██║██║ ╚███║███████║    ███████║███████╗███████╗███████╗╚██████╗   ██║   ███████╗██████╔╝\n ╚═════╝╚═╝  ╚═╝╚═╝        ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚══╝╚══════╝    ╚══════╝╚══════╝╚══════╝╚══════╝ ╚═════╝   ╚═╝   ╚══════╝╚═════╝${A.reset}`,
+  mapSelection: `${A.teal}███╗   ███╗ █████╗ ██████╗     ███████╗███████╗██╗     ███████╗ ██████╗████████╗██╗ ██████╗ ███╗  ██╗\n████╗ ████║██╔══██╗██╔══██╗    ██╔════╝██╔════╝██║     ██╔════╝██╔════╝╚══██╔══╝██║██╔═══██╗████╗ ██║\n██╔████╔██║███████║██████╔╝    ███████╗█████╗  ██║     █████╗  ██║        ██║   ██║██║   ██║██╔██╗██║\n██║╚██╔╝██║██╔══██║██╔═══╝     ╚════██║██╔══╝  ██║     ██╔══╝  ██║        ██║   ██║██║   ██║██║╚████║\n██║ ╚═╝ ██║██║  ██║██║         ███████║███████╗███████╗███████╗╚██████╗   ██║   ██║╚██████╔╝██║ ╚███║\n╚═╝     ╚═╝╚═╝  ╚═╝╚═╝         ╚══════╝╚══════╝╚══════╝╚══════╝ ╚═════╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚══╝${A.reset}`,
+  serverLocation: `${A.coral}███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗     ██╗      ██████╗  ██████╗ █████╗████████╗██╗ ██████╗ ███╗  ██╗\n██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔══██╗    ██║     ██╔═══██╗██╔════╝██╔══██╗╚══██╔══╝██║██╔═══██╗████╗ ██║\n███████╗█████╗  ██████╔╝██║   ██║█████╗  ██████╔╝    ██║     ██║   ██║██║     ███████║   ██║   ██║██║   ██║██╔██╗██║\n╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗    ██║     ██║   ██║██║     ██╔══██║   ██║   ██║██║   ██║██║╚████║\n███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║    ███████╗╚██████╔╝╚██████╗██║  ██║   ██║   ██║╚██████╔╝██║ ╚███║\n╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝    ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚══╝${A.reset}`,
+  snakeDraft: `${A.white}███████╗███╗  ██╗ █████╗ ██╗  ██╗███████╗    ██████╗ ██████╗  █████╗ ███████╗████████╗\n██╔════╝████╗ ██║██╔══██╗██║ ██╔╝██╔════╝    ██╔══██╗██╔══██╗██╔══██╗██╔════╝╚══██╔══╝\n███████╗██╔██╗██║███████║█████╔╝ █████╗      ██║  ██║██████╔╝███████║█████╗     ██║\n╚════██║██║╚████║██╔══██║██╔═██╗ ██╔══╝      ██║  ██║██╔══██╗██╔══██║██╔══╝    ██║\n███████║██║ ╚███║██║  ██║██║  ██╗███████╗    ██████╔╝██║  ██║██║  ██║██║       ██║\n╚══════╝╚═╝  ╚══╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝       ╚═╝${A.reset}`,
+  matchSummary: `${A.cyan}███╗   ███╗ █████╗████████╗ ██████╗██╗  ██╗    ███████╗██╗   ██╗███╗   ███╗███╗   ███╗ █████╗ ██████╗ ██╗   ██╗\n████╗ ████║██╔══██╗╚══██╔══╝██╔════╝██║  ██║    ██╔════╝██║   ██║████╗ ████║████╗ ████║██╔══██╗██╔══██╗╚██╗ ██╔╝\n██╔████╔██║███████║   ██║   ██║     ███████║    ███████╗██║   ██║██╔████╔██║██╔████╔██║███████║██████╔╝ ╚████╔╝\n██║╚██╔╝██║██╔══██║   ██║   ██║     ██╔══██║    ╚════██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██╔══██║██╔══██╗  ╚██╔╝\n██║ ╚═╝ ██║██║  ██║   ██║   ╚██████╗██║  ██║    ███████║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║  ██║██║  ██║   ██║\n╚═╝     ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝    ╚══════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝${A.reset}`,
+  winner: `${A.red}██╗    ██╗██╗███╗  ██╗███╗  ██╗███████╗██████╗\n██║    ██║██║████╗ ██║████╗ ██║██╔════╝██╔══██╗\n██║ █╗ ██║██║██╔██╗██║██╔██╗██║█████╗  ██████╔╝\n██║███╗██║██║██║╚████║██║╚████║██╔══╝  ██╔══██╗\n╚███╔███╔╝██║██║ ╚███║██║ ╚███║███████╗██║  ██║\n ╚══╝╚══╝ ╚═╝╚═╝  ╚══╝╚═╝  ╚══╝╚══════╝╚═╝  ╚═╝${A.reset}`,
+}
+
+const HEADERS_SMALL: Record<HeaderKey, string> = {
+  draftman:         `${A.gold}DRAFT MAN 5.0${A.reset}`,
+  queuePopped:      `${A.purple}__   ___  _____ ___   ___   ___   ___  ___  ___  ___  ___\n\\ \\ / / \\/ / __| | | | __| | _ \\ / _ \\| _ \\| _ \\| __||   \\\n \\ V /| || _|  | |_| | _|  |  _/| (_) |  _/|  _/| _| | |) |\n  \\_/ |_||___|  \\___/|___| |_|   \\___/|_|  |_|  |___||___/${A.reset}`,
+  captainVote:      `${A.gold}__   _____  _____ ___   ___  ___  ___     ____   _   ___ _____ _   ___ _  _ ___\n\\ \\ / / _ \\|_   _| __| | __/ _ \\| _ \\   / __| /_\\ | _ |_   _/_\\ |_ _| \\| / __|\n \\ V /|   /  | | | _|  | _| (_) |   /  | (__ / _ \\|  _/ | |/ _ \\ | || .\\|\\__ \\\n  \\_/ |_|_\\  |_| |___| |_| \\___/|_|_\\   \\___/_/ \\_|_|   |_/_/ \\_|___|_|\\_|___/${A.reset}`,
+  captainsSelected: `${A.green}  ___   _   ___ _____ _   ___ _  _ ___   ___ ___ _    ___ ___ _____ ___ ___\n / __| /_\\ | _ |_   _/_\\ |_ _| \\| / __| / __| __| |  | __/ __|_   _| __| _ \\\n| (__ / _ \\|  _/ | |/ _ \\ | || .\\|\\__ \\ \\__ | _|| |__| _| (__  | | | _||    /\n \\___/_/ \\_|_|   |_/_/ \\_|___|_|\\_|___/ |___|___|____|___\\___| |_| |___|_|_\\${A.reset}`,
+  mapSelection:     `${A.teal}__  __   _   ___   ___ ___ _    ___ ___ _____ ___ ___  _  _\n|  \\/  | /_\\ | _ \\ / __| __| |  | __/ __|_   _|_ _/ _ \\| \\| |\n| |\\/| |/ _ \\|  _/ \\__ | _|| |__| _| (__  | |  | | (_) | .\\|\n|_|  |_/_/ \\_|_|   |___|___|____|___\\___| |_| |___\\___/|_|\\_|${A.reset}`,
+  serverLocation:   `${A.coral}___  ___ _____ ___   ___ ___   _    ___   ___   _ _____ ___ ___  _  _\n/ __|| __| _ \\ \\ \\ / / __| _ \\ | |  / _ \\ / __| /_|_   _|_ _/ _ \\| \\| |\n\\__ \\| _||   /  \\ V /| _||   / | |_| (_) | (__ / _ \\| |  | | (_) | .\\|\n|___/|___|_|_\\   \\_/ |___|_|_\\ |____\\___/ \\___/_/ \\_|_| |___\\___/|_|\\_|${A.reset}`,
+  snakeDraft:       `${A.white}__  _  _   _   _  _____   ___  ___   _   ___ _____\n\\ \\| \\| | /_\\ | |/ / __| |   \\| _ \\ /_\\ | __|_   _|\n > | .\\|/ _ \\| ' <| _|  | |) |   // _ \\| _|  | |\n/_/ |_|\\_/_/ \\_|_|\\_|___| |___/|_|_/_/ \\_|_|   |_|${A.reset}`,
+  matchSummary:     `${A.cyan}__  __   _ _____ ___ _  _   ___ _   _ __  __ __  __   _   _____   __\n|  \\/  | /_|_   _/ __| || | / __| | | |  \\/  |  \\/  | /_\\ | _ \\ \\ / /\n| |\\/| |/ _ \\| || (__ | __ | \\__ | |_| | |\\/| | |\\/| |/ _ \\|   /\\ V /\n|_|  |_/_/ \\_|_| \\___|_||_| |___/\\___/|_|  |_|_|  |_/_/ \\_|_|_\\ |_|${A.reset}`,
+  winner:           `${A.red}__    __ ___ _  _ _  _ ___ ___\n\\ \\  / /|_ _| \\| | \\| | __| _ \\\n \\ \\/ /  | || .\\| .\\| _||   /\n  \\__/  |___|_|\\_|_|\\_|___|_|_\\${A.reset}`,
+}
+
+const HEADERS_BOX: Record<HeaderKey, string> = {
+  draftman:         `${A.gold}╔══════════════════════════╗\n║   ⚡  DRAFT MAN 5.0  ⚡   ║\n╚══════════════════════════╝${A.reset}`,
+  queuePopped:      `${A.purple}╔══════════════════════════╗\n║   🎮  QUEUE POPPED!       ║\n╚══════════════════════════╝${A.reset}`,
+  captainVote:      `${A.gold}╔══════════════════════════╗\n║   ⚔  VOTE FOR CAPTAINS   ║\n╚══════════════════════════╝${A.reset}`,
+  captainsSelected: `${A.green}╔══════════════════════════╗\n║   ✅  CAPTAINS SELECTED   ║\n╚══════════════════════════╝${A.reset}`,
+  mapSelection:     `${A.teal}╔══════════════════════════╗\n║   🗺  MAP SELECTION       ║\n╚══════════════════════════╝${A.reset}`,
+  serverLocation:   `${A.coral}╔══════════════════════════╗\n║   🖥  SERVER LOCATION     ║\n╚══════════════════════════╝${A.reset}`,
+  snakeDraft:       `${A.white}╔══════════════════════════╗\n║   🎯  SNAKE DRAFT         ║\n╚══════════════════════════╝${A.reset}`,
+  matchSummary:     `${A.cyan}╔══════════════════════════╗\n║   📋  MATCH SUMMARY       ║\n╚══════════════════════════╝${A.reset}`,
+  winner:           `${A.red}╔══════════════════════════╗\n║   🏆  WINNER              ║\n╚══════════════════════════╝${A.reset}`,
+}
+
+function getHeader(key: HeaderKey): string {
+  const style = botConfig.header_style
+  if (style === 'shadow') return ansi(HEADERS_SHADOW[key])
+  if (style === 'small')  return ansi(HEADERS_SMALL[key])
+  if (style === 'box')    return ansi(HEADERS_BOX[key])
+  // hybrid: shadow for queuePopped and winner, box for everything else
+  if (style === 'hybrid') {
+    if (key === 'queuePopped' || key === 'winner' || key === 'draftman') return ansi(HEADERS_SHADOW[key])
+    return ansi(HEADERS_BOX[key])
+  }
+  return ansi(HEADERS_SHADOW[key])
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -110,8 +166,11 @@ interface ActiveMatch {
   mapVoteEndTime: number
   serverVoteEndTime: number
   captainVoteMsgId?: string
+  captainVoteListMsgId?: string
   mapVoteMsgId?: string
+  mapVoteListMsgId?: string
   serverVoteMsgId?: string
+  serverVoteListMsgId?: string
   draftMsgId?: string
   winnerVoteMsgId?: string
   dbMatchId?: string
@@ -141,6 +200,7 @@ interface BotConfig {
   server_vote_seconds: number
   vote_order: string[]
   server_locations: string[]
+  header_style: 'shadow' | 'small' | 'box' | 'hybrid'
 }
 const DEFAULT_CONFIG: BotConfig = {
   queue_size: 12, timeout_minutes: 90, activity_window_minutes: 5,
@@ -149,6 +209,7 @@ const DEFAULT_CONFIG: BotConfig = {
   server_vote_seconds: 90,
   vote_order: ['captain', 'map', 'server', 'draft'],
   server_locations: ['Atlanta', 'Chicago', 'Dallas', 'Denver', 'New York'],
+  header_style: 'shadow',
 }
 let botConfig: BotConfig = { ...DEFAULT_CONFIG }
 
@@ -237,6 +298,7 @@ async function loadConfig() {
     server_vote_seconds:     data.server_vote_seconds     ?? DEFAULT_CONFIG.server_vote_seconds,
     vote_order:              data.vote_order              ?? DEFAULT_CONFIG.vote_order,
     server_locations:        data.server_locations        ?? DEFAULT_CONFIG.server_locations,
+    header_style:            (data.header_style           ?? DEFAULT_CONFIG.header_style) as BotConfig['header_style'],
   }
   if (data.queue_message_id) queueMessageId = data.queue_message_id
   console.log('[bot] Config loaded')
@@ -374,6 +436,9 @@ async function initiateMatch(players: QueuePlayer[], waitlist: QueuePlayer[]) {
     serverVotes: {}, winnerVotes: {}, draftPickIndex: 0, draftOrder: [],
     remainingPlayers: [], captainVoteEndTime: 0, mapVoteEndTime: 0, serverVoteEndTime: 0,
     timers: new Map(),
+    captainVoteListMsgId: undefined,
+    mapVoteListMsgId: undefined,
+    serverVoteListMsgId: undefined,
   }
 
   // Move real players already in voice
@@ -385,10 +450,18 @@ async function initiateMatch(players: QueuePlayer[], waitlist: QueuePlayer[]) {
   const ping = realPlayers(players).map(p => `<@${p.discordId}>`).join(' ')
   const fakeName = TEST_MODE ? ` *(test mode — ${players.length - realPlayers(players).length} fake players)*` : ''
   await safeOp(() => textCh.send({
-    content: `${ping}\n\n**Queue #${num} has started!${fakeName}** Join voice channel **Queue#${num}** to confirm your presence.\n\nYou have **${botConfig.activity_window_minutes} minutes** to join voice.`,
+    content: `${getHeader('queuePopped')}\n${ping}\n\n**Queue #${num} has started!${fakeName}** Join voice channel **Queue#${num}** to confirm your presence.\n\nYou have **${botConfig.activity_window_minutes} minutes** to join voice.`,
   }), 'send match start message')
 
   setTimer(activeMatch, 'activity', () => runActivityCheck(), botConfig.activity_window_minutes * 60 * 1000)
+
+  // In test mode skip activity check — fake players can't join voice
+  if (TEST_MODE) {
+    clearTimer(activeMatch, 'activity')
+    activeMatch.activityCheckDone = true
+    activeMatch.confirmedInVoice = new Set(realPlayers(players).map(p => p.discordId))
+    setTimeout(() => startVoteSequence(), 2000)
+  }
 }
 
 // ── Activity check ────────────────────────────────────────────────────────────
@@ -503,17 +576,22 @@ async function startCaptainVote() {
 
   const buildEmbed = () => new EmbedBuilder()
     .setTitle('⚔️ Vote for Captains')
-    .setDescription(`${A.yellow}Vote closes in ${timeLeft(end)}${A.reset} — you cannot vote for yourself\n${ansi(voteList(eligible.map(p => p.discordUsername), activeMatch!.captainVotes, true))}`)
+    .setDescription(`Vote closes in **${timeLeft(end)}** — you cannot vote for yourself`)
     .setColor(0xF0B132)
 
   const labels = eligible.map((p, i) => `${i + 1}) ${p.discordUsername}`)
+  await safeOp(() => ch.send({ content: getHeader('captainVote') }), 'send captain header')
+  const voteMsg = await safeOp(() => ch.send({ content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch!.captainVotes, true)) }), 'send captain vote list')
   const msg = await safeOp(() => ch.send({ embeds: [buildEmbed()], components: buttonRows(labels, 'captvote') }), 'send captain vote')
   if (msg) activeMatch.captainVoteMsgId = msg.id
+  if (voteMsg) activeMatch.captainVoteListMsgId = voteMsg.id
 
   const interval = setInterval(async () => {
     if (!activeMatch?.captainVoteMsgId) { clearInterval(interval); return }
     const m = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteMsgId!), 'fetch captain vote msg')
     if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update captain vote timer')
+    // Also update vote list message
+    if (voteMsg) await safeOp(() => voteMsg.edit({ content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch?.captainVotes ?? {}, true)) }), 'update captain vote list')
   }, 30000)
   setTimer(activeMatch, 'captainInterval', () => clearInterval(interval), botConfig.captain_vote_seconds * 1000 + 1000)
   setTimer(activeMatch, 'vote', () => { clearInterval(interval); resolveCaptainVote(eligible) }, botConfig.captain_vote_seconds * 1000)
@@ -584,16 +662,20 @@ async function startMapVote() {
 
   const buildEmbed = () => new EmbedBuilder()
     .setTitle('🗺️ Map Selection')
-    .setDescription(`${A.yellow}Vote closes in ${timeLeft(end)}${A.reset}\n${ansi(voteList(maps, activeMatch!.mapVotes, true))}`)
+    .setDescription(`Vote closes in **${timeLeft(end)}**`)
     .setColor(0x2D7D46)
 
+  await safeOp(() => ch.send({ content: getHeader('mapSelection') }), 'send map header')
+  const voteMsg = await safeOp(() => ch.send({ content: ansi(voteList(maps, activeMatch!.mapVotes, true)) }), 'send map vote list')
   const msg = await safeOp(() => ch.send({ embeds: [buildEmbed()], components: buttonRows(maps.map((m, i) => `${i + 1}) ${m}`), 'mapvote') }), 'send map vote')
   if (msg) activeMatch.mapVoteMsgId = msg.id
+  if (voteMsg) activeMatch.mapVoteListMsgId = voteMsg.id
 
   const interval = setInterval(async () => {
     if (!activeMatch?.mapVoteMsgId) { clearInterval(interval); return }
     const m = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteMsgId!), 'fetch map vote')
     if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update map timer')
+    if (voteMsg) await safeOp(() => voteMsg.edit({ content: ansi(voteList(maps, activeMatch?.mapVotes ?? {}, true)) }), 'update map vote list')
   }, 30000)
   setTimer(activeMatch, 'mapInterval', () => clearInterval(interval), botConfig.map_vote_seconds * 1000 + 1000)
   setTimer(activeMatch, 'vote', () => { clearInterval(interval); resolveMapVote(maps) }, botConfig.map_vote_seconds * 1000)
@@ -640,16 +722,20 @@ async function startServerVote() {
 
   const buildEmbed = () => new EmbedBuilder()
     .setTitle('🖥️ Server Location')
-    .setDescription(`${A.yellow}Vote closes in ${timeLeft(end)}${A.reset}\n${ansi(voteList(servers, activeMatch!.serverVotes, true))}`)
+    .setDescription(`Vote closes in **${timeLeft(end)}**`)
     .setColor(0x5865F2)
 
+  await safeOp(() => ch.send({ content: getHeader('serverLocation') }), 'send server header')
+  const voteMsg = await safeOp(() => ch.send({ content: ansi(voteList(servers, activeMatch!.serverVotes, true)) }), 'send server vote list')
   const msg = await safeOp(() => ch.send({ embeds: [buildEmbed()], components: buttonRows(servers.map((s, i) => `${i + 1}) ${s}`), 'servervote') }), 'send server vote')
   if (msg) activeMatch.serverVoteMsgId = msg.id
+  if (voteMsg) activeMatch.serverVoteListMsgId = voteMsg.id
 
   const interval = setInterval(async () => {
     if (!activeMatch?.serverVoteMsgId) { clearInterval(interval); return }
     const m = await safeOp(() => ch.messages.fetch(activeMatch!.serverVoteMsgId!), 'fetch server vote')
     if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update server timer')
+    if (voteMsg) await safeOp(() => voteMsg.edit({ content: ansi(voteList(servers, activeMatch?.serverVotes ?? {}, true)) }), 'update server vote list')
   }, 30000)
   setTimer(activeMatch, 'serverInterval', () => clearInterval(interval), botConfig.server_vote_seconds * 1000 + 1000)
   setTimer(activeMatch, 'vote', () => { clearInterval(interval); resolveServerVote(servers) }, botConfig.server_vote_seconds * 1000)
@@ -727,6 +813,7 @@ async function sendDraftBoard() {
     const m = await safeOp(() => ch.messages.fetch(activeMatch!.draftMsgId!), 'fetch draft board')
     if (m) { await safeOp(() => m.edit({ embeds: [embed], components: rows }), 'edit draft board'); return }
   }
+  await safeOp(() => ch.send({ content: getHeader('snakeDraft') }), 'send draft header')
   const msg = await safeOp(() => ch.send({ embeds: [embed], components: rows }), 'send draft board')
   if (msg) activeMatch.draftMsgId = msg.id
 }
@@ -800,6 +887,7 @@ async function startPostDraft() {
     )
     .setColor(0x5865F2)
 
+  await safeOp(() => ch.send({ content: getHeader('matchSummary') }), 'send match summary header')
   await safeOp(() => ch.send({ embeds: [embed] }), 'send match summary')
   console.log(`[12man] Match #${num} ready`)
 }
@@ -899,6 +987,7 @@ async function resolveWinner(winner: 'a' | 'b' | 'tie') {
   const mvpRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId('vote_mvp_public').setLabel('🏆 Vote MVP').setStyle(ButtonStyle.Success),
   )
+  await safeOp(() => qCh.send({ content: getHeader('winner') }), 'post winner header')
   await safeOp(() => qCh.send({ embeds: [publicEmbed], components: [mvpRow] }), 'post public result')
 
   const textCh = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
@@ -1365,13 +1454,15 @@ client.on('interactionCreate', async interaction => {
     activeMatch.captainVotes[user.id] = candidate.discordId
     const guild = interaction.guild
     const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
+    if (activeMatch.captainVoteListMsgId) {
+      const m = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteListMsgId!), 'fetch capt vote list')
+      if (m) await safeOp(() => m.edit({ content: ansi(voteList(activeMatch!.captainCandidates.map(p => p.discordUsername), activeMatch!.captainVotes, true)) }), 'update capt vote list')
+    }
     if (activeMatch.captainVoteMsgId) {
       const m = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteMsgId!), 'fetch capt vote')
       if (m) {
-        const embed = EmbedBuilder.from(m.embeds[0]).setDescription(
-          `${A.yellow}Vote closes in ${timeLeft(activeMatch.captainVoteEndTime)}${A.reset} — you cannot vote for yourself\n${ansi(voteList(activeMatch.captainCandidates.map(p => p.discordUsername), activeMatch.captainVotes, true))}`
-        )
-        await safeOp(() => m.edit({ embeds: [embed] }), 'update capt vote')
+        const embed = EmbedBuilder.from(m.embeds[0]).setDescription(`Vote closes in **${timeLeft(activeMatch.captainVoteEndTime)}** — you cannot vote for yourself`)
+        await safeOp(() => m.edit({ embeds: [embed] }), 'update capt vote timer')
       }
     }
     await interaction.reply({ content: `✅ Voted for **${candidate.discordUsername}**.`, flags: 64 })
@@ -1386,12 +1477,9 @@ client.on('interactionCreate', async interaction => {
     if (activeMatch.mapVotes[user.id]) { await interaction.reply({ content: '⚠️ Already voted.', flags: 64 }); return }
     activeMatch.mapVotes[user.id] = map
     const ch = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-    if (activeMatch.mapVoteMsgId) {
-      const m = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteMsgId!), 'fetch map vote')
-      if (m) {
-        const embed = EmbedBuilder.from(m.embeds[0]).setDescription(`${A.yellow}Vote closes in ${timeLeft(activeMatch.mapVoteEndTime)}${A.reset}\n${ansi(voteList(activeMatch.mapOptions, activeMatch.mapVotes, true))}`)
-        await safeOp(() => m.edit({ embeds: [embed] }), 'update map vote')
-      }
+    if (activeMatch.mapVoteListMsgId) {
+      const m = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteListMsgId!), 'fetch map vote list')
+      if (m) await safeOp(() => m.edit({ content: ansi(voteList(activeMatch!.mapOptions, activeMatch!.mapVotes, true)) }), 'update map vote list')
     }
     await interaction.reply({ content: `✅ Voted for **${map}**.`, flags: 64 })
     return
@@ -1405,12 +1493,9 @@ client.on('interactionCreate', async interaction => {
     if (activeMatch.serverVotes[user.id]) { await interaction.reply({ content: '⚠️ Already voted.', flags: 64 }); return }
     activeMatch.serverVotes[user.id] = server
     const ch = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-    if (activeMatch.serverVoteMsgId) {
-      const m = await safeOp(() => ch.messages.fetch(activeMatch!.serverVoteMsgId!), 'fetch server vote')
-      if (m) {
-        const embed = EmbedBuilder.from(m.embeds[0]).setDescription(`${A.yellow}Vote closes in ${timeLeft(activeMatch.serverVoteEndTime)}${A.reset}\n${ansi(voteList(botConfig.server_locations, activeMatch.serverVotes, true))}`)
-        await safeOp(() => m.edit({ embeds: [embed] }), 'update server vote')
-      }
+    if (activeMatch.serverVoteListMsgId) {
+      const m = await safeOp(() => ch.messages.fetch(activeMatch!.serverVoteListMsgId!), 'fetch server vote list')
+      if (m) await safeOp(() => m.edit({ content: ansi(voteList(botConfig.server_locations, activeMatch!.serverVotes, true)) }), 'update server vote list')
     }
     await interaction.reply({ content: `✅ Voted for **${server}**.`, flags: 64 })
     return
