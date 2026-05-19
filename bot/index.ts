@@ -912,7 +912,8 @@ async function cleanupMatch() {
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
   clearAllTimers(activeMatch)
   for (const id of [activeMatch.textChannelId, activeMatch.gatherVoiceId, activeMatch.teamAVoiceId, activeMatch.teamBVoiceId].filter(Boolean) as string[]) {
-    await safeOp(() => guild?.channels.cache.get(id)?.delete(), `delete channel ${id}`)
+    const ch = guild?.channels.cache.get(id)
+    if (ch) await safeOp(() => ch.delete(), `delete channel ${id}`)
   }
   activeMatch = null
   console.log('[12man] Match cleaned up')
@@ -1449,7 +1450,7 @@ client.on('interactionCreate', async interaction => {
     activeMatch.players.push(sub)
     activeMatch.waitlist.splice(idx, 1)
     await interaction.reply({ content: `✅ ${sub.discordUsername} subbed in!` })
-    const member = await safeOp(() => interaction.guild?.members.fetch(sub.discordId), 'fetch sub member')
+    const member = await safeOp(() => interaction.guild!.members.fetch(sub.discordId), 'fetch sub member')
     if (member?.voice.channelId) await safeOp(() => member.voice.setChannel(activeMatch!.gatherVoiceId), 'move sub to voice')
     if (activeMatch.players.length === botConfig.queue_size) await startVoteSequence()
     return
