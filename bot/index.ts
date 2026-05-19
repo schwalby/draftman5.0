@@ -25,6 +25,11 @@ import {
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 
+// ── Phase 2: messaging module imports ─────────────────────────────────────────
+import { A, ansi, timeLeft, voteList } from './messaging/ansi'
+import { getHeader } from './messaging/headers'
+import { buttonRows } from './messaging/embeds'
+
 // ── Env validation ────────────────────────────────────────────────────────────
 const REQUIRED_ENV = [
   'DISCORD_BOT_TOKEN', 'DISCORD_CLIENT_ID', 'DISCORD_GUILD_ID',
@@ -56,78 +61,6 @@ const queueWebhook = process.env.QUEUE_WEBHOOK_URL
   : null
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { realtime: { transport: ws as any } })
-
-// ── ANSI helpers ──────────────────────────────────────────────────────────────
-const A = {
-  reset:  '\u001b[0m',
-  green:  '\u001b[2;32m',
-  red:    '\u001b[2;31m',
-  yellow: '\u001b[2;33m',
-  cyan:   '\u001b[2;36m',
-  white:  '\u001b[2;37m',
-  bold:   '\u001b[1m',
-  purple: '\u001b[2;35m',
-  coral:  '\u001b[1;31m',
-  gold:   '\u001b[1;33m',
-  teal:   '\u001b[1;36m',
-}
-const ansi = (text: string) => `\`\`\`ansi\n${text}\n\`\`\``
-const timeLeft = (endTime: number) => {
-  const s = Math.max(0, Math.ceil((endTime - Date.now()) / 1000))
-  return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`
-}
-
-// ── Header generator ──────────────────────────────────────────────────────────
-type HeaderKey = 'draftman' | 'queuePopped' | 'captainVote' | 'captainsSelected' | 'mapSelection' | 'serverLocation' | 'snakeDraft' | 'matchSummary' | 'winner'
-
-const HEADERS_SHADOW: Record<HeaderKey, string> = {
-  draftman: `${A.gold}██████╗ ██████╗  █████╗ ███████╗████████╗    ███╗   ███╗ █████╗ ███╗  ██╗    ███████╗    ██████╗\n██╔══██╗██╔══██╗██╔══██╗██╔════╝╚══██╔══╝    ████╗ ████║██╔══██╗████╗ ██║    ██╔════╝   ██╔████╗\n██║  ██║██████╔╝███████║█████╗     ██║       ██╔████╔██║███████║██╔██╗██║    ███████╗   ██║██╔██║\n██║  ██║██╔══██╗██╔══██║██╔══╝    ██║        ██║╚██╔╝██║██╔══██║██║╚████║    ╚════██║   ████╔╝██║\n██████╔╝██║  ██║██║  ██║██║       ██║        ██║ ╚═╝ ██║██║  ██║██║ ╚███║    ███████║██╗╚██████╔╝\n╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝       ╚═╝        ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚══╝    ╚══════╝╚═╝ ╚═════╝${A.reset}`,
-  queuePopped: `${A.purple} ██████╗ ██╗   ██╗███████╗██╗   ██╗███████╗    ██████╗  ██████╗ ██████╗ ██████╗ ███████╗██████╗\n██╔═══██╗██║   ██║██╔════╝██║   ██║██╔════╝    ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗\n██║   ██║██║   ██║█████╗  ██║   ██║█████╗      ██████╔╝██║   ██║██████╔╝██████╔╝█████╗  ██║  ██║\n██║▄▄ ██║██║   ██║██╔══╝  ██║   ██║██╔══╝      ██╔═══╝ ██║   ██║██╔═══╝ ██╔═══╝ ██╔══╝  ██║  ██║\n╚██████╔╝╚██████╔╝███████╗╚██████╔╝███████╗    ██║     ╚██████╔╝██║     ██║     ███████╗██████╔╝\n ╚══▀▀═╝  ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝    ╚═╝      ╚═════╝ ╚═╝     ╚═╝     ╚══════╝╚═════╝${A.reset}`,
-  captainVote: `${A.gold}██╗   ██╗ ██████╗ ████████╗███████╗    ███████╗ ██████╗ ██████╗      ██████╗ █████╗ ██████╗ ████████╗ █████╗ ██╗███╗  ██╗███████╗\n██║   ██║██╔═══██╗╚══██╔══╝██╔════╝    ██╔════╝██╔═══██╗██╔══██╗    ██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██║████╗ ██║██╔════╝\n██║   ██║██║   ██║   ██║   █████╗      █████╗  ██║   ██║██████╔╝    ██║     ███████║██████╔╝   ██║   ███████║██║██╔██╗██║███████╗\n╚██╗ ██╔╝██║   ██║   ██║   ██╔══╝      ██╔══╝  ██║   ██║██╔══██╗    ██║     ██╔══██║██╔═══╝    ██║   ██╔══██║██║██║╚████║╚════██║\n ╚████╔╝ ╚██████╔╝   ██║   ███████╗    ██║     ╚██████╔╝██║  ██║    ╚██████╗██║  ██║██║        ██║   ██║  ██║██║██║ ╚███║███████║\n  ╚═══╝   ╚═════╝    ╚═╝   ╚══════╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝     ╚═════╝╚═╝  ╚═╝╚═╝        ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚══╝╚══════╝${A.reset}`,
-  captainsSelected: `${A.green} ██████╗ █████╗ ██████╗ ████████╗ █████╗ ██╗███╗  ██╗███████╗    ███████╗███████╗██╗     ███████╗ ██████╗████████╗███████╗██████╗\n██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██║████╗ ██║██╔════╝    ██╔════╝██╔════╝██║     ██╔════╝██╔════╝╚══██╔══╝██╔════╝██╔══██╗\n██║     ███████║██████╔╝   ██║   ███████║██║██╔██╗██║███████╗    ███████╗█████╗  ██║     █████╗  ██║        ██║   █████╗  ██║  ██║\n██║     ██╔══██║██╔═══╝    ██║   ██╔══██║██║██║╚████║╚════██║    ╚════██║██╔══╝  ██║     ██╔══╝  ██║        ██║   ██╔══╝  ██║  ██║\n╚██████╗██║  ██║██║        ██║   ██║  ██║██║██║ ╚███║███████║    ███████║███████╗███████╗███████╗╚██████╗   ██║   ███████╗██████╔╝\n ╚═════╝╚═╝  ╚═╝╚═╝        ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚══╝╚══════╝    ╚══════╝╚══════╝╚══════╝╚══════╝ ╚═════╝   ╚═╝   ╚══════╝╚═════╝${A.reset}`,
-  mapSelection: `${A.teal}███╗   ███╗ █████╗ ██████╗     ███████╗███████╗██╗     ███████╗ ██████╗████████╗██╗ ██████╗ ███╗  ██╗\n████╗ ████║██╔══██╗██╔══██╗    ██╔════╝██╔════╝██║     ██╔════╝██╔════╝╚══██╔══╝██║██╔═══██╗████╗ ██║\n██╔████╔██║███████║██████╔╝    ███████╗█████╗  ██║     █████╗  ██║        ██║   ██║██║   ██║██╔██╗██║\n██║╚██╔╝██║██╔══██║██╔═══╝     ╚════██║██╔══╝  ██║     ██╔══╝  ██║        ██║   ██║██║   ██║██║╚████║\n██║ ╚═╝ ██║██║  ██║██║         ███████║███████╗███████╗███████╗╚██████╗   ██║   ██║╚██████╔╝██║ ╚███║\n╚═╝     ╚═╝╚═╝  ╚═╝╚═╝         ╚══════╝╚══════╝╚══════╝╚══════╝ ╚═════╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚══╝${A.reset}`,
-  serverLocation: `${A.coral}███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗     ██╗      ██████╗  ██████╗ █████╗████████╗██╗ ██████╗ ███╗  ██╗\n██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔══██╗    ██║     ██╔═══██╗██╔════╝██╔══██╗╚══██╔══╝██║██╔═══██╗████╗ ██║\n███████╗█████╗  ██████╔╝██║   ██║█████╗  ██████╔╝    ██║     ██║   ██║██║     ███████║   ██║   ██║██║   ██║██╔██╗██║\n╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗    ██║     ██║   ██║██║     ██╔══██║   ██║   ██║██║   ██║██║╚████║\n███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║    ███████╗╚██████╔╝╚██████╗██║  ██║   ██║   ██║╚██████╔╝██║ ╚███║\n╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝    ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚══╝${A.reset}`,
-  snakeDraft: `${A.white}███████╗███╗  ██╗ █████╗ ██╗  ██╗███████╗    ██████╗ ██████╗  █████╗ ███████╗████████╗\n██╔════╝████╗ ██║██╔══██╗██║ ██╔╝██╔════╝    ██╔══██╗██╔══██╗██╔══██╗██╔════╝╚══██╔══╝\n███████╗██╔██╗██║███████║█████╔╝ █████╗      ██║  ██║██████╔╝███████║█████╗     ██║\n╚════██║██║╚████║██╔══██║██╔═██╗ ██╔══╝      ██║  ██║██╔══██╗██╔══██║██╔══╝    ██║\n███████║██║ ╚███║██║  ██║██║  ██╗███████╗    ██████╔╝██║  ██║██║  ██║██║       ██║\n╚══════╝╚═╝  ╚══╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝       ╚═╝${A.reset}`,
-  matchSummary: `${A.cyan}███╗   ███╗ █████╗████████╗ ██████╗██╗  ██╗    ███████╗██╗   ██╗███╗   ███╗███╗   ███╗ █████╗ ██████╗ ██╗   ██╗\n████╗ ████║██╔══██╗╚══██╔══╝██╔════╝██║  ██║    ██╔════╝██║   ██║████╗ ████║████╗ ████║██╔══██╗██╔══██╗╚██╗ ██╔╝\n██╔████╔██║███████║   ██║   ██║     ███████║    ███████╗██║   ██║██╔████╔██║██╔████╔██║███████║██████╔╝ ╚████╔╝\n██║╚██╔╝██║██╔══██║   ██║   ██║     ██╔══██║    ╚════██║██║   ██║██║╚██╔╝██║██║╚██╔╝██║██╔══██║██╔══██╗  ╚██╔╝\n██║ ╚═╝ ██║██║  ██║   ██║   ╚██████╗██║  ██║    ███████║╚██████╔╝██║ ╚═╝ ██║██║ ╚═╝ ██║██║  ██║██║  ██║   ██║\n╚═╝     ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝    ╚══════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝${A.reset}`,
-  winner: `${A.red}██╗    ██╗██╗███╗  ██╗███╗  ██╗███████╗██████╗\n██║    ██║██║████╗ ██║████╗ ██║██╔════╝██╔══██╗\n██║ █╗ ██║██║██╔██╗██║██╔██╗██║█████╗  ██████╔╝\n██║███╗██║██║██║╚████║██║╚████║██╔══╝  ██╔══██╗\n╚███╔███╔╝██║██║ ╚███║██║ ╚███║███████╗██║  ██║\n ╚══╝╚══╝ ╚═╝╚═╝  ╚══╝╚═╝  ╚══╝╚══════╝╚═╝  ╚═╝${A.reset}`,
-}
-
-const HEADERS_SMALL: Record<HeaderKey, string> = {
-  draftman:         `${A.gold}DRAFT MAN 5.0${A.reset}`,
-  queuePopped:      `${A.purple}__   ___  _____ ___   ___   ___   ___  ___  ___  ___  ___\n\\ \\ / / \\/ / __| | | | __| | _ \\ / _ \\| _ \\| _ \\| __||   \\\n \\ V /| || _|  | |_| | _|  |  _/| (_) |  _/|  _/| _| | |) |\n  \\_/ |_||___|  \\___/|___| |_|   \\___/|_|  |_|  |___||___/${A.reset}`,
-  captainVote:      `${A.gold}__   _____  _____ ___   ___  ___  ___     ____   _   ___ _____ _   ___ _  _ ___\n\\ \\ / / _ \\|_   _| __| | __/ _ \\| _ \\   / __| /_\\ | _ |_   _/_\\ |_ _| \\| / __|\n \\ V /|   /  | | | _|  | _| (_) |   /  | (__ / _ \\|  _/ | |/ _ \\ | || .\\|\\__ \\\n  \\_/ |_|_\\  |_| |___| |_| \\___/|_|_\\   \\___/_/ \\_|_|   |_/_/ \\_|___|_|\\_|___/${A.reset}`,
-  captainsSelected: `${A.green}  ___   _   ___ _____ _   ___ _  _ ___   ___ ___ _    ___ ___ _____ ___ ___\n / __| /_\\ | _ |_   _/_\\ |_ _| \\| / __| / __| __| |  | __/ __|_   _| __| _ \\\n| (__ / _ \\|  _/ | |/ _ \\ | || .\\|\\__ \\ \\__ | _|| |__| _| (__  | | | _||    /\n \\___/_/ \\_|_|   |_/_/ \\_|___|_|\\_|___/ |___|___|____|___\\___| |_| |___|_|_\\${A.reset}`,
-  mapSelection:     `${A.teal}__  __   _   ___   ___ ___ _    ___ ___ _____ ___ ___  _  _\n|  \\/  | /_\\ | _ \\ / __| __| |  | __/ __|_   _|_ _/ _ \\| \\| |\n| |\\/| |/ _ \\|  _/ \\__ | _|| |__| _| (__  | |  | | (_) | .\\|\n|_|  |_/_/ \\_|_|   |___|___|____|___\\___| |_| |___\\___/|_|\\_|${A.reset}`,
-  serverLocation:   `${A.coral}___  ___ _____ ___   ___ ___   _    ___   ___   _ _____ ___ ___  _  _\n/ __|| __| _ \\ \\ \\ / / __| _ \\ | |  / _ \\ / __| /_|_   _|_ _/ _ \\| \\| |\n\\__ \\| _||   /  \\ V /| _||   / | |_| (_) | (__ / _ \\| |  | | (_) | .\\|\n|___/|___|_|_\\   \\_/ |___|_|_\\ |____\\___/ \\___/_/ \\_|_| |___\\___/|_|\\_|${A.reset}`,
-  snakeDraft:       `${A.white}__  _  _   _   _  _____   ___  ___   _   ___ _____\n\\ \\| \\| | /_\\ | |/ / __| |   \\| _ \\ /_\\ | __|_   _|\n > | .\\|/ _ \\| ' <| _|  | |) |   // _ \\| _|  | |\n/_/ |_|\\_/_/ \\_|_|\\_|___| |___/|_|_/_/ \\_|_|   |_|${A.reset}`,
-  matchSummary:     `${A.cyan}__  __   _ _____ ___ _  _   ___ _   _ __  __ __  __   _   _____   __\n|  \\/  | /_|_   _/ __| || | / __| | | |  \\/  |  \\/  | /_\\ | _ \\ \\ / /\n| |\\/| |/ _ \\| || (__ | __ | \\__ | |_| | |\\/| | |\\/| |/ _ \\|   /\\ V /\n|_|  |_/_/ \\_|_| \\___|_||_| |___/\\___/|_|  |_|_|  |_/_/ \\_|_|_\\ |_|${A.reset}`,
-  winner:           `${A.red}__    __ ___ _  _ _  _ ___ ___\n\\ \\  / /|_ _| \\| | \\| | __| _ \\\n \\ \\/ /  | || .\\| .\\| _||   /\n  \\__/  |___|_|\\_|_|\\_|___|_|_\\${A.reset}`,
-}
-
-const HEADERS_BOX: Record<HeaderKey, string> = {
-  draftman:         `${A.gold}╔══════════════════════════╗\n║   ⚡  DRAFT MAN 5.0  ⚡   ║\n╚══════════════════════════╝${A.reset}`,
-  queuePopped:      `${A.purple}╔══════════════════════════╗\n║   🎮  QUEUE POPPED!       ║\n╚══════════════════════════╝${A.reset}`,
-  captainVote:      `${A.gold}╔══════════════════════════╗\n║   ⚔  VOTE FOR CAPTAINS   ║\n╚══════════════════════════╝${A.reset}`,
-  captainsSelected: `${A.green}╔══════════════════════════╗\n║   ✅  CAPTAINS SELECTED   ║\n╚══════════════════════════╝${A.reset}`,
-  mapSelection:     `${A.teal}╔══════════════════════════╗\n║   🗺  MAP SELECTION       ║\n╚══════════════════════════╝${A.reset}`,
-  serverLocation:   `${A.coral}╔══════════════════════════╗\n║   🖥  SERVER LOCATION     ║\n╚══════════════════════════╝${A.reset}`,
-  snakeDraft:       `${A.white}╔══════════════════════════╗\n║   🎯  SNAKE DRAFT         ║\n╚══════════════════════════╝${A.reset}`,
-  matchSummary:     `${A.cyan}╔══════════════════════════╗\n║   📋  MATCH SUMMARY       ║\n╚══════════════════════════╝${A.reset}`,
-  winner:           `${A.red}╔══════════════════════════╗\n║   🏆  WINNER              ║\n╚══════════════════════════╝${A.reset}`,
-}
-
-function getHeader(key: HeaderKey): string {
-  const style = botConfig.header_style
-  if (style === 'shadow') return ansi(HEADERS_SHADOW[key])
-  if (style === 'small')  return ansi(HEADERS_SMALL[key])
-  if (style === 'box')    return ansi(HEADERS_BOX[key])
-  // hybrid: shadow for queuePopped and winner, box for everything else
-  if (style === 'hybrid') {
-    if (key === 'queuePopped' || key === 'winner' || key === 'draftman') return ansi(HEADERS_SHADOW[key])
-    return ansi(HEADERS_BOX[key])
-  }
-  return ansi(HEADERS_SHADOW[key])
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface QueuePlayer {
@@ -249,37 +182,6 @@ function clearAllTimers(match: ActiveMatch) {
 function setTimer(match: ActiveMatch, key: TimerKey, fn: () => void, ms: number) {
   clearTimer(match, key)
   match.timers.set(key, setTimeout(fn, ms))
-}
-
-// ── ANSI vote list formatter ──────────────────────────────────────────────────
-function voteList(items: string[], votes: Record<string, string>, highlight = false): string {
-  const counts: Record<string, number> = {}
-  for (const v of Object.values(votes)) counts[v] = (counts[v] ?? 0) + 1
-  const max = Math.max(0, ...Object.values(counts))
-
-  const lines = items.map((item, i) => {
-    const n = counts[item] ?? 0
-    const color = (highlight && n === max && n > 0) ? A.yellow : A.white
-    return `${color}${String(i + 1).padStart(2)}) ${item.padEnd(22)} Votes: ${n}${A.reset}`
-  })
-
-  if (items.length <= 5) return lines.join('\n')
-  const mid = Math.ceil(lines.length / 2)
-  return lines.slice(0, mid).map((l, i) => lines[mid + i] ? `${l}   ${lines[mid + i]}` : l).join('\n')
-}
-
-// ── Button rows builder ───────────────────────────────────────────────────────
-function buttonRows(labels: string[], prefix: string, style = ButtonStyle.Secondary): ActionRowBuilder<ButtonBuilder>[] {
-  const rows: ActionRowBuilder<ButtonBuilder>[] = []
-  let row = new ActionRowBuilder<ButtonBuilder>()
-  let n = 0
-  for (let i = 0; i < labels.length && i < 25; i++) {
-    if (n === 5) { rows.push(row); row = new ActionRowBuilder<ButtonBuilder>(); n = 0 }
-    row.addComponents(new ButtonBuilder().setCustomId(`${prefix}_${i}`).setLabel(labels[i]).setStyle(style))
-    n++
-  }
-  if (n > 0) rows.push(row)
-  return rows
 }
 
 // ── Safe Discord operation ────────────────────────────────────────────────────
@@ -501,7 +403,7 @@ async function initiateMatch(players: QueuePlayer[], waitlist: QueuePlayer[]) {
 
   const ping = realPlayers(players).map(p => `<@${p.discordId}>`).join(' ')
   const fakeName = TEST_MODE ? ` *(test mode — ${players.length - realPlayers(players).length} fake players)*` : ''
-  const startContent = `${getHeader('queuePopped')}\n${ping}\n\n**Queue #${num} has started!${fakeName}** Join voice channel **Queue#${num}** to confirm your presence.\n\nYou have **${botConfig.activity_window_minutes} minutes** to join voice.`
+  const startContent = `${getHeader('queuePopped', botConfig.header_style)}\n${ping}\n\n**Queue #${num} has started!${fakeName}** Join voice channel **Queue#${num}** to confirm your presence.\n\nYou have **${botConfig.activity_window_minutes} minutes** to join voice.`
 
   if (matchWebhook) {
     await webhookSend(matchWebhook, { content: startContent }, 'send match start via webhook')
@@ -632,7 +534,7 @@ async function startCaptainVote() {
     .setColor(0xF0B132)
 
   const labels = eligible.map((p, i) => `${i + 1}) ${p.discordUsername}`)
-  await matchSend({ content: getHeader('captainVote') }, 'send captain header')
+  await matchSend({ content: getHeader('captainVote', botConfig.header_style) }, 'send captain header')
   const voteMsg = await matchSend({ content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch!.captainVotes, true)) }, 'send captain vote list')
   const msg = await matchSend({ embeds: [buildEmbed()], components: buttonRows(labels, 'captvote') }, 'send captain vote')
   if (msg) activeMatch.captainVoteMsgId = msg.id
@@ -731,7 +633,7 @@ async function startMapVote() {
     .setDescription(`Vote closes in **${timeLeft(end)}**`)
     .setColor(0x2D7D46)
 
-  await matchSend({ content: getHeader('mapSelection') }, 'send map header')
+  await matchSend({ content: getHeader('mapSelection', botConfig.header_style) }, 'send map header')
   const voteMsg = await matchSend({ content: ansi(voteList(maps, activeMatch!.mapVotes, true)) }, 'send map vote list')
   const msg = await matchSend({ embeds: [buildEmbed()], components: buttonRows(maps.map((m, i) => `${i + 1}) ${m}`), 'mapvote') }, 'send map vote')
   if (msg) activeMatch.mapVoteMsgId = msg.id
@@ -801,7 +703,7 @@ async function startServerVote() {
     .setDescription(`Vote closes in **${timeLeft(end)}**`)
     .setColor(0x5865F2)
 
-  await matchSend({ content: getHeader('serverLocation') }, 'send server header')
+  await matchSend({ content: getHeader('serverLocation', botConfig.header_style) }, 'send server header')
   const voteMsg = await matchSend({ content: ansi(voteList(servers, activeMatch!.serverVotes, true)) }, 'send server vote list')
   const msg = await matchSend({ embeds: [buildEmbed()], components: buttonRows(servers.map((s, i) => `${i + 1}) ${s}`), 'servervote') }, 'send server vote')
   if (msg) activeMatch.serverVoteMsgId = msg.id
@@ -901,7 +803,7 @@ async function sendDraftBoard() {
     const m = await safeOp(() => ch.messages.fetch(activeMatch!.draftMsgId!), 'fetch draft board')
     if (m) { await safeOp(() => m.edit({ embeds: [embed], components: rows }), 'edit draft board'); return }
   }
-  await matchSend({ content: getHeader('snakeDraft') }, 'send draft header')
+  await matchSend({ content: getHeader('snakeDraft', botConfig.header_style) }, 'send draft header')
   const msg = await matchSend({ embeds: [embed], components: rows }, 'send draft board')
   if (msg) activeMatch.draftMsgId = msg.id
 }
@@ -975,7 +877,7 @@ async function startPostDraft() {
     )
     .setColor(0x5865F2)
 
-  await matchSend({ content: getHeader('matchSummary') }, 'send match summary header')
+  await matchSend({ content: getHeader('matchSummary', botConfig.header_style) }, 'send match summary header')
   await matchSend({ embeds: [embed] }, 'send match summary')
 
   // Delete gather voice channel — players have been moved to team channels
@@ -1088,10 +990,10 @@ async function resolveWinner(winner: 'a' | 'b' | 'tie') {
     new ButtonBuilder().setCustomId('vote_mvp_public').setLabel('🏆 Vote MVP').setStyle(ButtonStyle.Success),
   )
   if (queueWebhook) {
-    await webhookSend(queueWebhook, { content: getHeader('winner') }, 'post winner header via webhook')
+    await webhookSend(queueWebhook, { content: getHeader('winner', botConfig.header_style) }, 'post winner header via webhook')
     await webhookSend(queueWebhook, { embeds: [publicEmbed], components: [mvpRow] }, 'post public result via webhook')
   } else {
-    await safeOp(() => qCh.send({ content: getHeader('winner') }), 'post winner header')
+    await safeOp(() => qCh.send({ content: getHeader('winner', botConfig.header_style) }), 'post winner header')
     await safeOp(() => qCh.send({ embeds: [publicEmbed], components: [mvpRow] }), 'post public result')
   }
 

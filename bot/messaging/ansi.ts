@@ -23,26 +23,14 @@ export const timeLeft = (endTime: number): string => {
 }
 
 // Format a vote list in ANSI with optional winner highlighting
+// Preserved exactly from index.ts — no changes to logic
 export function voteList(items: string[], votes: Record<string, string>, highlight = false): string {
   const counts: Record<string, number> = {}
-  for (const v of Object.values(votes)) {
-    // Support comma-separated multi-votes (captain vote)
-    for (const id of v.split(',').filter(Boolean)) {
-      counts[id] = (counts[id] ?? 0) + 1
-    }
-  }
-  // For map/server votes, votes are direct item names not IDs
-  // Re-count by item name for display
-  const nameCounts: Record<string, number> = {}
-  for (const v of Object.values(votes)) {
-    for (const val of v.split(',').filter(Boolean)) {
-      nameCounts[val] = (nameCounts[val] ?? 0) + 1
-    }
-  }
-  const max = Math.max(0, ...Object.values(nameCounts))
+  for (const v of Object.values(votes)) counts[v] = (counts[v] ?? 0) + 1
+  const max = Math.max(0, ...Object.values(counts))
 
   const lines = items.map((item, i) => {
-    const n = nameCounts[item] ?? 0
+    const n = counts[item] ?? 0
     const color = (highlight && n === max && n > 0) ? A.yellow : A.white
     return `${color}${String(i + 1).padStart(2)}) ${item.padEnd(22)} Votes: ${n}${A.reset}`
   })
