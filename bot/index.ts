@@ -20,6 +20,7 @@ import {
   GuildMember,
   VoiceState,
   PermissionsBitField,
+  WebhookClient,
 } from 'discord.js'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
@@ -48,6 +49,11 @@ const QUEUE_CATEGORY_ID     = '1130992813627154452'
 const MATCH_THRESHOLD       = 8
 
 let TEST_MODE = process.env.TEST_MODE === 'true'
+
+// Queue channel webhook (permanent, created manually in Discord)
+const queueWebhook = process.env.QUEUE_WEBHOOK_URL
+  ? new WebhookClient({ url: process.env.QUEUE_WEBHOOK_URL })
+  : null
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { realtime: { transport: ws as any } })
 
@@ -174,6 +180,7 @@ interface ActiveMatch {
   draftMsgId?: string
   winnerVoteMsgId?: string
   dbMatchId?: string
+  matchWebhook?: WebhookClient
   timers: Map<TimerKey, ReturnType<typeof setTimeout>>
 }
 
@@ -281,6 +288,33 @@ async function safeOp<T>(fn: () => Promise<T>, label: string): Promise<T | null>
   catch (err) { console.error(`[bot] ${label}:`, err); return null }
 }
 
+// ── Webhook send helper ───────────────────────────────────────────────────────
+function botWebhookOptions() {
+  return {
+    username: 'DRAFT MAN 5.0',
+    avatarURL: client.user?.avatarURL() ?? undefined,
+  }
+}
+
+async function webhookSend(
+  webhook: WebhookClient,
+  payload: Parameters<WebhookClient['send']>[0],
+  label: string
+) {
+  return safeOp(() => webhook.send({ ...botWebhookOptions(), ...payload }), label)
+}
+
+// Send to match channel — uses webhook if available, falls back to bot
+async function matchSend(payload: Parameters<WebhookClient['send']>[0], label: string) {
+  if (!activeMatch) return null
+  if (activeMatch.matchWebhook) {
+    return webhookSend(activeMatch.matchWebhook, payload, label)
+  }
+  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
+  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
+  return safeOp(() => ch.send(payload as any), label)
+}
+
 // ── Config loader ─────────────────────────────────────────────────────────────
 async function loadConfig() {
   const { data } = await supabase.from('twelve_man_config').select('*').eq('guild_id', DISCORD_GUILD_ID).maybeSingle()
@@ -373,6 +407,19 @@ async function updateQueueEmbed() {
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
   const channel = guild?.channels.cache.get(QUEUE_CHANNEL_ID) as TextChannel
   if (!channel) return
+
+  if (queueWebhook) {
+    // Use webhook for NeatQueue-style colored border
+    if (queueMessageId) {
+      const edited = await safeOp(() => queueWebhook.editMessage(queueMessageId!, { embeds: [buildQueueEmbed()], components: buildQueueButtons() }), 'edit queue embed via webhook')
+      if (edited) return
+    }
+    const msg = await webhookSend(queueWebhook, { embeds: [buildQueueEmbed()], components: buildQueueButtons() }, 'send queue embed via webhook')
+    if (msg) await saveQueueMessageId(msg.id)
+    return
+  }
+
+  // Fallback: bot message if no webhook configured
   if (queueMessageId) {
     const msg = await safeOp(() => channel.messages.fetch(queueMessageId!), 'fetch queue embed')
     if (msg) { await safeOp(() => msg.edit({ embeds: [buildQueueEmbed()], components: buildQueueButtons() }), 'edit queue embed'); return }
@@ -426,6 +473,10 @@ async function initiateMatch(players: QueuePlayer[], waitlist: QueuePlayer[]) {
   const voiceCh = await safeOp(() => guild.channels.create({ name: `Queue#${num}`, type: ChannelType.GuildVoice, parent: QUEUE_CATEGORY_ID, permissionOverwrites: permOverwrites }), 'create gather voice')
   if (!textCh || !voiceCh) { console.error('[12man] Channel creation failed'); return }
 
+  // Create webhook in private text channel for NeatQueue-style embeds
+  const matchWh = await safeOp(() => (textCh as TextChannel).createWebhook({ name: 'DRAFT MAN 5.0', avatar: client.user?.avatarURL() ?? undefined }), 'create match webhook')
+  const matchWebhook = matchWh ? new WebhookClient({ id: matchWh.id, token: matchWh.token! }) : null
+
   activeMatch = {
     matchNumber: num, textChannelId: textCh.id, gatherVoiceId: voiceCh.id,
     players: [...players], waitlist: [...waitlist],
@@ -436,6 +487,7 @@ async function initiateMatch(players: QueuePlayer[], waitlist: QueuePlayer[]) {
     serverVotes: {}, winnerVotes: {}, draftPickIndex: 0, draftOrder: [],
     remainingPlayers: [], captainVoteEndTime: 0, mapVoteEndTime: 0, serverVoteEndTime: 0,
     timers: new Map(),
+    matchWebhook: matchWebhook ?? undefined,
     captainVoteListMsgId: undefined,
     mapVoteListMsgId: undefined,
     serverVoteListMsgId: undefined,
@@ -449,9 +501,13 @@ async function initiateMatch(players: QueuePlayer[], waitlist: QueuePlayer[]) {
 
   const ping = realPlayers(players).map(p => `<@${p.discordId}>`).join(' ')
   const fakeName = TEST_MODE ? ` *(test mode — ${players.length - realPlayers(players).length} fake players)*` : ''
-  await safeOp(() => textCh.send({
-    content: `${getHeader('queuePopped')}\n${ping}\n\n**Queue #${num} has started!${fakeName}** Join voice channel **Queue#${num}** to confirm your presence.\n\nYou have **${botConfig.activity_window_minutes} minutes** to join voice.`,
-  }), 'send match start message')
+  const startContent = `${getHeader('queuePopped')}\n${ping}\n\n**Queue #${num} has started!${fakeName}** Join voice channel **Queue#${num}** to confirm your presence.\n\nYou have **${botConfig.activity_window_minutes} minutes** to join voice.`
+
+  if (matchWebhook) {
+    await webhookSend(matchWebhook, { content: startContent }, 'send match start via webhook')
+  } else {
+    await safeOp(() => (textCh as TextChannel).send({ content: startContent }), 'send match start message')
+  }
 
   setTimer(activeMatch, 'activity', () => runActivityCheck(), botConfig.activity_window_minutes * 60 * 1000)
 
@@ -497,15 +553,13 @@ async function checkEarlyConfirm() {
 // ── AFK / sub flow ────────────────────────────────────────────────────────────
 async function handleAfk(afk: QueuePlayer[]) {
   if (!activeMatch) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
   for (const p of afk) {
     const i = activeMatch.players.findIndex(x => x.discordId === p.discordId)
     if (i !== -1) activeMatch.players.splice(i, 1)
   }
   if (!activeMatch.waitlist.length) {
     const names = afk.map(p => `@${p.discordUsername}`).join(', ')
-    await safeOp(() => ch.send({ content: `❌ Queue cancelled — ${names} did not join voice. Deleting in 18s.` }), 'send cancel msg')
+    await matchSend({ content: `❌ Queue cancelled — ${names} did not join voice. Deleting in 18s.` }, 'send cancel msg')
     await cancelMatch(activeMatch.players)
     return
   }
@@ -514,10 +568,8 @@ async function handleAfk(afk: QueuePlayer[]) {
 
 async function tryNextSub(afk: QueuePlayer[], idx: number) {
   if (!activeMatch) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
   if (idx >= activeMatch.waitlist.length) {
-    await safeOp(() => ch.send({ content: `❌ No available subs. Deleting in 18s.` }), 'no subs msg')
+    await matchSend({ content: `❌ No available subs. Deleting in 18s.` }, 'no subs msg')
     await cancelMatch(activeMatch.players)
     return
   }
@@ -527,7 +579,7 @@ async function tryNextSub(afk: QueuePlayer[], idx: number) {
     new ButtonBuilder().setCustomId(`sub_accept_${idx}`).setLabel('✅ Accept').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`sub_decline_${idx}`).setLabel('❌ Decline').setStyle(ButtonStyle.Danger),
   )
-  await safeOp(() => ch.send({ content: `<@${sub.discordId}> — ${afkNames} didn't join. Sub in?`, components: [row] }), 'sub prompt')
+  await matchSend({ content: `<@${sub.discordId}> — ${afkNames} didn't join. Sub in?`, components: [row] }, 'sub prompt')
   setTimer(activeMatch, 'subWindow', () => tryNextSub(afk, idx + 1), botConfig.sub_window_minutes * 60 * 1000)
 }
 
@@ -580,18 +632,28 @@ async function startCaptainVote() {
     .setColor(0xF0B132)
 
   const labels = eligible.map((p, i) => `${i + 1}) ${p.discordUsername}`)
-  await safeOp(() => ch.send({ content: getHeader('captainVote') }), 'send captain header')
-  const voteMsg = await safeOp(() => ch.send({ content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch!.captainVotes, true)) }), 'send captain vote list')
-  const msg = await safeOp(() => ch.send({ embeds: [buildEmbed()], components: buttonRows(labels, 'captvote') }), 'send captain vote')
+  await matchSend({ content: getHeader('captainVote') }, 'send captain header')
+  const voteMsg = await matchSend({ content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch!.captainVotes, true)) }, 'send captain vote list')
+  const msg = await matchSend({ embeds: [buildEmbed()], components: buttonRows(labels, 'captvote') }, 'send captain vote')
   if (msg) activeMatch.captainVoteMsgId = msg.id
   if (voteMsg) activeMatch.captainVoteListMsgId = voteMsg.id
 
   const interval = setInterval(async () => {
     if (!activeMatch?.captainVoteMsgId) { clearInterval(interval); return }
-    const m = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteMsgId!), 'fetch captain vote msg')
-    if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update captain vote timer')
-    // Also update vote list message
-    if (voteMsg) await safeOp(() => voteMsg.edit({ content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch?.captainVotes ?? {}, true)) }), 'update captain vote list')
+    // Update timer embed via webhook or bot
+    if (activeMatch.matchWebhook) {
+      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.captainVoteMsgId!, { embeds: [buildEmbed()] }), 'update captain vote timer')
+      if (activeMatch.captainVoteListMsgId) await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.captainVoteListMsgId!, { content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch?.captainVotes ?? {}, true)) }), 'update captain vote list')
+    } else {
+      const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
+      const ch = guild?.channels.cache.get(activeMatch!.textChannelId) as TextChannel
+      const m = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteMsgId!), 'fetch captain vote msg')
+      if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update captain vote timer')
+      if (activeMatch?.captainVoteListMsgId) {
+        const lm = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteListMsgId!), 'fetch captain list msg')
+        if (lm) await safeOp(() => lm.edit({ content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch?.captainVotes ?? {}, true)) }), 'update captain vote list')
+      }
+    }
   }, 30000)
   setTimer(activeMatch, 'captainInterval', () => clearInterval(interval), botConfig.captain_vote_seconds * 1000 + 1000)
   setTimer(activeMatch, 'vote', () => { clearInterval(interval); resolveCaptainVote(eligible) }, botConfig.captain_vote_seconds * 1000)
@@ -637,7 +699,7 @@ async function resolveCaptainVote(eligible: QueuePlayer[]) {
     notVotedNames.length ? `${A.white}Not voted: ${notVotedNames.join(', ')}${A.reset}` : '',
   ].filter(Boolean).join('\n')
 
-  await safeOp(() => ch.send({ content: ansi(out) }), 'send captain result')
+  await matchSend({ content: ansi(out) }, 'send captain result')
   if (!isFake(top)) await setCooldown(top.discordId, top.discordUsername)
   if (!isFake(second)) await setCooldown(second.discordId, second.discordUsername)
   await nextStep()
@@ -651,7 +713,7 @@ async function startMapVote() {
 
   const pool = await getMapPool()
   if (!pool.length) {
-    await safeOp(() => ch.send({ content: '⚠️ No maps in pool — skipping map vote.' }), 'no maps msg')
+    await matchSend({ content: '⚠️ No maps in pool — skipping map vote.' }, 'no maps msg')
     activeMatch.selectedMap = 'TBD'
     await nextStep()
     return
@@ -669,17 +731,27 @@ async function startMapVote() {
     .setDescription(`Vote closes in **${timeLeft(end)}**`)
     .setColor(0x2D7D46)
 
-  await safeOp(() => ch.send({ content: getHeader('mapSelection') }), 'send map header')
-  const voteMsg = await safeOp(() => ch.send({ content: ansi(voteList(maps, activeMatch!.mapVotes, true)) }), 'send map vote list')
-  const msg = await safeOp(() => ch.send({ embeds: [buildEmbed()], components: buttonRows(maps.map((m, i) => `${i + 1}) ${m}`), 'mapvote') }), 'send map vote')
+  await matchSend({ content: getHeader('mapSelection') }, 'send map header')
+  const voteMsg = await matchSend({ content: ansi(voteList(maps, activeMatch!.mapVotes, true)) }, 'send map vote list')
+  const msg = await matchSend({ embeds: [buildEmbed()], components: buttonRows(maps.map((m, i) => `${i + 1}) ${m}`), 'mapvote') }, 'send map vote')
   if (msg) activeMatch.mapVoteMsgId = msg.id
   if (voteMsg) activeMatch.mapVoteListMsgId = voteMsg.id
 
   const interval = setInterval(async () => {
     if (!activeMatch?.mapVoteMsgId) { clearInterval(interval); return }
-    const m = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteMsgId!), 'fetch map vote')
-    if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update map timer')
-    if (voteMsg) await safeOp(() => voteMsg.edit({ content: ansi(voteList(maps, activeMatch?.mapVotes ?? {}, true)) }), 'update map vote list')
+    if (activeMatch.matchWebhook) {
+      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.mapVoteMsgId!, { embeds: [buildEmbed()] }), 'update map timer')
+      if (activeMatch.mapVoteListMsgId) await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.mapVoteListMsgId!, { content: ansi(voteList(maps, activeMatch?.mapVotes ?? {}, true)) }), 'update map list')
+    } else {
+      const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
+      const ch = guild?.channels.cache.get(activeMatch!.textChannelId) as TextChannel
+      const m = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteMsgId!), 'fetch map vote')
+      if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update map timer')
+      if (activeMatch?.mapVoteListMsgId) {
+        const lm = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteListMsgId!), 'fetch map list')
+        if (lm) await safeOp(() => lm.edit({ content: ansi(voteList(maps, activeMatch?.mapVotes ?? {}, true)) }), 'update map list')
+      }
+    }
   }, 30000)
   setTimer(activeMatch, 'mapInterval', () => clearInterval(interval), botConfig.map_vote_seconds * 1000 + 1000)
   setTimer(activeMatch, 'vote', () => { clearInterval(interval); resolveMapVote(maps) }, botConfig.map_vote_seconds * 1000)
@@ -711,7 +783,7 @@ async function resolveMapVote(maps: string[]) {
     notVoted.length ? `${A.white}Not voted: ${notVoted.join(', ')}${A.reset}` : '',
   ].filter(Boolean).join('\n')
 
-  await safeOp(() => ch.send({ content: ansi(out) }), 'send map result')
+  await matchSend({ content: ansi(out) }, 'send map result')
   await nextStep()
 }
 
@@ -729,17 +801,23 @@ async function startServerVote() {
     .setDescription(`Vote closes in **${timeLeft(end)}**`)
     .setColor(0x5865F2)
 
-  await safeOp(() => ch.send({ content: getHeader('serverLocation') }), 'send server header')
-  const voteMsg = await safeOp(() => ch.send({ content: ansi(voteList(servers, activeMatch!.serverVotes, true)) }), 'send server vote list')
-  const msg = await safeOp(() => ch.send({ embeds: [buildEmbed()], components: buttonRows(servers.map((s, i) => `${i + 1}) ${s}`), 'servervote') }), 'send server vote')
+  await matchSend({ content: getHeader('serverLocation') }, 'send server header')
+  const voteMsg = await matchSend({ content: ansi(voteList(servers, activeMatch!.serverVotes, true)) }, 'send server vote list')
+  const msg = await matchSend({ embeds: [buildEmbed()], components: buttonRows(servers.map((s, i) => `${i + 1}) ${s}`), 'servervote') }, 'send server vote')
   if (msg) activeMatch.serverVoteMsgId = msg.id
   if (voteMsg) activeMatch.serverVoteListMsgId = voteMsg.id
 
   const interval = setInterval(async () => {
     if (!activeMatch?.serverVoteMsgId) { clearInterval(interval); return }
-    const m = await safeOp(() => ch.messages.fetch(activeMatch!.serverVoteMsgId!), 'fetch server vote')
-    if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update server timer')
-    if (voteMsg) await safeOp(() => voteMsg.edit({ content: ansi(voteList(servers, activeMatch?.serverVotes ?? {}, true)) }), 'update server vote list')
+    if (activeMatch.matchWebhook) {
+      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.serverVoteMsgId!, { embeds: [buildEmbed()] }), 'update server timer')
+      if (activeMatch.serverVoteListMsgId) await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.serverVoteListMsgId!, { content: ansi(voteList(servers, activeMatch?.serverVotes ?? {}, true)) }), 'update server list')
+    } else {
+      const guild2 = client.guilds.cache.get(DISCORD_GUILD_ID)
+      const ch2 = guild2?.channels.cache.get(activeMatch!.textChannelId) as TextChannel
+      const m = await safeOp(() => ch2.messages.fetch(activeMatch!.serverVoteMsgId!), 'fetch server vote')
+      if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update server timer')
+    }
   }, 30000)
   setTimer(activeMatch, 'serverInterval', () => clearInterval(interval), botConfig.server_vote_seconds * 1000 + 1000)
   setTimer(activeMatch, 'vote', () => { clearInterval(interval); resolveServerVote(servers) }, botConfig.server_vote_seconds * 1000)
@@ -771,7 +849,7 @@ async function resolveServerVote(servers: string[]) {
     notVoted.length ? `${A.white}Not voted: ${notVoted.join(', ')}${A.reset}` : '',
   ].filter(Boolean).join('\n')
 
-  await safeOp(() => ch.send({ content: ansi(out) }), 'send server result')
+  await matchSend({ content: ansi(out) }, 'send server result')
   await nextStep()
 }
 
@@ -814,11 +892,17 @@ async function sendDraftBoard() {
   const rows = buttonRows(labels, 'draftpick')
 
   if (activeMatch.draftMsgId) {
+    if (activeMatch.matchWebhook) {
+      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.draftMsgId!, { embeds: [embed], components: rows }), 'edit draft board')
+      return
+    }
+    const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
+    const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
     const m = await safeOp(() => ch.messages.fetch(activeMatch!.draftMsgId!), 'fetch draft board')
     if (m) { await safeOp(() => m.edit({ embeds: [embed], components: rows }), 'edit draft board'); return }
   }
-  await safeOp(() => ch.send({ content: getHeader('snakeDraft') }), 'send draft header')
-  const msg = await safeOp(() => ch.send({ embeds: [embed], components: rows }), 'send draft board')
+  await matchSend({ content: getHeader('snakeDraft') }, 'send draft header')
+  const msg = await matchSend({ embeds: [embed], components: rows }, 'send draft board')
   if (msg) activeMatch.draftMsgId = msg.id
 }
 
@@ -891,8 +975,12 @@ async function startPostDraft() {
     )
     .setColor(0x5865F2)
 
-  await safeOp(() => ch.send({ content: getHeader('matchSummary') }), 'send match summary header')
-  await safeOp(() => ch.send({ embeds: [embed] }), 'send match summary')
+  await matchSend({ content: getHeader('matchSummary') }, 'send match summary header')
+  await matchSend({ embeds: [embed] }, 'send match summary')
+
+  // Delete gather voice channel — players have been moved to team channels
+  await safeOp(() => guild!.channels.cache.get(activeMatch!.gatherVoiceId)?.delete(), 'delete gather voice')
+
   console.log(`[12man] Match #${num} ready`)
 }
 
@@ -919,7 +1007,7 @@ async function postWinnerVote(map: string | null, alliesScore: number, axisScore
     new ButtonBuilder().setCustomId('vote_mvp').setLabel('🏆 Vote MVP').setStyle(ButtonStyle.Success),
   )
 
-  const msg = await safeOp(() => ch.send({ embeds: [embed], components: [row] }), 'send winner vote')
+  const msg = await matchSend({ embeds: [embed], components: [row] }, 'send winner vote')
   if (msg) activeMatch.winnerVoteMsgId = msg.id
 }
 
@@ -935,15 +1023,23 @@ async function handleWinnerVote(voterId: string, choice: 'a' | 'b' | 'tie') {
   const remaining = Math.max(0, botConfig.vote_threshold - Math.max(aCount, bCount, tCount))
 
   if (activeMatch.winnerVoteMsgId) {
-    const m = await safeOp(() => ch.messages.fetch(activeMatch!.winnerVoteMsgId!), 'fetch winner vote')
-    if (m) {
-      const embed = EmbedBuilder.from(m.embeds[0]).setFields(
+    const updatedEmbed = new EmbedBuilder()
+      .setTitle(`🏆 Winner for Queue#${activeMatch.matchNumber} 🏆`)
+      .setDescription(`${botConfig.vote_threshold} votes required`)
+      .setColor(0xF0B132)
+      .addFields(
         { name: activeMatch.captainA.discordUsername, value: `Votes: ${aCount}`, inline: true },
         { name: activeMatch.captainB.discordUsername, value: `Votes: ${bCount}`, inline: true },
         { name: 'Tie', value: `Votes: ${tCount}`, inline: true },
         { name: '\u200b', value: `${remaining} more votes required`, inline: false },
       )
-      await safeOp(() => m.edit({ embeds: [embed] }), 'update winner vote')
+    if (activeMatch.matchWebhook) {
+      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.winnerVoteMsgId!, { embeds: [updatedEmbed] }), 'update winner vote')
+    } else {
+      const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
+      const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
+      const m = await safeOp(() => ch.messages.fetch(activeMatch!.winnerVoteMsgId!), 'fetch winner vote')
+      if (m) await safeOp(() => m.edit({ embeds: [updatedEmbed] }), 'update winner vote')
     }
   }
 
@@ -991,11 +1087,15 @@ async function resolveWinner(winner: 'a' | 'b' | 'tie') {
   const mvpRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId('vote_mvp_public').setLabel('🏆 Vote MVP').setStyle(ButtonStyle.Success),
   )
-  await safeOp(() => qCh.send({ content: getHeader('winner') }), 'post winner header')
-  await safeOp(() => qCh.send({ embeds: [publicEmbed], components: [mvpRow] }), 'post public result')
+  if (queueWebhook) {
+    await webhookSend(queueWebhook, { content: getHeader('winner') }, 'post winner header via webhook')
+    await webhookSend(queueWebhook, { embeds: [publicEmbed], components: [mvpRow] }, 'post public result via webhook')
+  } else {
+    await safeOp(() => qCh.send({ content: getHeader('winner') }), 'post winner header')
+    await safeOp(() => qCh.send({ embeds: [publicEmbed], components: [mvpRow] }), 'post public result')
+  }
 
-  const textCh = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-  await safeOp(() => textCh.send({ content: '✅ Result confirmed! Deleting channels in 18 seconds.' }), 'send cleanup notice')
+  await matchSend({ content: '✅ Result confirmed! Deleting channels in 18 seconds.' }, 'send cleanup notice')
   setTimeout(() => cleanupMatch(), 18000)
 }
 
@@ -1004,7 +1104,13 @@ async function cleanupMatch() {
   if (!activeMatch) return
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
   clearAllTimers(activeMatch)
-  for (const id of [activeMatch.textChannelId, activeMatch.gatherVoiceId, activeMatch.teamAVoiceId, activeMatch.teamBVoiceId].filter(Boolean) as string[]) {
+
+  // Destroy match webhook before deleting channel
+  if (activeMatch.matchWebhook) {
+    activeMatch.matchWebhook.destroy()
+  }
+
+  for (const id of [activeMatch.textChannelId, activeMatch.teamAVoiceId, activeMatch.teamBVoiceId].filter(Boolean) as string[]) {
     try { await guild?.channels.cache.get(id)?.delete() } catch { /* already gone */ }
   }
   activeMatch = null
@@ -1218,8 +1324,7 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
   if (sub === 'cancel') {
     await interaction.deferReply()
     if (!activeMatch) { await interaction.editReply({ content: '❌ No active match.' }); return }
-    const ch = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-    await safeOp(() => ch.send({ content: '⚠️ Match cancelled by admin. Re-queuing all players. Deleting in 18s.' }), 'cancel notice')
+    await matchSend({ content: '⚠️ Match cancelled by admin. Re-queuing all players. Deleting in 18s.' }, 'cancel notice')
     await cancelMatch(activeMatch.players)
     await interaction.editReply({ content: '✅ Cancelled. All players re-queued.' })
     return
@@ -1312,7 +1417,7 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
       const ch = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
       await safeOp(() => ch.permissionOverwrites.edit(replacement.id, { ViewChannel: true }), 'add sub perms')
       await safeOp(() => ch.permissionOverwrites.delete(target.id), 'remove old perms')
-      await safeOp(() => ch.send({ content: `🔄 **${target.username}** → **${replacement.username}**` }), 'sub notice')
+      await matchSend({ content: `🔄 **${target.username}** → **${replacement.username}**` }, 'sub notice')
       await interaction.editReply({ content: `✅ Subbed **${target.username}** out for **${replacement.username}**.` })
       return
     }
@@ -1540,17 +1645,25 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply({ content: `✅ Voted for **${candidate.discordUsername}**.${remaining > 0 ? ` You have **${remaining}** vote remaining.` : ''}`, flags: 64 })
     }
 
-    const guild = interaction.guild
-    const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-    if (activeMatch.captainVoteListMsgId) {
-      const m = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteListMsgId!), 'fetch capt vote list')
-      if (m) await safeOp(() => m.edit({ content: ansi(voteList(activeMatch!.captainCandidates.map(p => p.discordUsername), activeMatch!.captainVotes, true)) }), 'update capt vote list')
-    }
-    if (activeMatch.captainVoteMsgId) {
-      const m = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteMsgId!), 'fetch capt vote')
-      if (m) {
-        const embed = EmbedBuilder.from(m.embeds[0]).setDescription(`Vote closes in **${timeLeft(activeMatch.captainVoteEndTime)}** — you cannot vote for yourself`)
-        await safeOp(() => m.edit({ embeds: [embed] }), 'update capt vote timer')
+    if (activeMatch.matchWebhook) {
+      if (activeMatch.captainVoteListMsgId) await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.captainVoteListMsgId!, { content: ansi(voteList(activeMatch!.captainCandidates.map(p => p.discordUsername), activeMatch!.captainVotes, true)) }), 'update capt vote list')
+      if (activeMatch.captainVoteMsgId) {
+        const updEmbed = new EmbedBuilder().setTitle('⚔️ Vote for Captains').setDescription(`Vote closes in **${timeLeft(activeMatch.captainVoteEndTime)}** — you cannot vote for yourself`).setColor(0xF0B132)
+        await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.captainVoteMsgId!, { embeds: [updEmbed] }), 'update capt vote timer')
+      }
+    } else {
+      const guild = interaction.guild
+      const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
+      if (activeMatch.captainVoteListMsgId) {
+        const m = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteListMsgId!), 'fetch capt vote list')
+        if (m) await safeOp(() => m.edit({ content: ansi(voteList(activeMatch!.captainCandidates.map(p => p.discordUsername), activeMatch!.captainVotes, true)) }), 'update capt vote list')
+      }
+      if (activeMatch.captainVoteMsgId) {
+        const m = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteMsgId!), 'fetch capt vote')
+        if (m) {
+          const embed = EmbedBuilder.from(m.embeds[0]).setDescription(`Vote closes in **${timeLeft(activeMatch.captainVoteEndTime)}** — you cannot vote for yourself`)
+          await safeOp(() => m.edit({ embeds: [embed] }), 'update capt vote timer')
+        }
       }
     }
     return
@@ -1559,14 +1672,19 @@ client.on('interactionCreate', async interaction => {
   // Map vote — allow switching
   if (id.startsWith('mapvote_')) {
     if (!activeMatch) return
+    if (!activeMatch.players.find(p => p.discordId === user.id)) { await interaction.reply({ content: '❌ You are not a participant in this match.', flags: 64 }); return }
     const map = activeMatch.mapOptions[parseInt(id.split('_')[1])]
     if (!map) return
     const switched = !!activeMatch.mapVotes[user.id]
     activeMatch.mapVotes[user.id] = map
-    const ch = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-    if (activeMatch.mapVoteListMsgId) {
-      const m = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteListMsgId!), 'fetch map vote list')
-      if (m) await safeOp(() => m.edit({ content: ansi(voteList(activeMatch!.mapOptions, activeMatch!.mapVotes, true)) }), 'update map vote list')
+    if (activeMatch.matchWebhook && activeMatch.mapVoteListMsgId) {
+      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.mapVoteListMsgId!, { content: ansi(voteList(activeMatch!.mapOptions, activeMatch!.mapVotes, true)) }), 'update map vote list')
+    } else {
+      const ch = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
+      if (activeMatch.mapVoteListMsgId) {
+        const m = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteListMsgId!), 'fetch map vote list')
+        if (m) await safeOp(() => m.edit({ content: ansi(voteList(activeMatch!.mapOptions, activeMatch!.mapVotes, true)) }), 'update map vote list')
+      }
     }
     await interaction.reply({ content: `${switched ? '🔄 Switched' : '✅ Voted'} for **${map}**.`, flags: 64 })
     return
@@ -1575,14 +1693,19 @@ client.on('interactionCreate', async interaction => {
   // Server vote — allow switching
   if (id.startsWith('servervote_')) {
     if (!activeMatch) return
+    if (!activeMatch.players.find(p => p.discordId === user.id)) { await interaction.reply({ content: '❌ You are not a participant in this match.', flags: 64 }); return }
     const server = botConfig.server_locations[parseInt(id.split('_')[1])]
     if (!server) return
     const switched = !!activeMatch.serverVotes[user.id]
     activeMatch.serverVotes[user.id] = server
-    const ch = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-    if (activeMatch.serverVoteListMsgId) {
-      const m = await safeOp(() => ch.messages.fetch(activeMatch!.serverVoteListMsgId!), 'fetch server vote list')
-      if (m) await safeOp(() => m.edit({ content: ansi(voteList(botConfig.server_locations, activeMatch!.serverVotes, true)) }), 'update server vote list')
+    if (activeMatch.matchWebhook && activeMatch.serverVoteListMsgId) {
+      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.serverVoteListMsgId!, { content: ansi(voteList(botConfig.server_locations, activeMatch!.serverVotes, true)) }), 'update server vote list')
+    } else {
+      const ch = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
+      if (activeMatch.serverVoteListMsgId) {
+        const m = await safeOp(() => ch.messages.fetch(activeMatch!.serverVoteListMsgId!), 'fetch server vote list')
+        if (m) await safeOp(() => m.edit({ content: ansi(voteList(botConfig.server_locations, activeMatch!.serverVotes, true)) }), 'update server vote list')
+      }
     }
     await interaction.reply({ content: `${switched ? '🔄 Switched' : '✅ Voted'} for **${server}**.`, flags: 64 })
     return
@@ -1705,6 +1828,7 @@ client.on('interactionCreate', async interaction => {
   // Winner vote
   if (['winner_a', 'winner_b', 'winner_tie'].includes(id)) {
     if (!activeMatch) return
+    if (!activeMatch.players.find(p => p.discordId === user.id)) { await interaction.reply({ content: '❌ You are not a participant in this match.', flags: 64 }); return }
     if (activeMatch.winnerVotes[user.id]) { await interaction.reply({ content: '⚠️ Already voted.', flags: 64 }); return }
     await interaction.deferUpdate()
     await handleWinnerVote(user.id, id === 'winner_a' ? 'a' : id === 'winner_b' ? 'b' : 'tie')
