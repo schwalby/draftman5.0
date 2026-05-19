@@ -913,7 +913,7 @@ async function cleanupMatch() {
   clearAllTimers(activeMatch)
   for (const id of [activeMatch.textChannelId, activeMatch.gatherVoiceId, activeMatch.teamAVoiceId, activeMatch.teamBVoiceId].filter(Boolean) as string[]) {
     const ch = guild?.channels.cache.get(id)
-    if (ch) await safeOp(() => ch.delete(), `delete channel ${id}`)
+    if (ch) await safeOp(() => (ch as any).delete() as Promise<void>, `delete channel ${id}`)
   }
   activeMatch = null
   console.log('[12man] Match cleaned up')
