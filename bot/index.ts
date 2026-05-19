@@ -424,15 +424,19 @@ async function initiateMatch(overridePlayers?: QueuePlayer[]) {
     ...adminRoleIds.map(id => ({ id, allow: [PermissionFlagsBits.ViewChannel] })),
   ]
 
+  const QUEUE_CATEGORY_ID = '1130992813627154452'
+
   const textChannel = await guild.channels.create({
     name: `queue-${matchNum}`,
     type: ChannelType.GuildText,
+    parent: QUEUE_CATEGORY_ID,
     permissionOverwrites,
   })
 
   const gatherVoice = await guild.channels.create({
     name: `Queue#${matchNum}`,
     type: ChannelType.GuildVoice,
+    parent: QUEUE_CATEGORY_ID,
     permissionOverwrites,
   })
 
@@ -841,14 +845,18 @@ async function startPostDraftSetup() {
     ...activeMatch.players.map(p => ({ id: p.discordId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] })),
   ]
 
+  const QUEUE_CATEGORY_ID = '1130992813627154452'
+
   const teamAVoice = await guild!.channels.create({
     name: `${activeMatch.captainA.discordUsername} - #${matchNum}`,
     type: ChannelType.GuildVoice,
+    parent: QUEUE_CATEGORY_ID,
     permissionOverwrites,
   })
   const teamBVoice = await guild!.channels.create({
     name: `${activeMatch.captainB.discordUsername} - #${matchNum}`,
     type: ChannelType.GuildVoice,
+    parent: QUEUE_CATEGORY_ID,
     permissionOverwrites,
   })
 
