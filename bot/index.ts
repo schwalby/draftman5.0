@@ -1086,7 +1086,18 @@ const commands = [
     .toJSON(),
 ]
 
-async function registerCommands() {
+async function loadMatchCounter() {
+  const { data } = await supabase
+    .from('twelve_man_matches')
+    .select('match_number')
+    .order('match_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (data?.match_number) {
+    matchCounter = data.match_number
+    console.log(`[12man] Match counter restored to ${matchCounter}`)
+  }
+}
   const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN)
   try {
     await rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID), { body: commands })
@@ -1131,7 +1142,7 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
         { name: '🎤 Activity Window (min)',  value: `${botConfig.activity_window_minutes}`, inline: true },
         { name: '🔄 Sub Window (min)',       value: `${botConfig.sub_window_minutes}`,      inline: true },
         { name: '👑 Captain Cooldown',       value: `${botConfig.captain_cooldown_games} games`, inline: true },
-        { name: '🗺️ Maps Shown Per Vote',    value: `${botConfig.map_count === 0 ? 'All' : botConfig.map_count}`, inline: true },
+        { name: '🗺️ Maps Per Vote',          value: `${botConfig.map_count === 0 ? 'All' : botConfig.map_count}`, inline: true },
         { name: '✅ Vote Threshold',          value: `${botConfig.vote_threshold}`,          inline: true },
         { name: '⚔️ Captain Vote (sec)',     value: `${botConfig.captain_vote_seconds}`,   inline: true },
         { name: '🗺️ Map Vote (sec)',          value: `${botConfig.map_vote_seconds}`,        inline: true },
@@ -1142,22 +1153,26 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
         { name: '🧪 Test Mode',              value: TEST_MODE ? '✅ ON' : '❌ OFF',          inline: true },
       )
 
+    // Row 1 — queue settings (blue)
     const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId('setting_queue_size').setLabel('Queue Size').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('setting_map_count').setLabel('Maps Per Vote').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('setting_vote_threshold').setLabel('Vote Threshold').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('setting_captain_cooldown').setLabel('Captain Cooldown').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('setting_header_style').setLabel('Header Style').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('setting_timeout').setLabel('Timeout (min)').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setting_activity_window_minutes').setLabel('Activity Window').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setting_sub_window_minutes').setLabel('Sub Window').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('setting_captain_cooldown_games').setLabel('Captain Cooldown').setStyle(ButtonStyle.Primary),
     )
+    // Row 2 — vote settings (green)
     const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('setting_captain_vote_seconds').setLabel('Captain Vote Time').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('setting_map_vote_seconds').setLabel('Map Vote Time').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('setting_server_vote_seconds').setLabel('Server Vote Time').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('setting_activity_window').setLabel('Activity Window').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('setting_sub_window').setLabel('Sub Window').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setting_map_count').setLabel('Maps Per Vote').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setting_vote_threshold').setLabel('Vote Threshold').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setting_captain_vote_seconds').setLabel('Captain Vote (sec)').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setting_map_vote_seconds').setLabel('Map Vote (sec)').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('setting_server_vote_seconds').setLabel('Server Vote (sec)').setStyle(ButtonStyle.Success),
     )
+    // Row 3 — style/meta (grey + red)
     const row3 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('setting_vote_order').setLabel('Vote Order').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('setting_header_style').setLabel(`Header: ${botConfig.header_style}`).setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('setting_vote_order').setLabel('Vote Order').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('setting_testmode').setLabel(`Test Mode: ${TEST_MODE ? 'ON' : 'OFF'}`).setStyle(TEST_MODE ? ButtonStyle.Success : ButtonStyle.Danger),
     )
 
@@ -1413,6 +1428,7 @@ const client = new Client({
 client.once('clientReady', async () => {
   console.log(`[bot] Online as ${client.user?.tag} | TEST_MODE: ${TEST_MODE}`)
   await loadConfig()
+  await loadMatchCounter()
   await loadQueueFromDB()
   await updateQueueEmbed()
   await registerCommands()
@@ -1535,7 +1551,6 @@ client.on('interactionCreate', async interaction => {
         await safeOp(() => m.edit({ embeds: [embed] }), 'update capt vote timer')
       }
     }
-    await interaction.reply({ content: `✅ Voted for **${candidate.discordUsername}**.`, flags: 64 })
     return
   }
 
@@ -1609,15 +1624,16 @@ client.on('interactionCreate', async interaction => {
 
     // Numeric settings — prompt with current value
     const numericMap: Record<string, { label: string; key: keyof BotConfig }> = {
-      queue_size:            { label: 'Queue Size', key: 'queue_size' },
-      map_count:             { label: 'Maps Per Vote (0 = all)', key: 'map_count' },
-      vote_threshold:        { label: 'Vote Threshold', key: 'vote_threshold' },
-      captain_cooldown:      { label: 'Captain Cooldown (games)', key: 'captain_cooldown_games' },
-      captain_vote_seconds:  { label: 'Captain Vote Duration (seconds)', key: 'captain_vote_seconds' },
-      map_vote_seconds:      { label: 'Map Vote Duration (seconds)', key: 'map_vote_seconds' },
-      server_vote_seconds:   { label: 'Server Vote Duration (seconds)', key: 'server_vote_seconds' },
-      activity_window:       { label: 'Activity Window (minutes)', key: 'activity_window_minutes' },
-      sub_window:            { label: 'Sub Window (minutes)', key: 'sub_window_minutes' },
+      queue_size:              { label: 'Queue Size',              key: 'queue_size' },
+      timeout:                 { label: 'Timeout (minutes)',       key: 'timeout_minutes' },
+      activity_window_minutes: { label: 'Activity Window (min)',   key: 'activity_window_minutes' },
+      sub_window_minutes:      { label: 'Sub Window (min)',        key: 'sub_window_minutes' },
+      captain_cooldown_games:  { label: 'Captain Cooldown (games)', key: 'captain_cooldown_games' },
+      map_count:               { label: 'Maps Per Vote (0 = all)', key: 'map_count' },
+      vote_threshold:          { label: 'Vote Threshold',          key: 'vote_threshold' },
+      captain_vote_seconds:    { label: 'Captain Vote (seconds)',  key: 'captain_vote_seconds' },
+      map_vote_seconds:        { label: 'Map Vote (seconds)',       key: 'map_vote_seconds' },
+      server_vote_seconds:     { label: 'Server Vote (seconds)',   key: 'server_vote_seconds' },
     }
 
     const setting = numericMap[settingKey]
@@ -1645,18 +1661,26 @@ client.on('interactionCreate', async interaction => {
     const settingKey = parts.slice(1, -1).join('_')
 
     const numericMap: Record<string, keyof BotConfig> = {
-      queue_size: 'queue_size', map_count: 'map_count', vote_threshold: 'vote_threshold',
-      captain_cooldown: 'captain_cooldown_games', captain_vote_seconds: 'captain_vote_seconds',
-      map_vote_seconds: 'map_vote_seconds', server_vote_seconds: 'server_vote_seconds',
-      activity_window: 'activity_window_minutes', sub_window: 'sub_window_minutes',
+      queue_size:              'queue_size',
+      timeout:                 'timeout_minutes',
+      activity_window_minutes: 'activity_window_minutes',
+      sub_window_minutes:      'sub_window_minutes',
+      captain_cooldown_games:  'captain_cooldown_games',
+      map_count:               'map_count',
+      vote_threshold:          'vote_threshold',
+      captain_vote_seconds:    'captain_vote_seconds',
+      map_vote_seconds:        'map_vote_seconds',
+      server_vote_seconds:     'server_vote_seconds',
     }
 
     const configKey = numericMap[settingKey]
     if (!configKey) { await interaction.reply({ content: '❌ Unknown setting.', flags: 64 }); return }
 
+    const timeSettings = ['captain_vote_seconds', 'map_vote_seconds', 'server_vote_seconds']
+    const step = timeSettings.includes(settingKey) ? 30 : 1
     let current = botConfig[configKey] as number
-    if (action === 'minus') current = Math.max(0, current - 1)
-    else if (action === 'plus') current = current + 1
+    if (action === 'minus') current = Math.max(0, current - step)
+    else if (action === 'plus') current = current + step
     else if (action === 'save') {
       await supabase.from('twelve_man_config').update({ [configKey]: current }).eq('guild_id', DISCORD_GUILD_ID)
       await interaction.reply({ content: `✅ **${configKey}** saved as **${current}**.`, flags: 64 })
