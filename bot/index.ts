@@ -18,28 +18,19 @@ import {
   TextChannel,
   VoiceChannel,
   GuildMember,
+  VoiceState,
 } from 'discord.js'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 
 // ── Env validation ────────────────────────────────────────────────────────────
 const REQUIRED_ENV = [
-  'DISCORD_BOT_TOKEN',
-  'DISCORD_CLIENT_ID',
-  'DISCORD_GUILD_ID',
-  'DISCORD_VERIFIED_ROLE_ID',
-  'BOT_SECRET',
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'API_BASE_URL',
-  'RESULTS_CHANNEL_ID',
-  'QUEUE_CHANNEL_ID',
+  'DISCORD_BOT_TOKEN', 'DISCORD_CLIENT_ID', 'DISCORD_GUILD_ID',
+  'DISCORD_VERIFIED_ROLE_ID', 'BOT_SECRET', 'SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY', 'API_BASE_URL', 'RESULTS_CHANNEL_ID', 'QUEUE_CHANNEL_ID',
 ]
 for (const key of REQUIRED_ENV) {
-  if (!process.env[key]) {
-    console.error(`[bot] Missing required env var: ${key}`)
-    process.exit(1)
-  }
+  if (!process.env[key]) { console.error(`[bot] Missing env var: ${key}`); process.exit(1) }
 }
 
 const DISCORD_BOT_TOKEN     = process.env.DISCORD_BOT_TOKEN!
@@ -52,19 +43,50 @@ const SUPABASE_KEY          = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const API_BASE_URL          = process.env.API_BASE_URL!
 const RESULTS_CHANNEL_ID    = process.env.RESULTS_CHANNEL_ID!
 const QUEUE_CHANNEL_ID      = process.env.QUEUE_CHANNEL_ID!
+const QUEUE_CATEGORY_ID     = '1130992813627154452'
 const MATCH_THRESHOLD       = 8
+const TEST_MODE             = process.env.TEST_MODE === 'true'
 
-// ── Supabase ──────────────────────────────────────────────────────────────────
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  realtime: { transport: ws as any },
-})
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { realtime: { transport: ws as any } })
 
-// ── 12man in-memory state ─────────────────────────────────────────────────────
-interface QueuePlayer {
-  discordId: string
-  discordUsername: string
-  joinedAt: number
+// ── ANSI helpers ──────────────────────────────────────────────────────────────
+const ANSI = {
+  reset:  '\u001b[0m',
+  green:  '\u001b[2;32m',
+  red:    '\u001b[2;31m',
+  yellow: '\u001b[2;33m',
+  cyan:   '\u001b[2;36m',
+  white:  '\u001b[2;37m',
+  bold:   '\u001b[1m',
 }
+function ansiBlock(text: string): string { return `\`\`\`ansi\n${text}\n\`\`\`` }
+function formatSecondsRemaining(endTime: number): string {
+  const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000))
+  const m = Math.floor(remaining / 60)
+  const s = remaining % 60
+  return m > 0 ? `${m}m ${s}s` : `${s}s`
+}
+function formatVoteListAnsi(labelMap: string[], votes: Record<string, string>, highlightWinner = false): string {
+  const counts: Record<string, number> = {}
+  for (const v of Object.values(votes)) counts[v] = (counts[v] ?? 0) + 1
+  const maxVotes = Math.max(0, ...Object.values(counts))
+
+  const lines = labelMap.map((item, i) => {
+    const voteCount = counts[item] ?? 0
+    const isLeading = highlightWinner && voteCount === maxVotes && voteCount > 0
+    const color = isLeading ? ANSI.yellow : ANSI.white
+    return `${color}${(i + 1).toString().padStart(2)}) ${item.padEnd(22)} Votes: ${voteCount}${ANSI.reset}`
+  })
+
+  if (labelMap.length <= 5) return lines.join('\n')
+  const mid = Math.ceil(lines.length / 2)
+  const left = lines.slice(0, mid)
+  const right = lines.slice(mid)
+  return left.map((l, i) => right[i] ? `${l}   ${right[i]}` : l).join('\n')
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface QueuePlayer { discordId: string; discordUsername: string; joinedAt: number }
 
 interface ActiveMatch {
   matchNumber: number
@@ -99,6 +121,7 @@ interface ActiveMatch {
   draftMessageId?: string
   winnerVoteMessageId?: string
   dbMatchId?: string
+  [key: string]: any
 }
 
 let queuePlayers: QueuePlayer[] = []
@@ -110,111 +133,75 @@ let bannedPlayers: Set<string> = new Set()
 
 // ── Config ────────────────────────────────────────────────────────────────────
 interface BotConfig {
-  queue_size: number
-  timeout_minutes: number
-  activity_window_minutes: number
-  sub_window_minutes: number
-  captain_cooldown_games: number
-  map_count: number
-  vote_threshold: number
-  captain_vote_seconds: number
-  map_vote_seconds: number
-  server_vote_seconds: number
-  vote_order: string[]
-  draft_pattern: string
+  queue_size: number; timeout_minutes: number; activity_window_minutes: number
+  sub_window_minutes: number; captain_cooldown_games: number; map_count: number
+  vote_threshold: number; captain_vote_seconds: number; map_vote_seconds: number
+  server_vote_seconds: number; vote_order: string[]; draft_pattern: string
   server_locations: string[]
 }
-
 const DEFAULT_CONFIG: BotConfig = {
-  queue_size: 12,
-  timeout_minutes: 90,
-  activity_window_minutes: 5,
-  sub_window_minutes: 2,
-  captain_cooldown_games: 2,
-  map_count: 5,
-  vote_threshold: 7,
-  captain_vote_seconds: 120,
-  map_vote_seconds: 90,
-  server_vote_seconds: 90,
-  vote_order: ['captain', 'map', 'server', 'draft'],
+  queue_size: 12, timeout_minutes: 90, activity_window_minutes: 5,
+  sub_window_minutes: 2, captain_cooldown_games: 2, map_count: 5,
+  vote_threshold: 7, captain_vote_seconds: 120, map_vote_seconds: 90,
+  server_vote_seconds: 90, vote_order: ['captain', 'map', 'server', 'draft'],
   draft_pattern: '1-2-2-2-2-2-1',
   server_locations: ['Atlanta', 'Chicago', 'Dallas', 'Denver', 'New York'],
 }
-
 let botConfig: BotConfig = { ...DEFAULT_CONFIG }
 
 async function loadConfig() {
-  const { data } = await supabase
-    .from('twelve_man_config')
-    .select('*')
-    .eq('guild_id', DISCORD_GUILD_ID)
-    .maybeSingle()
+  const { data } = await supabase.from('twelve_man_config').select('*').eq('guild_id', DISCORD_GUILD_ID).maybeSingle()
   if (data) {
     botConfig = {
-      queue_size:               data.queue_size               ?? DEFAULT_CONFIG.queue_size,
-      timeout_minutes:          data.timeout_minutes          ?? DEFAULT_CONFIG.timeout_minutes,
-      activity_window_minutes:  data.activity_window_minutes  ?? DEFAULT_CONFIG.activity_window_minutes,
-      sub_window_minutes:       data.sub_window_minutes       ?? DEFAULT_CONFIG.sub_window_minutes,
-      captain_cooldown_games:   data.captain_cooldown_games   ?? DEFAULT_CONFIG.captain_cooldown_games,
-      map_count:                data.map_count                ?? DEFAULT_CONFIG.map_count,
-      vote_threshold:           data.vote_threshold           ?? DEFAULT_CONFIG.vote_threshold,
-      captain_vote_seconds:     data.captain_vote_seconds     ?? DEFAULT_CONFIG.captain_vote_seconds,
-      map_vote_seconds:         data.map_vote_seconds         ?? DEFAULT_CONFIG.map_vote_seconds,
-      server_vote_seconds:      data.server_vote_seconds      ?? DEFAULT_CONFIG.server_vote_seconds,
-      vote_order:               data.vote_order               ?? DEFAULT_CONFIG.vote_order,
-      draft_pattern:            data.draft_pattern            ?? DEFAULT_CONFIG.draft_pattern,
-      server_locations:         data.server_locations         ?? DEFAULT_CONFIG.server_locations,
+      queue_size: data.queue_size ?? DEFAULT_CONFIG.queue_size,
+      timeout_minutes: data.timeout_minutes ?? DEFAULT_CONFIG.timeout_minutes,
+      activity_window_minutes: data.activity_window_minutes ?? DEFAULT_CONFIG.activity_window_minutes,
+      sub_window_minutes: data.sub_window_minutes ?? DEFAULT_CONFIG.sub_window_minutes,
+      captain_cooldown_games: data.captain_cooldown_games ?? DEFAULT_CONFIG.captain_cooldown_games,
+      map_count: data.map_count ?? DEFAULT_CONFIG.map_count,
+      vote_threshold: data.vote_threshold ?? DEFAULT_CONFIG.vote_threshold,
+      captain_vote_seconds: data.captain_vote_seconds ?? DEFAULT_CONFIG.captain_vote_seconds,
+      map_vote_seconds: data.map_vote_seconds ?? DEFAULT_CONFIG.map_vote_seconds,
+      server_vote_seconds: data.server_vote_seconds ?? DEFAULT_CONFIG.server_vote_seconds,
+      vote_order: data.vote_order ?? DEFAULT_CONFIG.vote_order,
+      draft_pattern: data.draft_pattern ?? DEFAULT_CONFIG.draft_pattern,
+      server_locations: data.server_locations ?? DEFAULT_CONFIG.server_locations,
     }
     console.log('[bot] Config loaded from DB')
   } else {
     console.log('[bot] No config in DB — using defaults')
   }
 }
-
 async function getMapPool(): Promise<string[]> {
-  const { data } = await supabase
-    .from('map_pool')
-    .select('map_name')
-    .eq('guild_id', DISCORD_GUILD_ID)
-    .eq('active', true)
+  const { data } = await supabase.from('map_pool').select('map_name').eq('guild_id', DISCORD_GUILD_ID).eq('active', true)
   return data ? data.map((r: any) => r.map_name) : []
 }
 
 // ── Slash commands ────────────────────────────────────────────────────────────
 const commands = [
+  new SlashCommandBuilder().setName('verify').setDescription('Link your Steam account to participate in drafts').toJSON(),
   new SlashCommandBuilder()
-    .setName('verify')
-    .setDescription('Link your Steam account to participate in drafts')
-    .toJSON(),
-  new SlashCommandBuilder()
-    .setName('12man')
-    .setDescription('12 man queue commands')
-    .addSubcommand(sub => sub.setName('init').setDescription('Post the queue embed in #12man-queue'))
-    .addSubcommand(sub => sub.setName('clear').setDescription('Clear the current queue'))
-    .addSubcommand(sub => sub.setName('forcestart').setDescription('Force start voting with current players'))
-    .addSubcommand(sub => sub.setName('cancel').setDescription('Cancel the active match and re-queue all players'))
-    .addSubcommand(sub => sub.setName('config').setDescription('View current config'))
-    .addSubcommand(sub =>
-      sub.setName('cooldown')
-        .setDescription('Manage captain cooldowns')
-        .addStringOption(opt =>
-          opt.setName('action').setDescription('reset or list').setRequired(true)
-            .addChoices({ name: 'reset', value: 'reset' }, { name: 'list', value: 'list' }))
-        .addUserOption(opt => opt.setName('player').setDescription('Player to reset cooldown for')))
-    .addSubcommand(sub =>
-      sub.setName('player')
-        .setDescription('Manage players in the queue')
-        .addStringOption(opt =>
-          opt.setName('action').setDescription('add, remove, ban, unban, or sub').setRequired(true)
-            .addChoices(
-              { name: 'add', value: 'add' },
-              { name: 'remove', value: 'remove' },
-              { name: 'ban', value: 'ban' },
-              { name: 'unban', value: 'unban' },
-              { name: 'sub', value: 'sub' },
-            ))
-        .addUserOption(opt => opt.setName('player').setDescription('Target player').setRequired(true))
-        .addUserOption(opt => opt.setName('replacement').setDescription('Replacement player (for sub only)')))
+    .setName('12man').setDescription('12 man queue commands')
+    .addSubcommand(s => s.setName('init').setDescription('Post the queue embed'))
+    .addSubcommand(s => s.setName('clear').setDescription('Clear the current queue'))
+    .addSubcommand(s => s.setName('forcestart').setDescription('Force start voting with current players'))
+    .addSubcommand(s => s.setName('cancel').setDescription('Cancel the active match and re-queue all players'))
+    .addSubcommand(s => s.setName('config').setDescription('View current config'))
+    .addSubcommand(s =>
+      s.setName('cooldown').setDescription('Manage captain cooldowns')
+        .addStringOption(o => o.setName('action').setDescription('reset or list').setRequired(true)
+          .addChoices({ name: 'reset', value: 'reset' }, { name: 'list', value: 'list' }))
+        .addUserOption(o => o.setName('player').setDescription('Player to reset cooldown for')))
+    .addSubcommand(s =>
+      s.setName('player').setDescription('Manage players')
+        .addStringOption(o => o.setName('action').setDescription('add, remove, ban, unban, or sub').setRequired(true)
+          .addChoices(
+            { name: 'add', value: 'add' }, { name: 'remove', value: 'remove' },
+            { name: 'ban', value: 'ban' }, { name: 'unban', value: 'unban' },
+            { name: 'sub', value: 'sub' },
+          ))
+        .addUserOption(o => o.setName('player').setDescription('Target player').setRequired(true))
+        .addUserOption(o => o.setName('replacement').setDescription('Replacement player (for sub)')))
     .toJSON(),
 ]
 
@@ -224,114 +211,74 @@ async function registerCommands() {
     console.log('[bot] Registering slash commands...')
     await rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID), { body: commands })
     console.log('[bot] Slash commands registered.')
-  } catch (err) {
-    console.error('[bot] Failed to register slash commands:', err)
-  }
+  } catch (err) { console.error('[bot] Failed to register commands:', err) }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── DB helpers ────────────────────────────────────────────────────────────────
 async function getUserRecord(discordId: string) {
-  const { data } = await supabase
-    .from('users').select('id, steam_verified, steam_name, steam_id').eq('discord_id', discordId).maybeSingle()
+  const { data } = await supabase.from('users').select('id, steam_verified, steam_name, steam_id').eq('discord_id', discordId).maybeSingle()
   return data
 }
-
 async function isOnCooldown(discordId: string): Promise<boolean> {
-  const { data } = await supabase
-    .from('twelve_man_captain_cooldowns').select('games_remaining').eq('discord_user_id', discordId).maybeSingle()
+  const { data } = await supabase.from('twelve_man_captain_cooldowns').select('games_remaining').eq('discord_user_id', discordId).maybeSingle()
   return data ? data.games_remaining > 0 : false
 }
-
 async function setCooldown(discordId: string, discordUsername: string) {
-  const { data } = await supabase
-    .from('twelve_man_captain_cooldowns').select('id').eq('discord_user_id', discordId).maybeSingle()
+  const { data } = await supabase.from('twelve_man_captain_cooldowns').select('id').eq('discord_user_id', discordId).maybeSingle()
   if (data) {
-    await supabase.from('twelve_man_captain_cooldowns')
-      .update({ games_remaining: botConfig.captain_cooldown_games, updated_at: new Date().toISOString() })
-      .eq('discord_user_id', discordId)
+    await supabase.from('twelve_man_captain_cooldowns').update({ games_remaining: botConfig.captain_cooldown_games, updated_at: new Date().toISOString() }).eq('discord_user_id', discordId)
   } else {
-    await supabase.from('twelve_man_captain_cooldowns')
-      .insert({ discord_user_id: discordId, discord_username: discordUsername, games_remaining: botConfig.captain_cooldown_games })
+    await supabase.from('twelve_man_captain_cooldowns').insert({ discord_user_id: discordId, discord_username: discordUsername, games_remaining: botConfig.captain_cooldown_games })
+  }
+}
+async function decrementCooldowns(a: string, b: string) {
+  for (const id of [a, b]) {
+    const { data } = await supabase.from('twelve_man_captain_cooldowns').select('games_remaining').eq('discord_user_id', id).maybeSingle()
+    const cur = data?.games_remaining ?? 0
+    if (cur > 0) await supabase.from('twelve_man_captain_cooldowns').update({ games_remaining: cur - 1, updated_at: new Date().toISOString() }).eq('discord_user_id', id)
   }
 }
 
-async function decrementCooldowns(captainAId: string, captainBId: string) {
-  for (const id of [captainAId, captainBId]) {
-    const { data } = await supabase
-      .from('twelve_man_captain_cooldowns').select('games_remaining').eq('discord_user_id', id).maybeSingle()
-    const current = data?.games_remaining ?? 0
-    if (current > 0) {
-      await supabase.from('twelve_man_captain_cooldowns')
-        .update({ games_remaining: current - 1, updated_at: new Date().toISOString() }).eq('discord_user_id', id)
-    }
-  }
-}
-
+// ── Button builder ────────────────────────────────────────────────────────────
 function buildButtonRows(labels: string[], prefix: string, style: ButtonStyle = ButtonStyle.Secondary): ActionRowBuilder<ButtonBuilder>[] {
   const rows: ActionRowBuilder<ButtonBuilder>[] = []
-  let currentRow = new ActionRowBuilder<ButtonBuilder>()
+  let row = new ActionRowBuilder<ButtonBuilder>()
   let count = 0
   for (let i = 0; i < labels.length && i < 25; i++) {
-    if (count === 5) { rows.push(currentRow); currentRow = new ActionRowBuilder<ButtonBuilder>(); count = 0 }
-    currentRow.addComponents(new ButtonBuilder().setCustomId(`${prefix}_${i}`).setLabel(labels[i]).setStyle(style))
+    if (count === 5) { rows.push(row); row = new ActionRowBuilder<ButtonBuilder>(); count = 0 }
+    row.addComponents(new ButtonBuilder().setCustomId(`${prefix}_${i}`).setLabel(labels[i]).setStyle(style))
     count++
   }
-  if (count > 0) rows.push(currentRow)
+  if (count > 0) rows.push(row)
   return rows
-}
-
-function formatVoteList(labelMap: string[], votes: Record<string, string>): string {
-  const counts: Record<string, number> = {}
-  for (const v of Object.values(votes)) counts[v] = (counts[v] ?? 0) + 1
-
-  if (labelMap.length <= 5) {
-    return labelMap.map((item, i) => `${i + 1}) ${item}   Votes: ${counts[item] ?? 0}`).join('\n')
-  }
-
-  const mid = Math.ceil(labelMap.length / 2)
-  const left = labelMap.slice(0, mid)
-  const right = labelMap.slice(mid)
-  const lines: string[] = []
-  for (let i = 0; i < left.length; i++) {
-    const l = `${i + 1}) ${left[i]}   Votes: ${counts[left[i]] ?? 0}`
-    const r = right[i] ? `${i + mid + 1}) ${right[i]}   Votes: ${counts[right[i]] ?? 0}` : ''
-    lines.push(r ? `${l.padEnd(36)}${r}` : l)
-  }
-  return lines.join('\n')
 }
 
 // ── Queue embed ───────────────────────────────────────────────────────────────
 function buildQueueEmbed(): EmbedBuilder {
-  const total = queuePlayers.length
-  const size = botConfig.queue_size
   const playerList = queuePlayers.map(p => `<@${p.discordId}>`).join(' ')
   return new EmbedBuilder()
     .setTitle('12 Man Queue')
-    .setDescription(`Queue ${total}/${size}${playerList ? `\n${playerList}` : ''}`)
+    .setDescription(`Queue ${queuePlayers.length}/${botConfig.queue_size}${playerList ? `\n${playerList}` : ''}`)
     .setColor(0x5865F2)
 }
-
 function buildQueueButtons(): ActionRowBuilder<ButtonBuilder>[] {
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+  return [new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId('queue_join').setLabel('Join Queue').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('queue_leave').setLabel('Leave Queue').setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setLabel('Web Queue ↗').setStyle(ButtonStyle.Link).setURL(API_BASE_URL),
-  )
-  return [row]
+  )]
 }
-
 async function updateQueueEmbed() {
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
   if (!guild) return
   const channel = guild.channels.cache.get(QUEUE_CHANNEL_ID) as TextChannel
   if (!channel) return
-
   if (queueMessageId) {
     try {
       const msg = await channel.messages.fetch(queueMessageId)
       await msg.edit({ embeds: [buildQueueEmbed()], components: buildQueueButtons() })
       return
-    } catch { /* fall through to post new */ }
+    } catch { /* fall through */ }
   }
   const msg = await channel.send({ embeds: [buildQueueEmbed()], components: buildQueueButtons() })
   queueMessageId = msg.id
@@ -339,11 +286,10 @@ async function updateQueueEmbed() {
 
 // ── Queue persistence ─────────────────────────────────────────────────────────
 async function persistQueue() {
-  // Clear and rewrite entire queue state
   await supabase.from('twelve_man_queue_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
   if (queuePlayers.length === 0) return
   await supabase.from('twelve_man_queue_state').insert(
-    queuePlayers.map((p, i) => ({
+    queuePlayers.map(p => ({
       discord_user_id: p.discordId,
       discord_username: p.discordUsername,
       joined_at: new Date(p.joinedAt).toISOString(),
@@ -351,48 +297,28 @@ async function persistQueue() {
     }))
   )
 }
-
 async function clearPersistedQueue() {
   await supabase.from('twelve_man_queue_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 }
-
 async function loadQueueFromDB() {
-  const { data } = await supabase
-    .from('twelve_man_queue_state')
-    .select('*')
-    .eq('is_waitlist', false)
-    .order('joined_at', { ascending: true })
-
-  if (!data || data.length === 0) {
-    console.log('[12man] No persisted queue state found')
-    return
-  }
-
-  queuePlayers = data.map((r: any) => ({
-    discordId: r.discord_user_id,
-    discordUsername: r.discord_username,
-    joinedAt: new Date(r.joined_at).getTime(),
-  }))
-
+  const { data } = await supabase.from('twelve_man_queue_state').select('*').eq('is_waitlist', false).order('joined_at', { ascending: true })
+  if (!data || data.length === 0) { console.log('[12man] No persisted queue state'); return }
+  queuePlayers = data.map((r: any) => ({ discordId: r.discord_user_id, discordUsername: r.discord_username, joinedAt: new Date(r.joined_at).getTime() }))
   console.log(`[12man] Restored ${queuePlayers.length} players from DB`)
 }
 
-// ── Re-queue all players (cancel protection) ──────────────────────────────────
+// ── Re-queue ──────────────────────────────────────────────────────────────────
 async function requeueAllPlayers(players: QueuePlayer[]) {
-  // Put them at the front of the queue
   const existing = new Set(queuePlayers.map(p => p.discordId))
   const toAdd = players.filter(p => !existing.has(p.discordId) && !bannedPlayers.has(p.discordId))
   queuePlayers = [...toAdd, ...queuePlayers]
-
-  // Cap at queue size
   if (queuePlayers.length > botConfig.queue_size) {
     queueWaitlist = [...queuePlayers.slice(botConfig.queue_size), ...queueWaitlist]
     queuePlayers = queuePlayers.slice(0, botConfig.queue_size)
   }
-
   await updateQueueEmbed()
   await persistQueue()
-  console.log(`[12man] Re-queued ${toAdd.length} players after match cancellation`)
+  console.log(`[12man] Re-queued ${toAdd.length} players`)
 }
 
 // ── Match initiation ──────────────────────────────────────────────────────────
@@ -417,49 +343,23 @@ async function initiateMatch(overridePlayers?: QueuePlayer[]) {
     guild.roles.cache.find(r => r.name === 'Chanserv')?.id,
   ].filter(Boolean) as string[]
 
-  const permissionOverwrites: any[] = [
+  const permOverwrites: any[] = [
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
     { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] },
     ...players.map(p => ({ id: p.discordId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] })),
     ...adminRoleIds.map(id => ({ id, allow: [PermissionFlagsBits.ViewChannel] })),
   ]
 
-  const QUEUE_CATEGORY_ID = '1130992813627154452'
-
-  const textChannel = await guild.channels.create({
-    name: `queue-${matchNum}`,
-    type: ChannelType.GuildText,
-    parent: QUEUE_CATEGORY_ID,
-    permissionOverwrites,
-  })
-
-  const gatherVoice = await guild.channels.create({
-    name: `Queue#${matchNum}`,
-    type: ChannelType.GuildVoice,
-    parent: QUEUE_CATEGORY_ID,
-    permissionOverwrites,
-  })
+  const textChannel = await guild.channels.create({ name: `queue-${matchNum}`, type: ChannelType.GuildText, parent: QUEUE_CATEGORY_ID, permissionOverwrites: permOverwrites })
+  const gatherVoice = await guild.channels.create({ name: `Queue#${matchNum}`, type: ChannelType.GuildVoice, parent: QUEUE_CATEGORY_ID, permissionOverwrites: permOverwrites })
 
   activeMatch = {
-    matchNumber: matchNum,
-    textChannelId: textChannel.id,
-    gatherVoiceId: gatherVoice.id,
-    players,
-    waitlist,
-    confirmedInVoice: new Set(),
-    captainA: undefined,
-    captainB: undefined,
-    teamA: [],
-    teamB: [],
-    voteOrder: [...botConfig.vote_order],
-    currentVoteStep: 0,
-    captainVotes: {},
-    mapVotes: {},
-    serverVotes: {},
-    winnerVotes: {},
-    draftPickIndex: 0,
-    draftOrder: [],
-    remainingPlayers: [],
+    matchNumber: matchNum, textChannelId: textChannel.id, gatherVoiceId: gatherVoice.id,
+    players, waitlist, confirmedInVoice: new Set(),
+    captainA: undefined, captainB: undefined, teamA: [], teamB: [],
+    voteOrder: [...botConfig.vote_order], currentVoteStep: 0,
+    captainVotes: {}, mapVotes: {}, serverVotes: {}, winnerVotes: {},
+    draftPickIndex: 0, draftOrder: [], remainingPlayers: [],
     timeoutTimers: new Map(),
   }
 
@@ -476,7 +376,6 @@ async function initiateMatch(overridePlayers?: QueuePlayer[]) {
     content: `${ping}\n\n**Queue #${matchNum} has started!** Join voice channel **Queue#${matchNum}** to confirm your presence.\n\nYou have **${botConfig.activity_window_minutes} minutes** to join voice.`,
   })
 
-  // Clear public queue only if we used the real queue (not forcestart override)
   if (!overridePlayers) {
     queuePlayers = []
     queueWaitlist = []
@@ -495,6 +394,9 @@ async function runActivityCheck() {
 
   const gatherChannel = guild.channels.cache.get(activeMatch.gatherVoiceId) as VoiceChannel
   const membersInVoice = new Set(gatherChannel?.members.keys() ?? [])
+  // Remove bot itself from confirmed set
+  membersInVoice.delete(client.user!.id)
+
   const afkPlayers = activeMatch.players.filter(p => !membersInVoice.has(p.discordId))
   activeMatch.confirmedInVoice = membersInVoice
 
@@ -504,13 +406,32 @@ async function runActivityCheck() {
   await handleAfkPlayers(afkPlayers)
 }
 
+// ── Voice state watcher — early confirmation ──────────────────────────────────
+async function checkEarlyVoiceConfirmation() {
+  if (!activeMatch) return
+  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
+  if (!guild) return
+
+  const gatherChannel = guild.channels.cache.get(activeMatch.gatherVoiceId) as VoiceChannel
+  if (!gatherChannel) return
+
+  const membersInVoice = new Set([...gatherChannel.members.keys()].filter(id => id !== client.user!.id))
+  const allConfirmed = activeMatch.players.every(p => membersInVoice.has(p.discordId))
+
+  if (allConfirmed) {
+    console.log('[12man] All players confirmed in voice — starting vote sequence early')
+    if (activeMatch.activityTimer) clearTimeout(activeMatch.activityTimer)
+    activeMatch.confirmedInVoice = membersInVoice
+    await startVoteSequence()
+  }
+}
+
 // ── AFK / sub flow ────────────────────────────────────────────────────────────
 async function handleAfkPlayers(afkPlayers: QueuePlayer[]) {
   if (!activeMatch) return
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
   const textChannel = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
 
-  // Remove AFK players from match
   for (const afk of afkPlayers) {
     const idx = activeMatch.players.findIndex(p => p.discordId === afk.discordId)
     if (idx !== -1) activeMatch.players.splice(idx, 1)
@@ -519,10 +440,9 @@ async function handleAfkPlayers(afkPlayers: QueuePlayer[]) {
   if (activeMatch.waitlist.length === 0) {
     const afkNames = afkPlayers.map(p => `@${p.discordUsername}`).join(', ')
     await textChannel?.send({ content: `❌ Queue cancelled — ${afkNames} did not join voice.\nDeleting channels in 18 seconds.` })
-    await cancelMatch(activeMatch.players) // re-queue confirmed players
+    await cancelMatch(activeMatch.players)
     return
   }
-
   await tryNextSub(afkPlayers, 0)
 }
 
@@ -539,27 +459,19 @@ async function tryNextSub(afkPlayers: QueuePlayer[], waitlistIdx: number) {
 
   const sub = activeMatch.waitlist[waitlistIdx]
   const afkNames = afkPlayers.map(p => `<@${p.discordId}>`).join(', ')
-
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(`sub_accept_${waitlistIdx}`).setLabel('✅ Accept').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`sub_decline_${waitlistIdx}`).setLabel('❌ Decline').setStyle(ButtonStyle.Danger),
   )
-
-  await textChannel?.send({
-    content: `<@${sub.discordId}> — ${afkNames} didn't join voice.\nDo you want to sub in?`,
-    components: [row],
-  })
-
+  await textChannel?.send({ content: `<@${sub.discordId}> — ${afkNames} didn't join voice.\nDo you want to sub in?`, components: [row] })
   const timer = setTimeout(() => tryNextSub(afkPlayers, waitlistIdx + 1), botConfig.sub_window_minutes * 60 * 1000)
   if (activeMatch) activeMatch.activityTimer = timer
 }
 
-// ── Cancel match with re-queue protection ─────────────────────────────────────
 async function cancelMatch(playersToRequeue: QueuePlayer[]) {
-  if (!activeMatch) return
-  const savedPlayers = [...playersToRequeue]
+  const saved = [...playersToRequeue]
   await cleanupMatch()
-  await requeueAllPlayers(savedPlayers)
+  await requeueAllPlayers(saved)
 }
 
 // ── Vote sequence ─────────────────────────────────────────────────────────────
@@ -568,7 +480,6 @@ async function startVoteSequence() {
   activeMatch.currentVoteStep = 0
   await runNextVoteStep()
 }
-
 async function runNextVoteStep() {
   if (!activeMatch) return
   const step = activeMatch.voteOrder[activeMatch.currentVoteStep]
@@ -580,15 +491,11 @@ async function runNextVoteStep() {
     case 'draft':   await startDraft();       break
   }
 }
-
 async function advanceVoteStep() {
   if (!activeMatch) return
   activeMatch.currentVoteStep++
-  if (activeMatch.currentVoteStep < activeMatch.voteOrder.length) {
-    await runNextVoteStep()
-  } else {
-    await startPostDraftSetup()
-  }
+  if (activeMatch.currentVoteStep < activeMatch.voteOrder.length) await runNextVoteStep()
+  else await startPostDraftSetup()
 }
 
 // ── Captain vote ──────────────────────────────────────────────────────────────
@@ -601,32 +508,46 @@ async function startCaptainVote() {
   for (const p of activeMatch.players) {
     if (!await isOnCooldown(p.discordId)) eligible.push(p)
   }
+  activeMatch.captainCandidates = eligible
 
-  ;(activeMatch as any).captainCandidates = eligible
+  const endTime = Date.now() + botConfig.captain_vote_seconds * 1000
+  activeMatch.captainVoteEndTime = endTime
+
+  const buildEmbed = () => {
+    const voteText = formatVoteListAnsi(eligible.map(p => p.discordUsername), activeMatch!.captainVotes, true)
+    return new EmbedBuilder()
+      .setTitle('⚔️ Vote for Captains')
+      .setDescription(`${ANSI.yellow}Vote closes in ${formatSecondsRemaining(endTime)}${ANSI.reset} — you cannot vote for yourself\n${ansiBlock(voteText)}`)
+      .setColor(0xF0B132)
+  }
+
   const labels = eligible.map((p, i) => `${i + 1}) ${p.discordUsername}`)
-  const voteText = formatVoteList(eligible.map(p => p.discordUsername), {})
-
-  const embed = new EmbedBuilder()
-    .setTitle('Vote for Captains')
-    .setDescription(`Vote closes in ${botConfig.captain_vote_seconds}s — you cannot vote for yourself\n\n\`\`\`\n${voteText}\n\`\`\``)
-    .setColor(0xF0B132)
-
   const rows = buildButtonRows(labels, 'captvote', ButtonStyle.Secondary)
-  const msg = await textChannel?.send({ embeds: [embed], components: rows })
+  const msg = await textChannel?.send({ embeds: [buildEmbed()], components: rows })
   if (activeMatch && msg) activeMatch.captainVoteMessageId = msg.id
 
-  activeMatch.voteTimer = setTimeout(() => resolveCaptainVote(eligible), botConfig.captain_vote_seconds * 1000)
+  const interval = setInterval(async () => {
+    if (!activeMatch?.captainVoteMessageId) { clearInterval(interval); return }
+    try {
+      const m = await textChannel?.messages.fetch(activeMatch.captainVoteMessageId)
+      await m?.edit({ embeds: [buildEmbed()] })
+    } catch { clearInterval(interval) }
+  }, 30000)
+  activeMatch.captainVoteInterval = interval
+
+  activeMatch.voteTimer = setTimeout(() => { clearInterval(interval); resolveCaptainVote(eligible) }, botConfig.captain_vote_seconds * 1000)
 }
 
 async function resolveCaptainVote(eligible: QueuePlayer[]) {
   if (!activeMatch) return
   if (activeMatch.voteTimer) clearTimeout(activeMatch.voteTimer)
+  if (activeMatch.captainVoteInterval) clearInterval(activeMatch.captainVoteInterval)
 
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
   const textChannel = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
 
   const tally: Record<string, number> = {}
-  for (const candidateId of Object.values(activeMatch.captainVotes)) tally[candidateId] = (tally[candidateId] ?? 0) + 1
+  for (const id of Object.values(activeMatch.captainVotes)) tally[id] = (tally[id] ?? 0) + 1
 
   const sorted = [...eligible].sort((a, b) => (tally[b.discordId] ?? 0) - (tally[a.discordId] ?? 0))
   const top = sorted[0]
@@ -640,20 +561,21 @@ async function resolveCaptainVote(eligible: QueuePlayer[]) {
   activeMatch.captainA = top
   activeMatch.captainB = second
 
-  const voted = Object.keys(activeMatch.captainVotes)
-  const notVoted = activeMatch.players.filter(p => !voted.includes(p.discordId)).map(p => p.discordUsername)
+  const votedIds = Object.keys(activeMatch.captainVotes)
+  const votedNames = votedIds.map(id => activeMatch!.players.find(p => p.discordId === id)?.discordUsername).filter(Boolean)
+  const notVotedNames = activeMatch.players.filter(p => !votedIds.includes(p.discordId)).map(p => p.discordUsername)
 
-  await textChannel?.send({
-    content: [
-      `**Captains selected!**`,
-      `🟦 Captain A: **${top.discordUsername}**`,
-      `🟥 Captain B: **${second.discordUsername}**`,
-      ``,
-      `Voted: ${voted.map(id => activeMatch!.players.find(p => p.discordId === id)?.discordUsername).filter(Boolean).join(', ')}`,
-      notVoted.length ? `Not voted: ${notVoted.join(', ')}` : '',
-    ].filter(Boolean).join('\n'),
-  })
+  const result = [
+    `${ANSI.bold}${ANSI.yellow}⚔️ Captains Selected!${ANSI.reset}`,
+    ``,
+    `${ANSI.green}Allies Captain: ${top.discordUsername}${ANSI.reset}`,
+    `${ANSI.red}Axis Captain:   ${second.discordUsername}${ANSI.reset}`,
+    ``,
+    `${ANSI.cyan}Voted:     ${votedNames.length ? votedNames.join(', ') : 'none'}${ANSI.reset}`,
+    notVotedNames.length ? `${ANSI.white}Not voted: ${notVotedNames.join(', ')}${ANSI.reset}` : '',
+  ].filter(l => l !== '').join('\n')
 
+  await textChannel?.send({ content: ansiBlock(result) })
   await setCooldown(top.discordId, top.discordUsername)
   await setCooldown(second.discordId, second.discordUsername)
   await advanceVoteStep()
@@ -666,28 +588,50 @@ async function startMapVote() {
   const textChannel = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
 
   const allMaps = await getMapPool()
+  if (allMaps.length === 0) {
+    console.error('[12man] Map pool empty — skipping map vote')
+    await textChannel?.send({ content: '⚠️ No maps in pool — skipping map vote.' })
+    activeMatch.selectedMap = 'TBD'
+    await advanceVoteStep()
+    return
+  }
+
   const count = botConfig.map_count > 0 ? botConfig.map_count : allMaps.length
   const selectedMaps = [...allMaps].sort(() => Math.random() - 0.5).slice(0, count)
+  activeMatch.mapOptions = selectedMaps
 
-  ;(activeMatch as any).mapOptions = selectedMaps
+  const endTime = Date.now() + botConfig.map_vote_seconds * 1000
+  activeMatch.mapVoteEndTime = endTime
+
+  const buildEmbed = () => {
+    const voteText = formatVoteListAnsi(selectedMaps, activeMatch!.mapVotes, true)
+    return new EmbedBuilder()
+      .setTitle('🗺️ Map Selection')
+      .setDescription(`${ANSI.yellow}Vote closes in ${formatSecondsRemaining(endTime)}${ANSI.reset}\n${ansiBlock(voteText)}`)
+      .setColor(0x2D7D46)
+  }
+
   const labels = selectedMaps.map((m, i) => `${i + 1}) ${m}`)
-  const voteText = formatVoteList(selectedMaps, {})
-
-  const embed = new EmbedBuilder()
-    .setTitle('Map Selection')
-    .setDescription(`Vote closes in ${botConfig.map_vote_seconds}s\n\n\`\`\`\n${voteText}\n\`\`\``)
-    .setColor(0x2D7D46)
-
   const rows = buildButtonRows(labels, 'mapvote', ButtonStyle.Secondary)
-  const msg = await textChannel?.send({ embeds: [embed], components: rows })
+  const msg = await textChannel?.send({ embeds: [buildEmbed()], components: rows })
   if (activeMatch && msg) activeMatch.mapVoteMessageId = msg.id
 
-  activeMatch.voteTimer = setTimeout(() => resolveMapVote(selectedMaps), botConfig.map_vote_seconds * 1000)
+  const interval = setInterval(async () => {
+    if (!activeMatch?.mapVoteMessageId) { clearInterval(interval); return }
+    try {
+      const m = await textChannel?.messages.fetch(activeMatch.mapVoteMessageId)
+      await m?.edit({ embeds: [buildEmbed()] })
+    } catch { clearInterval(interval) }
+  }, 30000)
+  activeMatch.mapVoteInterval = interval
+
+  activeMatch.voteTimer = setTimeout(() => { clearInterval(interval); resolveMapVote(selectedMaps) }, botConfig.map_vote_seconds * 1000)
 }
 
 async function resolveMapVote(maps: string[]) {
   if (!activeMatch) return
   if (activeMatch.voteTimer) clearTimeout(activeMatch.voteTimer)
+  if (activeMatch.mapVoteInterval) clearInterval(activeMatch.mapVoteInterval)
 
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
   const textChannel = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
@@ -701,17 +645,17 @@ async function resolveMapVote(maps: string[]) {
   const selected = tied[Math.floor(Math.random() * tied.length)]
   activeMatch.selectedMap = selected
 
-  const voted = Object.keys(activeMatch.mapVotes)
-  const notVoted = activeMatch.players.filter(p => !voted.includes(p.discordId)).map(p => p.discordUsername)
+  const votedIds = Object.keys(activeMatch.mapVotes)
+  const votedNames = votedIds.map(id => activeMatch!.players.find(p => p.discordId === id)?.discordUsername).filter(Boolean)
+  const notVotedNames = activeMatch.players.filter(p => !votedIds.includes(p.discordId)).map(p => p.discordUsername)
 
-  await textChannel?.send({
-    content: [
-      `🗺️ **Map selected: ${selected}**`,
-      `Voted: ${voted.map(id => activeMatch!.players.find(p => p.discordId === id)?.discordUsername).filter(Boolean).join(', ')}`,
-      notVoted.length ? `Not voted: ${notVoted.join(', ')}` : '',
-    ].filter(Boolean).join('\n'),
-  })
+  const result = [
+    `${ANSI.bold}${ANSI.green}🗺️ Map Selected: ${selected}${ANSI.reset}`,
+    `${ANSI.cyan}Voted:     ${votedNames.length ? votedNames.join(', ') : 'none'}${ANSI.reset}`,
+    notVotedNames.length ? `${ANSI.white}Not voted: ${notVotedNames.join(', ')}${ANSI.reset}` : '',
+  ].filter(Boolean).join('\n')
 
+  await textChannel?.send({ content: ansiBlock(result) })
   await advanceVoteStep()
 }
 
@@ -722,24 +666,38 @@ async function startServerVote() {
   const textChannel = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
 
   const servers = botConfig.server_locations
+  const endTime = Date.now() + botConfig.server_vote_seconds * 1000
+  activeMatch.serverVoteEndTime = endTime
+
+  const buildEmbed = () => {
+    const voteText = formatVoteListAnsi(servers, activeMatch!.serverVotes, true)
+    return new EmbedBuilder()
+      .setTitle('🖥️ Server Location')
+      .setDescription(`${ANSI.yellow}Vote closes in ${formatSecondsRemaining(endTime)}${ANSI.reset}\n${ansiBlock(voteText)}`)
+      .setColor(0x5865F2)
+  }
+
   const labels = servers.map((s, i) => `${i + 1}) ${s}`)
-  const voteText = formatVoteList(servers, {})
-
-  const embed = new EmbedBuilder()
-    .setTitle('Server Location')
-    .setDescription(`Vote closes in ${botConfig.server_vote_seconds}s\n\n\`\`\`\n${voteText}\n\`\`\``)
-    .setColor(0x5865F2)
-
   const rows = buildButtonRows(labels, 'servervote', ButtonStyle.Secondary)
-  const msg = await textChannel?.send({ embeds: [embed], components: rows })
+  const msg = await textChannel?.send({ embeds: [buildEmbed()], components: rows })
   if (activeMatch && msg) activeMatch.serverVoteMessageId = msg.id
 
-  activeMatch.voteTimer = setTimeout(() => resolveServerVote(servers), botConfig.server_vote_seconds * 1000)
+  const interval = setInterval(async () => {
+    if (!activeMatch?.serverVoteMessageId) { clearInterval(interval); return }
+    try {
+      const m = await textChannel?.messages.fetch(activeMatch.serverVoteMessageId)
+      await m?.edit({ embeds: [buildEmbed()] })
+    } catch { clearInterval(interval) }
+  }, 30000)
+  activeMatch.serverVoteInterval = interval
+
+  activeMatch.voteTimer = setTimeout(() => { clearInterval(interval); resolveServerVote(servers) }, botConfig.server_vote_seconds * 1000)
 }
 
 async function resolveServerVote(servers: string[]) {
   if (!activeMatch) return
   if (activeMatch.voteTimer) clearTimeout(activeMatch.voteTimer)
+  if (activeMatch.serverVoteInterval) clearInterval(activeMatch.serverVoteInterval)
 
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
   const textChannel = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
@@ -753,31 +711,35 @@ async function resolveServerVote(servers: string[]) {
   const selected = tied[Math.floor(Math.random() * tied.length)]
   activeMatch.selectedServer = selected
 
-  const voted = Object.keys(activeMatch.serverVotes)
-  const notVoted = activeMatch.players.filter(p => !voted.includes(p.discordId)).map(p => p.discordUsername)
+  const votedIds = Object.keys(activeMatch.serverVotes)
+  const votedNames = votedIds.map(id => activeMatch!.players.find(p => p.discordId === id)?.discordUsername).filter(Boolean)
+  const notVotedNames = activeMatch.players.filter(p => !votedIds.includes(p.discordId)).map(p => p.discordUsername)
 
-  await textChannel?.send({
-    content: [
-      `🖥️ **Server selected: ${selected}**`,
-      `Voted: ${voted.map(id => activeMatch!.players.find(p => p.discordId === id)?.discordUsername).filter(Boolean).join(', ')}`,
-      notVoted.length ? `Not voted: ${notVoted.join(', ')}` : '',
-    ].filter(Boolean).join('\n'),
-  })
+  const result = [
+    `${ANSI.bold}${ANSI.cyan}🖥️ Server Selected: ${selected}${ANSI.reset}`,
+    `${ANSI.cyan}Voted:     ${votedNames.length ? votedNames.join(', ') : 'none'}${ANSI.reset}`,
+    notVotedNames.length ? `${ANSI.white}Not voted: ${notVotedNames.join(', ')}${ANSI.reset}` : '',
+  ].filter(Boolean).join('\n')
 
+  await textChannel?.send({ content: ansiBlock(result) })
   await advanceVoteStep()
 }
 
 // ── Snake draft ───────────────────────────────────────────────────────────────
 async function startDraft() {
   if (!activeMatch || !activeMatch.captainA || !activeMatch.captainB) return
-  const explicit = [0, 1, 1, 0, 0, 1, 1, 0, 0, 1]
-  activeMatch.draftOrder = explicit
+  activeMatch.draftOrder = [0, 1, 1, 0, 0, 1, 1, 0, 0, 1]
   activeMatch.draftPickIndex = 0
   activeMatch.teamA = [activeMatch.captainA]
   activeMatch.teamB = [activeMatch.captainB]
   activeMatch.remainingPlayers = activeMatch.players.filter(
     p => p.discordId !== activeMatch!.captainA!.discordId && p.discordId !== activeMatch!.captainB!.discordId
   )
+
+  if (activeMatch.remainingPlayers.length === 0) {
+    await startPostDraftSetup()
+    return
+  }
   await sendDraftBoard()
 }
 
@@ -789,16 +751,17 @@ async function sendDraftBoard() {
   const pickIdx = activeMatch.draftOrder[activeMatch.draftPickIndex]
   const activeCaptain = pickIdx === 0 ? activeMatch.captainA : activeMatch.captainB
 
-  const teamAList = activeMatch.teamA.map(p => p.discordUsername).join(', ') || '—'
-  const teamBList = activeMatch.teamB.map(p => p.discordUsername).join(', ') || '—'
+  const teamAList = activeMatch.teamA.map(p => `${ANSI.green}${p.discordUsername}${ANSI.reset}`).join('\n') || '—'
+  const teamBList = activeMatch.teamB.map(p => `${ANSI.red}${p.discordUsername}${ANSI.reset}`).join('\n') || '—'
+  const remaining = activeMatch.remainingPlayers.map((p, i) => `${ANSI.white}${i + 1}) ${p.discordUsername}${ANSI.reset}`).join('  ')
 
   const embed = new EmbedBuilder()
     .setTitle(`Draft — ${activeCaptain.discordUsername} picks`)
     .addFields(
-      { name: `🟦 ${activeMatch.captainA.discordUsername} (Allies)`, value: teamAList, inline: true },
-      { name: `🟥 ${activeMatch.captainB.discordUsername} (Axis)`, value: teamBList, inline: true },
+      { name: `🟢 ${activeMatch.captainA.discordUsername} (Allies)`, value: `\`\`\`ansi\n${teamAList}\n\`\`\``, inline: true },
+      { name: `🔴 ${activeMatch.captainB.discordUsername} (Axis)`, value: `\`\`\`ansi\n${teamBList}\n\`\`\``, inline: true },
     )
-    .setDescription(`**Remaining:** ${activeMatch.remainingPlayers.map(p => p.discordUsername).join(' · ')}`)
+    .setDescription(`**Remaining:**\n\`\`\`ansi\n${remaining}\n\`\`\``)
     .setColor(0x5865F2)
 
   const labels = activeMatch.remainingPlayers.map((p, i) => `${i + 1}) ${p.discordUsername}`)
@@ -811,7 +774,6 @@ async function sendDraftBoard() {
       return
     } catch { /* post new */ }
   }
-
   const msg = await textChannel?.send({ embeds: [embed], components: rows })
   if (activeMatch && msg) activeMatch.draftMessageId = msg.id
 }
@@ -820,14 +782,11 @@ async function handleDraftPick(playerIdx: number) {
   if (!activeMatch || !activeMatch.captainA || !activeMatch.captainB) return
   const picked = activeMatch.remainingPlayers[playerIdx]
   if (!picked) return
-
   const pickIdx = activeMatch.draftOrder[activeMatch.draftPickIndex]
   if (pickIdx === 0) activeMatch.teamA.push(picked)
   else activeMatch.teamB.push(picked)
-
   activeMatch.remainingPlayers.splice(playerIdx, 1)
   activeMatch.draftPickIndex++
-
   if (activeMatch.remainingPlayers.length === 0) await startPostDraftSetup()
   else await sendDraftBoard()
 }
@@ -839,26 +798,14 @@ async function startPostDraftSetup() {
   const textChannel = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
   const matchNum = activeMatch.matchNumber
 
-  const permissionOverwrites: any[] = [
+  const permOverwrites: any[] = [
     { id: guild!.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
     { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] },
     ...activeMatch.players.map(p => ({ id: p.discordId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] })),
   ]
 
-  const QUEUE_CATEGORY_ID = '1130992813627154452'
-
-  const teamAVoice = await guild!.channels.create({
-    name: `${activeMatch.captainA.discordUsername} - #${matchNum}`,
-    type: ChannelType.GuildVoice,
-    parent: QUEUE_CATEGORY_ID,
-    permissionOverwrites,
-  })
-  const teamBVoice = await guild!.channels.create({
-    name: `${activeMatch.captainB.discordUsername} - #${matchNum}`,
-    type: ChannelType.GuildVoice,
-    parent: QUEUE_CATEGORY_ID,
-    permissionOverwrites,
-  })
+  const teamAVoice = await guild!.channels.create({ name: `${activeMatch.captainA.discordUsername} - #${matchNum}`, type: ChannelType.GuildVoice, parent: QUEUE_CATEGORY_ID, permissionOverwrites: permOverwrites })
+  const teamBVoice = await guild!.channels.create({ name: `${activeMatch.captainB.discordUsername} - #${matchNum}`, type: ChannelType.GuildVoice, parent: QUEUE_CATEGORY_ID, permissionOverwrites: permOverwrites })
 
   activeMatch.teamAVoiceId = teamAVoice.id
   activeMatch.teamBVoiceId = teamBVoice.id
@@ -876,35 +823,23 @@ async function startPostDraftSetup() {
     } catch { /* not in voice */ }
   }
 
-  const { data: dbMatch } = await supabase
-    .from('twelve_man_matches')
-    .insert({
-      match_number: matchNum,
-      guild_id: DISCORD_GUILD_ID,
-      queue_channel_id: activeMatch.textChannelId,
-      captain_a_discord_id: activeMatch.captainA.discordId,
-      captain_b_discord_id: activeMatch.captainB.discordId,
-      team_a: activeMatch.teamA.map(p => ({ discord_id: p.discordId, username: p.discordUsername })),
-      team_b: activeMatch.teamB.map(p => ({ discord_id: p.discordId, username: p.discordUsername })),
-      map: activeMatch.selectedMap ?? null,
-      server_location: activeMatch.selectedServer ?? null,
-      status: 'in_progress',
-    })
-    .select('id')
-    .maybeSingle()
-
+  const { data: dbMatch } = await supabase.from('twelve_man_matches').insert({
+    match_number: matchNum, guild_id: DISCORD_GUILD_ID, queue_channel_id: activeMatch.textChannelId,
+    captain_a_discord_id: activeMatch.captainA.discordId, captain_b_discord_id: activeMatch.captainB.discordId,
+    team_a: activeMatch.teamA.map(p => ({ discord_id: p.discordId, username: p.discordUsername })),
+    team_b: activeMatch.teamB.map(p => ({ discord_id: p.discordId, username: p.discordUsername })),
+    map: activeMatch.selectedMap ?? null, server_location: activeMatch.selectedServer ?? null, status: 'in_progress',
+  }).select('id').maybeSingle()
   if (dbMatch) activeMatch.dbMatchId = dbMatch.id
 
-  const teamAMentions = activeMatch.teamA.map(p => `<@${p.discordId}>`).join(' ')
-  const teamBMentions = activeMatch.teamB.map(p => `<@${p.discordId}>`).join(' ')
+  const teamAText = activeMatch.teamA.map(p => `<@${p.discordId}>`).join(' ')
+  const teamBText = activeMatch.teamB.map(p => `<@${p.discordId}>`).join(' ')
 
   const embed = new EmbedBuilder()
     .setTitle(`⚔️ Queue#${matchNum}`)
     .addFields(
-      { name: activeMatch.captainA.discordUsername, value: teamAMentions, inline: true },
-      { name: activeMatch.captainB.discordUsername, value: teamBMentions, inline: true },
-    )
-    .addFields(
+      { name: `🟢 ${activeMatch.captainA.discordUsername} (Allies)`, value: teamAText || '—', inline: true },
+      { name: `🔴 ${activeMatch.captainB.discordUsername} (Axis)`, value: teamBText || '—', inline: true },
       { name: 'Map', value: activeMatch.selectedMap ?? 'TBD', inline: true },
       { name: 'Location', value: activeMatch.selectedServer ?? 'TBD', inline: true },
       { name: '🔊 Voice', value: `<#${teamAVoice.id}> · <#${teamBVoice.id}>`, inline: false },
@@ -912,7 +847,7 @@ async function startPostDraftSetup() {
     .setColor(0x5865F2)
 
   await textChannel?.send({ embeds: [embed] })
-  console.log(`[12man] Match #${matchNum} setup complete — awaiting KTP result`)
+  console.log(`[12man] Match #${matchNum} setup complete`)
 }
 
 // ── Winner vote ───────────────────────────────────────────────────────────────
@@ -977,17 +912,14 @@ async function resolveWinnerVote(winner: 'a' | 'b' | 'tie') {
   if (!activeMatch || !activeMatch.captainA || !activeMatch.captainB) return
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
 
-  const winnerCaptain  = winner === 'a' ? activeMatch.captainA : winner === 'b' ? activeMatch.captainB : null
-  const winnerTeam     = winner === 'a' ? activeMatch.teamA : winner === 'b' ? activeMatch.teamB : []
-  const loserTeam      = winner === 'a' ? activeMatch.teamB : winner === 'b' ? activeMatch.teamA : []
-  const loserCapName   = winner === 'a' ? activeMatch.captainB.discordUsername : activeMatch.captainA.discordUsername
+  const winnerCaptain = winner === 'a' ? activeMatch.captainA : winner === 'b' ? activeMatch.captainB : null
+  const loserCapName  = winner === 'a' ? activeMatch.captainB.discordUsername : activeMatch.captainA.discordUsername
+  const winnerTeam    = winner === 'a' ? activeMatch.teamA : winner === 'b' ? activeMatch.teamB : []
+  const loserTeam     = winner === 'a' ? activeMatch.teamB : winner === 'b' ? activeMatch.teamA : []
 
   if (activeMatch.dbMatchId) {
-    await supabase.from('twelve_man_matches').update({
-      winner_side: winner, status: 'complete', completed_at: new Date().toISOString(),
-    }).eq('id', activeMatch.dbMatchId)
+    await supabase.from('twelve_man_matches').update({ winner_side: winner, status: 'complete', completed_at: new Date().toISOString() }).eq('id', activeMatch.dbMatchId)
   }
-
   await decrementCooldowns(activeMatch.captainA.discordId, activeMatch.captainB.discordId)
 
   const queueChannel = guild?.channels.cache.get(QUEUE_CHANNEL_ID) as TextChannel
@@ -1027,13 +959,16 @@ async function cleanupMatch() {
   if (!activeMatch) return
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
 
-  for (const channelId of [activeMatch.textChannelId, activeMatch.gatherVoiceId, activeMatch.teamAVoiceId, activeMatch.teamBVoiceId].filter(Boolean) as string[]) {
-    try { await guild?.channels.cache.get(channelId)?.delete() } catch { /* already gone */ }
+  for (const id of [activeMatch.textChannelId, activeMatch.gatherVoiceId, activeMatch.teamAVoiceId, activeMatch.teamBVoiceId].filter(Boolean) as string[]) {
+    try { await guild?.channels.cache.get(id)?.delete() } catch { /* gone */ }
   }
 
   if (activeMatch.activityTimer) clearTimeout(activeMatch.activityTimer)
   if (activeMatch.voteTimer) clearTimeout(activeMatch.voteTimer)
   for (const t of activeMatch.timeoutTimers.values()) clearTimeout(t)
+  for (const key of ['captainVoteInterval', 'mapVoteInterval', 'serverVoteInterval']) {
+    if (activeMatch[key]) clearInterval(activeMatch[key])
+  }
 
   activeMatch = null
   console.log('[12man] Match cleanup complete')
@@ -1042,9 +977,7 @@ async function cleanupMatch() {
 // ── /verify handlers ──────────────────────────────────────────────────────────
 async function sendVerifyLink(
   interaction: ChatInputCommandInteraction | ButtonInteraction,
-  discordId: string,
-  discordUsername: string,
-  isFollowUp = false
+  discordId: string, discordUsername: string, isFollowUp = false
 ) {
   const res = await fetch(`${API_BASE_URL}/api/verify/token`, {
     method: 'POST',
@@ -1077,12 +1010,9 @@ async function sendVerifyLink(
   }
 
   const content = [
-    `**DRAFT MAN 5.0 — Steam Verification**`,
-    ``,
-    `Click the link below to link your Steam account. The link expires in **15 minutes**.`,
-    ``,
-    `🔗 ${data.url}`,
-    ``,
+    `**DRAFT MAN 5.0 — Steam Verification**`, ``,
+    `Click the link below to link your Steam account. The link expires in **15 minutes**.`, ``,
+    `🔗 ${data.url}`, ``,
     `Your Steam profile must be **public** during verification. You can set it back to private once done.`,
   ].join('\n')
 
@@ -1100,19 +1030,13 @@ async function handleVerify(interaction: ChatInputCommandInteraction) {
     console.log(`[bot] /verify — discord_id: ${discordId}, user found: ${!!user}`)
 
     if (!user) {
-      const loginBtn = new ButtonBuilder()
-        .setCustomId(`verify_loggedin_${discordId}`)
-        .setLabel("✓  I'm signed in — send me the link")
-        .setStyle(ButtonStyle.Success)
+      const loginBtn = new ButtonBuilder().setCustomId(`verify_loggedin_${discordId}`).setLabel("✓  I'm signed in — send me the link").setStyle(ButtonStyle.Success)
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(loginBtn)
       await interaction.editReply({
         content: [
-          `**You need to create a DRAFTMAN5.0 account first.**`,
-          ``,
-          `Click the link below to sign in with Discord. It will log you in automatically — no extra steps.`,
-          ``,
-          `🔗 ${API_BASE_URL}/api/auth/signin/discord`,
-          ``,
+          `**You need to create a DRAFTMAN5.0 account first.**`, ``,
+          `Click the link below to sign in with Discord. It will log you in automatically — no extra steps.`, ``,
+          `🔗 ${API_BASE_URL}/api/auth/signin/discord`, ``,
           `Once you're signed in, come back and click the button below.`,
         ].join('\n'),
         components: [row],
@@ -1130,20 +1054,11 @@ async function handleVerifyLoggedIn(interaction: ButtonInteraction) {
   await interaction.deferUpdate()
   const discordId = interaction.user.id
   const discordUsername = interaction.user.username
-
   try {
     const user = await getUserRecord(discordId)
-    console.log(`[bot] verify_loggedin — discord_id: ${discordId}, user found: ${!!user}`)
-
     if (!user) {
       await interaction.followUp({
-        content: [
-          `❌ We still can't find your account. Make sure you clicked the sign-in link and completed the Discord login at:`,
-          ``,
-          `🔗 ${API_BASE_URL}/api/auth/signin/discord`,
-          ``,
-          `Once you're signed in, click the button again.`,
-        ].join('\n'),
+        content: [`❌ We still can't find your account. Make sure you clicked the sign-in link at:`, ``, `🔗 ${API_BASE_URL}/api/auth/signin/discord`, ``, `Once you're signed in, click the button again.`].join('\n'),
         flags: 64,
       })
       return
@@ -1151,7 +1066,7 @@ async function handleVerifyLoggedIn(interaction: ButtonInteraction) {
     await sendVerifyLink(interaction, discordId, discordUsername, true)
   } catch (err) {
     console.error('[bot] verify_loggedin error:', err)
-    await interaction.followUp({ content: '❌ An unexpected error occurred. Please try again or contact a moderator.', flags: 64 })
+    await interaction.followUp({ content: '❌ An unexpected error occurred.', flags: 64 })
   }
 }
 
@@ -1159,106 +1074,90 @@ async function handleVerifyLoggedIn(interaction: ButtonInteraction) {
 async function handle12ManCommand(interaction: ChatInputCommandInteraction) {
   const sub = interaction.options.getSubcommand()
 
-  // ── init ──────────────────────────────────────────────────────────────────
   if (sub === 'init') {
-    await interaction.deferReply({ flags: 64 })
+    await interaction.deferReply()
     await updateQueueEmbed()
     await interaction.editReply({ content: '✅ Queue embed posted.' })
     return
   }
 
-  // ── clear ─────────────────────────────────────────────────────────────────
   if (sub === 'clear') {
-    await interaction.deferReply({ flags: 64 })
+    await interaction.deferReply()
     queuePlayers = []
     queueWaitlist = []
     await updateQueueEmbed()
+    await clearPersistedQueue()
     await interaction.editReply({ content: '✅ Queue cleared.' })
     return
   }
 
-  // ── forcestart ────────────────────────────────────────────────────────────
   if (sub === 'forcestart') {
-    await interaction.deferReply({ flags: 64 })
-    if (activeMatch) {
-      await interaction.editReply({ content: '❌ A match is already in progress.' })
-      return
+    await interaction.deferReply()
+    if (activeMatch) { await interaction.editReply({ content: '❌ A match is already in progress.' }); return }
+    if (queuePlayers.length < 1) { await interaction.editReply({ content: '❌ Need at least 1 player in the queue to force start.' }); return }
+
+    let players = [...queuePlayers]
+    if (TEST_MODE && players.length < botConfig.queue_size) {
+      const realPlayer = players[0]
+      let fakeCount = 0
+      while (players.length < botConfig.queue_size) {
+        fakeCount++
+        players.push({ discordId: realPlayer.discordId, discordUsername: `${realPlayer.discordUsername}(${fakeCount})`, joinedAt: Date.now() })
+      }
+      console.log(`[12man] TEST MODE — filled with ${fakeCount} fake players`)
     }
-    if (queuePlayers.length < 1) {
-      await interaction.editReply({ content: '❌ Need at least 1 player in the queue to force start.' })
-      return
-    }
-    const players = [...queuePlayers]
+
     queuePlayers = []
     queueWaitlist = []
     await updateQueueEmbed()
     await clearPersistedQueue()
     await initiateMatch(players)
-    await interaction.editReply({ content: `✅ Force started with ${players.length} players.` })
+    await interaction.editReply({ content: `✅ Force started with ${players.length} players${TEST_MODE ? ' (TEST MODE)' : ''}.` })
     return
   }
 
-  // ── cancel ────────────────────────────────────────────────────────────────
   if (sub === 'cancel') {
-    await interaction.deferReply({ flags: 64 })
-    if (!activeMatch) {
-      await interaction.editReply({ content: '❌ No active match to cancel.' })
-      return
-    }
-    const guild = interaction.guild
-    const textChannel = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
+    await interaction.deferReply()
+    if (!activeMatch) { await interaction.editReply({ content: '❌ No active match to cancel.' }); return }
+    const textChannel = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
     await textChannel?.send({ content: `⚠️ Match cancelled by admin. Re-queuing all players. Deleting channels in 18 seconds.` })
     await cancelMatch(activeMatch.players)
     await interaction.editReply({ content: '✅ Match cancelled. All players re-queued.' })
     return
   }
 
-  // ── config ────────────────────────────────────────────────────────────────
   if (sub === 'config') {
-    await interaction.deferReply({ flags: 64 })
+    await interaction.deferReply()
     await interaction.editReply({ content: `\`\`\`json\n${JSON.stringify(botConfig, null, 2)}\n\`\`\`` })
     return
   }
 
-  // ── cooldown ──────────────────────────────────────────────────────────────
   if (sub === 'cooldown') {
-    await interaction.deferReply({ flags: 64 })
+    await interaction.deferReply()
     const action = interaction.options.getString('action', true)
-
     if (action === 'list') {
-      const { data } = await supabase
-        .from('twelve_man_captain_cooldowns').select('discord_username, games_remaining').gt('games_remaining', 0)
+      const { data } = await supabase.from('twelve_man_captain_cooldowns').select('discord_username, games_remaining').gt('games_remaining', 0)
       if (!data || data.length === 0) { await interaction.editReply({ content: 'No players on cooldown.' }); return }
-      const list = data.map((r: any) => `${r.discord_username}: ${r.games_remaining} game(s) remaining`).join('\n')
-      await interaction.editReply({ content: `**Captain cooldowns:**\n${list}` })
+      await interaction.editReply({ content: `**Captain cooldowns:**\n${data.map((r: any) => `${r.discord_username}: ${r.games_remaining} game(s) remaining`).join('\n')}` })
       return
     }
-
     if (action === 'reset') {
       const target = interaction.options.getUser('player')
       if (!target) { await interaction.editReply({ content: '❌ Please specify a player.' }); return }
-      await supabase.from('twelve_man_captain_cooldowns')
-        .update({ games_remaining: 0, updated_at: new Date().toISOString() }).eq('discord_user_id', target.id)
+      await supabase.from('twelve_man_captain_cooldowns').update({ games_remaining: 0, updated_at: new Date().toISOString() }).eq('discord_user_id', target.id)
       await interaction.editReply({ content: `✅ Cooldown reset for **${target.username}**.` })
       return
     }
   }
 
-  // ── player ────────────────────────────────────────────────────────────────
   if (sub === 'player') {
-    await interaction.deferReply({ flags: 64 })
+    await interaction.deferReply()
     const action = interaction.options.getString('action', true)
     const target = interaction.options.getUser('player', true)
 
     if (action === 'add') {
-      if (bannedPlayers.has(target.id)) {
-        await interaction.editReply({ content: `❌ **${target.username}** is banned from the queue.` })
-        return
-      }
-      if (queuePlayers.find(p => p.discordId === target.id)) {
-        await interaction.editReply({ content: `⚠️ **${target.username}** is already in the queue.` })
-        return
-      }
+      if (bannedPlayers.has(target.id)) { await interaction.editReply({ content: `❌ **${target.username}** is banned from the queue.` }); return }
+      if (queuePlayers.find(p => p.discordId === target.id)) { await interaction.editReply({ content: `⚠️ **${target.username}** is already in the queue.` }); return }
       if (activeMatch) {
         queueWaitlist.push({ discordId: target.id, discordUsername: target.username, joinedAt: Date.now() })
         await interaction.editReply({ content: `✅ **${target.username}** added to the waitlist.` })
@@ -1289,9 +1188,8 @@ async function handle12ManCommand(interaction: ChatInputCommandInteraction) {
 
     if (action === 'ban') {
       bannedPlayers.add(target.id)
-      // Remove from queue if present
       const idx = queuePlayers.findIndex(p => p.discordId === target.id)
-      if (idx !== -1) { queuePlayers.splice(idx, 1); await updateQueueEmbed() }
+      if (idx !== -1) { queuePlayers.splice(idx, 1); await updateQueueEmbed(); await persistQueue() }
       await interaction.editReply({ content: `✅ **${target.username}** banned from the queue.` })
       return
     }
@@ -1306,103 +1204,66 @@ async function handle12ManCommand(interaction: ChatInputCommandInteraction) {
       if (!activeMatch) { await interaction.editReply({ content: '❌ No active match.' }); return }
       const replacement = interaction.options.getUser('replacement')
       if (!replacement) { await interaction.editReply({ content: '❌ Please specify a replacement player.' }); return }
-
       const idx = activeMatch.players.findIndex(p => p.discordId === target.id)
       if (idx === -1) { await interaction.editReply({ content: `❌ **${target.username}** is not in the active match.` }); return }
-
       const subPlayer: QueuePlayer = { discordId: replacement.id, discordUsername: replacement.username, joinedAt: Date.now() }
       activeMatch.players[idx] = subPlayer
-
-      // Update teams
       const teamAIdx = activeMatch.teamA.findIndex(p => p.discordId === target.id)
       if (teamAIdx !== -1) activeMatch.teamA[teamAIdx] = subPlayer
       const teamBIdx = activeMatch.teamB.findIndex(p => p.discordId === target.id)
       if (teamBIdx !== -1) activeMatch.teamB[teamBIdx] = subPlayer
-
-      // Update channel permissions
-      const guild = interaction.guild
-      const textChannel = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
       try {
-        await textChannel?.permissionOverwrites.edit(replacement.id, { ViewChannel: true })
-        await textChannel?.permissionOverwrites.delete(target.id)
+        const textCh = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
+        await textCh?.permissionOverwrites.edit(replacement.id, { ViewChannel: true })
+        await textCh?.permissionOverwrites.delete(target.id)
+        await textCh?.send({ content: `🔄 **${target.username}** has been subbed out for **${replacement.username}**.` })
       } catch { /* ignore */ }
-
-      const textCh = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-      await textCh?.send({ content: `🔄 **${target.username}** has been subbed out for **${replacement.username}**.` })
       await interaction.editReply({ content: `✅ **${target.username}** subbed out for **${replacement.username}**.` })
       return
     }
   }
 }
 
-// ── KTP types & parsing ───────────────────────────────────────────────────────
+// ── KTP parsing ───────────────────────────────────────────────────────────────
 interface MatchResult {
-  tournamentId: string
-  matchId: string
-  winningSide: 'allies' | 'axis'
-  score: string
-  map: string | null
-  ktpMatchId: string | null
-  alliesScore: number
-  axisScore: number
+  tournamentId: string; matchId: string; winningSide: 'allies' | 'axis'
+  score: string; map: string | null; ktpMatchId: string | null
+  alliesScore: number; axisScore: number
 }
-
 interface ParsedEmbed {
-  date: string | null
-  alliesPlayers: string[]
-  axisPlayers: string[]
-  alliesScore: number
-  axisScore: number
-  winningSide: 'allies' | 'axis' | null
-  map: string | null
-  ktpMatchId: string | null
-  server: string | null
-  is12Man: boolean
-  complete: boolean
+  date: string | null; alliesPlayers: string[]; axisPlayers: string[]
+  alliesScore: number; axisScore: number; winningSide: 'allies' | 'axis' | null
+  map: string | null; ktpMatchId: string | null; server: string | null
+  is12Man: boolean; complete: boolean
 }
 
 const STEAM_ID64_BASE = BigInt('76561197960265728')
-
 function toSteamId64(input: string): string | null {
   const trimmed = input.trim()
   if (/^\d{17}$/.test(trimmed) && trimmed.startsWith('7656119')) return trimmed
   const match = trimmed.match(/^STEAM_0:([01]):(\d+)$/i)
   if (match) {
-    const y = BigInt(match[1])
-    const z = BigInt(match[2])
+    const y = BigInt(match[1]); const z = BigInt(match[2])
     return (STEAM_ID64_BASE + z * BigInt(2) + y).toString()
   }
   return null
 }
-
 function parseSteamIds(text: string): string[] {
-  const ids: string[] = []
-  const regex = /STEAM_0:[01]:\d+/gi
-  let match
-  while ((match = regex.exec(text)) !== null) {
-    const id64 = toSteamId64(match[0])
-    if (id64) ids.push(id64)
-  }
+  const ids: string[] = []; const regex = /STEAM_0:[01]:\d+/gi; let match
+  while ((match = regex.exec(text)) !== null) { const id64 = toSteamId64(match[0]); if (id64) ids.push(id64) }
   return ids
 }
-
 function parseKTPEmbed(embed: Embed): ParsedEmbed | null {
-  const title = embed.title ?? ''
   const fields = embed.fields ?? []
   const statusField = fields.find(f => f.name.toLowerCase() === 'status')
   if (!statusField) return null
-
   const statusText = statusField.value
-  const complete = statusText.includes('MATCH COMPLETE')
-  if (!complete) return null
-
+  if (!statusText.includes('MATCH COMPLETE')) return null
   const winnerMatch = statusText.match(/(Allies|Axis) wins!/i)
   const winningSide = winnerMatch ? (winnerMatch[1].toLowerCase() as 'allies' | 'axis') : null
-
   const scoreMatch = statusText.match(/Final:\s*(\d+)-(\d+)/i)
   const alliesScore = scoreMatch ? parseInt(scoreMatch[1]) : 0
   const axisScore   = scoreMatch ? parseInt(scoreMatch[2]) : 0
-
   const footer = embed.footer?.text ?? ''
   const mapMatch    = footer.match(/Map:\s*([^\s|]+)/i)
   const ktpIdMatch  = footer.match(/Match:\s*([^\s|]+)/i)
@@ -1411,33 +1272,29 @@ function parseKTPEmbed(embed: Embed): ParsedEmbed | null {
   const ktpMatchId  = ktpIdMatch  ? ktpIdMatch[1]         : null
   const server      = serverMatch ? serverMatch[1].trim() : null
   const is12Man     = footer.includes('12MAN')
-
   const alliesField   = fields.find(f => /allies/i.test(f.name))
   const axisField     = fields.find(f => /axis/i.test(f.name))
-  const alliesPlayers = alliesField ? parseSteamIds(alliesField.value) : []
-  const axisPlayers   = axisField   ? parseSteamIds(axisField.value)   : []
-
-  return { date: title, alliesPlayers, axisPlayers, alliesScore, axisScore, winningSide, map, ktpMatchId, server, is12Man, complete }
+  return {
+    date: embed.title ?? null,
+    alliesPlayers: alliesField ? parseSteamIds(alliesField.value) : [],
+    axisPlayers:   axisField   ? parseSteamIds(axisField.value)   : [],
+    alliesScore, axisScore, winningSide, map, ktpMatchId, server, is12Man, complete: true,
+  }
 }
 
 async function handle12ManResult(parsed: ParsedEmbed) {
   if (!activeMatch) { console.log('[12man] KTP result but no active match'); return }
-  console.log(`[12man] Result — ${parsed.winningSide} wins ${parsed.alliesScore}-${parsed.axisScore}`)
   await postWinnerVote(parsed.map, parsed.alliesScore, parsed.axisScore, parsed.winningSide ?? 'unknown')
 }
 
 async function findDraftMatch(parsed: ParsedEmbed): Promise<MatchResult | null> {
   const allSteamId64s = [...parsed.alliesPlayers, ...parsed.axisPlayers]
-  if (allSteamId64s.length === 0) { console.log('[bot] No Steam IDs'); return null }
-
+  if (allSteamId64s.length === 0) return null
   const { data: users } = await supabase.from('users').select('id, steam_id_64').in('steam_id_64', allSteamId64s)
-  if (!users || users.length === 0) { console.log('[bot] No users matched'); return null }
-
+  if (!users || users.length === 0) return null
   const userIds = users.map((u: any) => u.id)
-  const { data: teamPlayers } = await supabase
-    .from('team_players').select('user_id, team_id, side, teams(id, name, event_id)').in('user_id', userIds)
-  if (!teamPlayers || teamPlayers.length === 0) { console.log('[bot] No drafted players'); return null }
-
+  const { data: teamPlayers } = await supabase.from('team_players').select('user_id, team_id, side, teams(id, name, event_id)').in('user_id', userIds)
+  if (!teamPlayers || teamPlayers.length === 0) return null
   const eventOverlap: Record<string, { count: number; eventId: string }> = {}
   for (const tp of teamPlayers) {
     const eventId = (tp.teams as any)?.event_id
@@ -1445,37 +1302,19 @@ async function findDraftMatch(parsed: ParsedEmbed): Promise<MatchResult | null> 
     if (!eventOverlap[eventId]) eventOverlap[eventId] = { count: 0, eventId }
     eventOverlap[eventId].count++
   }
-
   const best = Object.values(eventOverlap).sort((a, b) => b.count - a.count)[0]
-  if (!best || best.count < MATCH_THRESHOLD) { console.log(`[bot] Overlap ${best?.count ?? 0} below threshold`); return null }
-
-  const { data: tournament } = await supabase
-    .from('tournaments').select('id, status').eq('event_id', best.eventId).neq('status', 'complete').maybeSingle()
-  if (!tournament) { console.log('[bot] No active tournament'); return null }
-
-  const { data: matches } = await supabase
-    .from('tournament_matches').select('id, team1_id, team2_id, status')
-    .eq('tournament_id', tournament.id).in('status', ['pending', 'awaiting_confirmation'])
-  if (!matches || matches.length === 0) { console.log('[bot] No pending matches'); return null }
-
-  const matchedTeamIds = Array.from(new Set(
-    teamPlayers.filter((tp: any) => (tp.teams as any)?.event_id === best.eventId).map((tp: any) => tp.team_id)
-  ))
-
+  if (!best || best.count < MATCH_THRESHOLD) return null
+  const { data: tournament } = await supabase.from('tournaments').select('id, status').eq('event_id', best.eventId).neq('status', 'complete').maybeSingle()
+  if (!tournament) return null
+  const { data: matches } = await supabase.from('tournament_matches').select('id, team1_id, team2_id, status').eq('tournament_id', tournament.id).in('status', ['pending', 'awaiting_confirmation'])
+  if (!matches || matches.length === 0) return null
+  const matchedTeamIds = Array.from(new Set(teamPlayers.filter((tp: any) => (tp.teams as any)?.event_id === best.eventId).map((tp: any) => tp.team_id)))
   const targetMatch = matches.find((m: any) => matchedTeamIds.includes(m.team1_id) || matchedTeamIds.includes(m.team2_id))
-  if (!targetMatch) { console.log('[bot] Could not identify match'); return null }
-
+  if (!targetMatch) return null
   const alliesTeamIds = teamPlayers.filter((tp: any) => tp.side === 'allies' && (tp.teams as any)?.event_id === best.eventId).map((tp: any) => tp.team_id)
   const axisTeamIds   = teamPlayers.filter((tp: any) => tp.side === 'axis'   && (tp.teams as any)?.event_id === best.eventId).map((tp: any) => tp.team_id)
   const winningTeamId = parsed.winningSide === 'allies' ? (alliesTeamIds[0] ?? null) : (axisTeamIds[0] ?? null)
-
-  return {
-    tournamentId: tournament.id, matchId: (targetMatch as any).id,
-    winningSide: parsed.winningSide!, score: `${parsed.alliesScore}-${parsed.axisScore}`,
-    map: parsed.map, ktpMatchId: parsed.ktpMatchId,
-    alliesScore: parsed.alliesScore, axisScore: parsed.axisScore,
-    winnerTeamId: winningTeamId,
-  } as any
+  return { tournamentId: tournament.id, matchId: (targetMatch as any).id, winningSide: parsed.winningSide!, score: `${parsed.alliesScore}-${parsed.axisScore}`, map: parsed.map, ktpMatchId: parsed.ktpMatchId, alliesScore: parsed.alliesScore, axisScore: parsed.axisScore, winnerTeamId: winningTeamId } as any
 }
 
 async function reportDraftMatch(result: MatchResult & { winnerTeamId: string | null }): Promise<boolean> {
@@ -1486,7 +1325,6 @@ async function reportDraftMatch(result: MatchResult & { winnerTeamId: string | n
       body: JSON.stringify({ action: 'report', winner_id: result.winnerTeamId, score_team1: result.alliesScore, score_team2: result.axisScore, map: result.map, ktp_match_id: result.ktpMatchId }),
     })
     if (!res.ok) { console.error('[bot] API report failed:', res.status); return false }
-    console.log('[bot] Match reported:', result.matchId)
     return true
   } catch (err) { console.error('[bot] API error:', err); return false }
 }
@@ -1494,12 +1332,9 @@ async function reportDraftMatch(result: MatchResult & { winnerTeamId: string | n
 // ── Discord client ────────────────────────────────────────────────────────────
 const client = new Client({
   intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages,
   ],
 })
 
@@ -1509,6 +1344,14 @@ client.once('clientReady', async () => {
   await loadQueueFromDB()
   await updateQueueEmbed()
   await registerCommands()
+})
+
+// ── Voice state — early confirmation ──────────────────────────────────────────
+client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState) => {
+  if (!activeMatch) return
+  if (newState.channelId === activeMatch.gatherVoiceId) {
+    await checkEarlyVoiceConfirmation()
+  }
 })
 
 // ── Interactions ──────────────────────────────────────────────────────────────
@@ -1522,35 +1365,26 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return
   const id = interaction.customId
 
-  // Verify
   if (id.startsWith('verify_loggedin_')) { await handleVerifyLoggedIn(interaction); return }
 
-  // Queue join/leave
   if (id === 'queue_join') {
-    const guild = interaction.guild
-    if (!guild) return
+    const guild = interaction.guild; if (!guild) return
     const member = interaction.member as GuildMember
-
-    if (!member.roles.cache.has(DISCORD_VERIFIED_ROLE)) {
-      await interaction.reply({ content: '❌ You must be verified to join the queue. Run `/verify` first.', flags: 64 })
-      return
+    if (!TEST_MODE && !member.roles.cache.has(DISCORD_VERIFIED_ROLE)) {
+      await interaction.reply({ content: '❌ You must be verified to join the queue. Run `/verify` first.', flags: 64 }); return
     }
     if (bannedPlayers.has(interaction.user.id)) {
-      await interaction.reply({ content: '❌ You are banned from the queue.', flags: 64 })
-      return
+      await interaction.reply({ content: '❌ You are banned from the queue.', flags: 64 }); return
     }
     if (queuePlayers.find(p => p.discordId === interaction.user.id)) {
-      await interaction.reply({ content: '⚠️ You are already in the queue.', flags: 64 })
-      return
+      await interaction.reply({ content: '⚠️ You are already in the queue.', flags: 64 }); return
     }
     if (activeMatch) {
       if (queueWaitlist.find(p => p.discordId === interaction.user.id)) {
-        await interaction.reply({ content: '⚠️ You are already on the waitlist.', flags: 64 })
-        return
+        await interaction.reply({ content: '⚠️ You are already on the waitlist.', flags: 64 }); return
       }
       queueWaitlist.push({ discordId: interaction.user.id, discordUsername: interaction.user.username, joinedAt: Date.now() })
-      await interaction.reply({ content: `✅ Added to the waitlist (position ${queueWaitlist.length}).`, flags: 64 })
-      return
+      await interaction.reply({ content: `✅ Added to the waitlist (position ${queueWaitlist.length}).`, flags: 64 }); return
     }
     queuePlayers.push({ discordId: interaction.user.id, discordUsername: interaction.user.username, joinedAt: Date.now() })
     await interaction.deferUpdate()
@@ -1565,8 +1399,7 @@ client.on('interactionCreate', async (interaction) => {
     if (idx === -1) {
       const wIdx = queueWaitlist.findIndex(p => p.discordId === interaction.user.id)
       if (wIdx !== -1) { queueWaitlist.splice(wIdx, 1); await interaction.reply({ content: '✅ Removed from waitlist.', flags: 64 }); return }
-      await interaction.reply({ content: '⚠️ You are not in the queue.', flags: 64 })
-      return
+      await interaction.reply({ content: '⚠️ You are not in the queue.', flags: 64 }); return
     }
     queuePlayers.splice(idx, 1)
     await interaction.deferUpdate()
@@ -1575,92 +1408,97 @@ client.on('interactionCreate', async (interaction) => {
     return
   }
 
-  // Captain vote
   if (id.startsWith('captvote_')) {
     if (!activeMatch) return
     const candidateIdx = parseInt(id.split('_')[1])
-    const candidates: QueuePlayer[] = (activeMatch as any).captainCandidates ?? []
-    const candidate = candidates[candidateIdx]
-    if (!candidate) return
+    const candidates: QueuePlayer[] = activeMatch.captainCandidates ?? []
+    const candidate = candidates[candidateIdx]; if (!candidate) return
     const voterId = interaction.user.id
     if (voterId === candidate.discordId) { await interaction.reply({ content: '❌ You cannot vote for yourself.', flags: 64 }); return }
     if (activeMatch.captainVotes[voterId]) { await interaction.reply({ content: '⚠️ You have already voted.', flags: 64 }); return }
     activeMatch.captainVotes[voterId] = candidate.discordId
-
-    const voteText = formatVoteList(candidates.map(p => p.discordUsername), activeMatch.captainVotes)
+    const voteText = formatVoteListAnsi(candidates.map(p => p.discordUsername), activeMatch.captainVotes, true)
     try {
       const textChannel = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
       if (activeMatch.captainVoteMessageId) {
         const msg = await textChannel?.messages.fetch(activeMatch.captainVoteMessageId)
         const embed = EmbedBuilder.from(msg!.embeds[0]).setDescription(
-          `Vote closes in ${botConfig.captain_vote_seconds}s — you cannot vote for yourself\n\n\`\`\`\n${voteText}\n\`\`\``
+          `${ANSI.yellow}Vote closes in ${formatSecondsRemaining(activeMatch.captainVoteEndTime ?? 0)}${ANSI.reset} — you cannot vote for yourself\n${ansiBlock(voteText)}`
         )
         await msg?.edit({ embeds: [embed] })
       }
     } catch { /* ignore */ }
-    await interaction.reply({ content: `✅ Voted for **${candidate.discordUsername}**.`, flags: 64 })
-    return
+    await interaction.reply({ content: `✅ Voted for **${candidate.discordUsername}**.`, flags: 64 }); return
   }
 
-  // Map vote
   if (id.startsWith('mapvote_')) {
     if (!activeMatch) return
     const mapIdx = parseInt(id.split('_')[1])
-    const maps: string[] = (activeMatch as any).mapOptions ?? []
-    const map = maps[mapIdx]
-    if (!map) return
+    const maps: string[] = activeMatch.mapOptions ?? []
+    const map = maps[mapIdx]; if (!map) return
     const voterId = interaction.user.id
     if (activeMatch.mapVotes[voterId]) { await interaction.reply({ content: '⚠️ You have already voted.', flags: 64 }); return }
     activeMatch.mapVotes[voterId] = map
-    await interaction.reply({ content: `✅ Voted for **${map}**.`, flags: 64 })
-    return
+    const voteText = formatVoteListAnsi(maps, activeMatch.mapVotes, true)
+    try {
+      const textChannel = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
+      if (activeMatch.mapVoteMessageId) {
+        const msg = await textChannel?.messages.fetch(activeMatch.mapVoteMessageId)
+        const embed = EmbedBuilder.from(msg!.embeds[0]).setDescription(
+          `${ANSI.yellow}Vote closes in ${formatSecondsRemaining(activeMatch.mapVoteEndTime ?? 0)}${ANSI.reset}\n${ansiBlock(voteText)}`
+        )
+        await msg?.edit({ embeds: [embed] })
+      }
+    } catch { /* ignore */ }
+    await interaction.reply({ content: `✅ Voted for **${map}**.`, flags: 64 }); return
   }
 
-  // Server vote
   if (id.startsWith('servervote_')) {
     if (!activeMatch) return
     const serverIdx = parseInt(id.split('_')[1])
-    const server = botConfig.server_locations[serverIdx]
-    if (!server) return
+    const server = botConfig.server_locations[serverIdx]; if (!server) return
     const voterId = interaction.user.id
     if (activeMatch.serverVotes[voterId]) { await interaction.reply({ content: '⚠️ You have already voted.', flags: 64 }); return }
     activeMatch.serverVotes[voterId] = server
-    await interaction.reply({ content: `✅ Voted for **${server}**.`, flags: 64 })
-    return
+    const voteText = formatVoteListAnsi(botConfig.server_locations, activeMatch.serverVotes, true)
+    try {
+      const textChannel = interaction.guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
+      if (activeMatch.serverVoteMessageId) {
+        const msg = await textChannel?.messages.fetch(activeMatch.serverVoteMessageId)
+        const embed = EmbedBuilder.from(msg!.embeds[0]).setDescription(
+          `${ANSI.yellow}Vote closes in ${formatSecondsRemaining(activeMatch.serverVoteEndTime ?? 0)}${ANSI.reset}\n${ansiBlock(voteText)}`
+        )
+        await msg?.edit({ embeds: [embed] })
+      }
+    } catch { /* ignore */ }
+    await interaction.reply({ content: `✅ Voted for **${server}**.`, flags: 64 }); return
   }
 
-  // Draft pick
   if (id.startsWith('draftpick_')) {
     if (!activeMatch || !activeMatch.captainA || !activeMatch.captainB) return
     const pickIdx = activeMatch.draftOrder[activeMatch.draftPickIndex]
     const activeCaptain = pickIdx === 0 ? activeMatch.captainA : activeMatch.captainB
     if (interaction.user.id !== activeCaptain.discordId) {
-      await interaction.reply({ content: '❌ It is not your turn to pick.', flags: 64 })
-      return
+      await interaction.reply({ content: '❌ It is not your turn to pick.', flags: 64 }); return
     }
     const playerIdx = parseInt(id.split('_')[1])
     await interaction.deferUpdate()
-    await handleDraftPick(playerIdx)
-    return
+    await handleDraftPick(playerIdx); return
   }
 
-  // Winner vote
   if (id === 'winner_a' || id === 'winner_b' || id === 'winner_tie') {
     if (!activeMatch) return
-    const choice = id === 'winner_a' ? 'a' : id === 'winner_b' ? 'b' : 'tie'
     const voterId = interaction.user.id
     if (activeMatch.winnerVotes[voterId]) { await interaction.reply({ content: '⚠️ You have already voted.', flags: 64 }); return }
+    const choice = id === 'winner_a' ? 'a' : id === 'winner_b' ? 'b' : 'tie'
     await interaction.deferUpdate()
-    await handleWinnerVote(voterId, choice as 'a' | 'b' | 'tie')
-    return
+    await handleWinnerVote(voterId, choice as 'a' | 'b' | 'tie'); return
   }
 
   if (id === 'vote_mvp' || id === 'vote_mvp_public') {
-    await interaction.reply({ content: '🏆 MVP voting coming soon!', flags: 64 })
-    return
+    await interaction.reply({ content: '🏆 MVP voting coming soon!', flags: 64 }); return
   }
 
-  // Sub accept/decline
   if (id.startsWith('sub_accept_')) {
     if (!activeMatch) return
     const waitlistIdx = parseInt(id.split('_')[2])
@@ -1690,23 +1528,20 @@ client.on('interactionCreate', async (interaction) => {
   }
 })
 
-// ── KTP result watcher ────────────────────────────────────────────────────────
+// ── KTP watcher ───────────────────────────────────────────────────────────────
 async function processKTPMessage(message: Message) {
   if (message.channelId !== RESULTS_CHANNEL_ID) return
   if (!message.author.bot) return
   if (!message.embeds || message.embeds.length === 0) return
-
-  console.log(`[bot] Embed from ${message.author.tag}`)
-
   for (const embed of message.embeds) {
     const parsed = parseKTPEmbed(embed)
-    if (!parsed) { console.log('[bot] Not a complete result, skipping'); continue }
+    if (!parsed) continue
     console.log(`[bot] ${parsed.winningSide} wins ${parsed.alliesScore}-${parsed.axisScore} | 12MAN: ${parsed.is12Man}`)
     if (parsed.is12Man) {
       await handle12ManResult(parsed)
     } else {
       const matchResult = await findDraftMatch(parsed)
-      if (!matchResult) { console.log('[bot] Could not identify draft match'); continue }
+      if (!matchResult) continue
       const success = await reportDraftMatch(matchResult as any)
       if (success) console.log(`[bot] ✓ Reported draft match ${matchResult.matchId}`)
     }
