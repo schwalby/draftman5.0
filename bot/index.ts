@@ -33,6 +33,10 @@ import { supabase } from './core/supabase'
 import { safeOp } from './core/safeOp'
 import { queueWebhook, webhookSend, matchSend as _matchSend, botWebhookOptions } from './messaging/WebhookSender'
 
+// ── Phase 4: config imports ───────────────────────────────────────────────────
+import { BotConfig } from './core/types'
+import { getConfig, loadConfig, saveQueueMessageId, getMapPool, updateConfig } from './config/ConfigManager'
+
 // ── Env validation ────────────────────────────────────────────────────────────
 const REQUIRED_ENV = [
   'DISCORD_BOT_TOKEN', 'DISCORD_CLIENT_ID', 'DISCORD_GUILD_ID',
@@ -122,32 +126,17 @@ let matchCounter = 0
 const bannedPlayers = new Set<string>()
 const interactionCooldowns = new Map<string, number>()
 
-// ── Config ────────────────────────────────────────────────────────────────────
-interface BotConfig {
-  queue_size: number
-  timeout_minutes: number
-  activity_window_minutes: number
-  sub_window_minutes: number
-  captain_cooldown_games: number
-  map_count: number
-  vote_threshold: number
-  captain_vote_seconds: number
-  map_vote_seconds: number
-  server_vote_seconds: number
-  vote_order: string[]
-  server_locations: string[]
-  header_style: 'shadow' | 'small' | 'box' | 'hybrid'
-}
-const DEFAULT_CONFIG: BotConfig = {
-  queue_size: 12, timeout_minutes: 90, activity_window_minutes: 5,
-  sub_window_minutes: 2, captain_cooldown_games: 2, map_count: 5,
-  vote_threshold: 7, captain_vote_seconds: 120, map_vote_seconds: 90,
-  server_vote_seconds: 90,
-  vote_order: ['captain', 'map', 'server', 'draft'],
-  server_locations: ['Atlanta', 'Chicago', 'Dallas', 'Denver', 'New York'],
-  header_style: 'shadow',
-}
-let botConfig: BotConfig = { ...DEFAULT_CONFIG }
+// ── Config proxy ──────────────────────────────────────────────────────────────
+// botConfig is a convenience accessor for getConfig()
+// Preserves all existing botConfig.x references throughout index.ts
+// ConfigManager owns the actual state
+const botConfig = new Proxy({} as ReturnType<typeof getConfig>, {
+  get: (_target, prop) => getConfig()[prop as keyof ReturnType<typeof getConfig>],
+  set: (_target, prop, value) => {
+    updateConfig({ [prop]: value } as any)
+    return true
+  },
+})
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 function isFake(p: QueuePlayer) { return p.fake === true }
@@ -187,38 +176,6 @@ async function matchSend(payload: Parameters<WebhookClient['send']>[0], label: s
   if (!activeMatch) return null
   return _matchSend(payload, label, activeMatch.matchWebhook, activeMatch.textChannelId, DISCORD_GUILD_ID)
 }
-async function loadConfig() {
-  const { data } = await supabase.from('twelve_man_config').select('*').eq('guild_id', DISCORD_GUILD_ID).maybeSingle()
-  if (!data) { console.log('[bot] Using default config'); return }
-  botConfig = {
-    queue_size:              data.queue_size              ?? DEFAULT_CONFIG.queue_size,
-    timeout_minutes:         data.timeout_minutes         ?? DEFAULT_CONFIG.timeout_minutes,
-    activity_window_minutes: data.activity_window_minutes ?? DEFAULT_CONFIG.activity_window_minutes,
-    sub_window_minutes:      data.sub_window_minutes      ?? DEFAULT_CONFIG.sub_window_minutes,
-    captain_cooldown_games:  data.captain_cooldown_games  ?? DEFAULT_CONFIG.captain_cooldown_games,
-    map_count:               data.map_count               ?? DEFAULT_CONFIG.map_count,
-    vote_threshold:          data.vote_threshold          ?? DEFAULT_CONFIG.vote_threshold,
-    captain_vote_seconds:    data.captain_vote_seconds    ?? DEFAULT_CONFIG.captain_vote_seconds,
-    map_vote_seconds:        data.map_vote_seconds        ?? DEFAULT_CONFIG.map_vote_seconds,
-    server_vote_seconds:     data.server_vote_seconds     ?? DEFAULT_CONFIG.server_vote_seconds,
-    vote_order:              data.vote_order              ?? DEFAULT_CONFIG.vote_order,
-    server_locations:        data.server_locations        ?? DEFAULT_CONFIG.server_locations,
-    header_style:            (data.header_style           ?? DEFAULT_CONFIG.header_style) as BotConfig['header_style'],
-  }
-  if (data.queue_message_id) queueMessageId = data.queue_message_id
-  console.log('[bot] Config loaded')
-}
-
-async function saveQueueMessageId(id: string) {
-  queueMessageId = id
-  await supabase.from('twelve_man_config').update({ queue_message_id: id }).eq('guild_id', DISCORD_GUILD_ID)
-}
-
-async function getMapPool(): Promise<string[]> {
-  const { data } = await supabase.from('map_pool').select('map_name').eq('guild_id', DISCORD_GUILD_ID).eq('active', true)
-  return data?.map((r: any) => r.map_name) ?? []
-}
-
 // ── DB: captain cooldowns ─────────────────────────────────────────────────────
 async function isOnCooldown(id: string): Promise<boolean> {
   const { data } = await supabase.from('twelve_man_captain_cooldowns').select('games_remaining').eq('discord_user_id', id).maybeSingle()
@@ -286,7 +243,7 @@ async function updateQueueEmbed() {
       if (edited) return
     }
     const msg = await webhookSend(queueWebhook, { embeds: [buildQueueEmbed()], components: buildQueueButtons() }, 'send queue embed via webhook')
-    if (msg) await saveQueueMessageId(msg.id)
+    if (msg) await saveQueueMessageId(msg.id, DISCORD_GUILD_ID)
     return
   }
 
@@ -296,7 +253,7 @@ async function updateQueueEmbed() {
     if (msg) { await safeOp(() => msg.edit({ embeds: [buildQueueEmbed()], components: buildQueueButtons() }), 'edit queue embed'); return }
   }
   const msg = await safeOp(() => channel.send({ embeds: [buildQueueEmbed()], components: buildQueueButtons() }), 'send queue embed')
-  if (msg) await saveQueueMessageId(msg.id)
+  if (msg) await saveQueueMessageId(msg.id, DISCORD_GUILD_ID)
 }
 
 // ── Re-queue ──────────────────────────────────────────────────────────────────
@@ -582,7 +539,7 @@ async function startMapVote() {
   const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
   const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
 
-  const pool = await getMapPool()
+  const pool = await getMapPool(DISCORD_GUILD_ID)
   if (!pool.length) {
     await matchSend({ content: '⚠️ No maps in pool — skipping map vote.' }, 'no maps msg')
     activeMatch.selectedMap = 'TBD'
@@ -1398,7 +1355,7 @@ async function processDraftResult(parsed: ParsedKTP) {
 
 client.once('clientReady', async () => {
   console.log(`[bot] Online as ${client.user?.tag} | TEST_MODE: ${TEST_MODE}`)
-  await loadConfig()
+  await loadConfig(DISCORD_GUILD_ID, (id) => { queueMessageId = id })
   await loadMatchCounter()
   await loadQueueFromDB()
   await updateQueueEmbed()
