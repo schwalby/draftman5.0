@@ -45,7 +45,7 @@ const RESULTS_CHANNEL_ID    = process.env.RESULTS_CHANNEL_ID!
 const QUEUE_CHANNEL_ID      = process.env.QUEUE_CHANNEL_ID!
 const QUEUE_CATEGORY_ID     = '1130992813627154452'
 const MATCH_THRESHOLD       = 8
-const TEST_MODE             = process.env.TEST_MODE === 'true'
+let TEST_MODE               = process.env.TEST_MODE === 'true'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { realtime: { transport: ws as any } })
 
@@ -186,7 +186,7 @@ const commands = [
     .addSubcommand(s => s.setName('clear').setDescription('Clear the current queue'))
     .addSubcommand(s => s.setName('forcestart').setDescription('Force start voting with current players'))
     .addSubcommand(s => s.setName('cancel').setDescription('Cancel the active match and re-queue all players'))
-    .addSubcommand(s => s.setName('config').setDescription('View current config'))
+    .addSubcommand(s => s.setName('testmode').setDescription('Toggle test mode on/off'))
     .addSubcommand(s =>
       s.setName('cooldown').setDescription('Manage captain cooldowns')
         .addStringOption(o => o.setName('action').setDescription('reset or list').setRequired(true)
@@ -1123,6 +1123,13 @@ async function handle12ManCommand(interaction: ChatInputCommandInteraction) {
     await textChannel?.send({ content: `⚠️ Match cancelled by admin. Re-queuing all players. Deleting channels in 18 seconds.` })
     await cancelMatch(activeMatch.players)
     await interaction.editReply({ content: '✅ Match cancelled. All players re-queued.' })
+    return
+  }
+
+  if (sub === 'testmode') {
+    await interaction.deferReply()
+    TEST_MODE = !TEST_MODE
+    await interaction.editReply({ content: `🧪 Test mode is now **${TEST_MODE ? 'ON' : 'OFF'}**.\n${TEST_MODE ? 'Forcestart will fill the queue with fake players. Verified check is skipped.' : 'Normal operation restored.'}` })
     return
   }
 
