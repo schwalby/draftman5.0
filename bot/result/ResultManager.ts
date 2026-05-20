@@ -153,7 +153,7 @@ export async function handleWinnerVote(
       )
 
     if (queueWebhook) {
-      await safeOp(() => queueWebhook.editMessage(_pendingResult!.winnerVoteMsgId!, { embeds: [updatedEmbed] }), 'update winner vote')
+      await safeOp(() => queueWebhook!.editMessage(_pendingResult!.winnerVoteMsgId!, { embeds: [updatedEmbed] }), 'update winner vote')
     } else {
       const guild = client.guilds.cache.get(guildId)
       const qCh = guild?.channels.cache.get(queueChannelId) as TextChannel

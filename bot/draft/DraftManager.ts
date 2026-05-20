@@ -171,7 +171,7 @@ export async function startPostDraft(
   await matchSend(match, { embeds: [embed] }, 'send match summary', guildId)
 
   // Delete gather voice — players moved to team channels
-  await safeOp(() => guild.channels.cache.get(match.gatherVoiceId)?.delete(), 'delete gather voice')
+  await safeOp(() => (guild.channels.cache.get(match.gatherVoiceId) as VoiceChannel | undefined)?.delete() as Promise<VoiceChannel>, 'delete gather voice')
 
   console.log(`[12man] Match #${num} ready`)
 }
