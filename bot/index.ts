@@ -31,7 +31,7 @@ import { buttonRows } from './messaging/embeds'
 import { client } from './core/client'
 import { supabase } from './core/supabase'
 import { safeOp } from './core/safeOp'
-import { queueWebhook, webhookSend, matchSend as _matchSend, botWebhookOptions } from './messaging/WebhookSender'
+import { queueWebhook, webhookSend } from './messaging/WebhookSender'
 
 // ── Phase 4: config imports ───────────────────────────────────────────────────
 import { BotConfig } from './core/types'
@@ -54,6 +54,23 @@ import {
 import { startCaptainVote as _startCaptainVote } from './votes/captainVote'
 import { startMapVote as _startMapVote } from './votes/mapVote'
 import { startServerVote as _startServerVote } from './votes/serverVote'
+
+// ── Phase 9: match manager import ─────────────────────────────────────────────
+import {
+  getActiveMatch, setActiveMatch,
+  getMatchCounter, setMatchCounter,
+  initiateMatch as _initiateMatch,
+  runActivityCheck as _runActivityCheck,
+  checkEarlyConfirm as _checkEarlyConfirm,
+  handleAfk as _handleAfk,
+  tryNextSub as _tryNextSub,
+  cancelMatch as _cancelMatch,
+  cleanupMatch as _cleanupMatch,
+  matchSend as _matchSendFromManager,
+  clearTimer as _clearTimer,
+  clearAllTimers as _clearAllTimers,
+  setTimer as _setTimer,
+} from './match/MatchManager'
 
 // ── Env validation ────────────────────────────────────────────────────────────
 const REQUIRED_ENV = [
@@ -141,10 +158,27 @@ interface ActiveMatch {
 let queuePlayers:   QueuePlayer[]  = []  // synced via setQueue()
 let queueWaitlist:  QueuePlayer[]  = []  // synced via setWaitlist()
 let queueMessageId: string | null  = null
-let activeMatch:    ActiveMatch | null = null
-let matchCounter = 0
 const bannedPlayers        = getBanned()
 const interactionCooldowns = new Map<string, number>()
+
+// activeMatch — synced variable that mirrors MatchManager state
+// getActiveMatch() is the source of truth; activeMatch is a local alias
+// updated after every operation that changes match state
+let activeMatch = getActiveMatch()
+function syncMatch() { activeMatch = getActiveMatch() }
+let matchCounter = getMatchCounter()
+
+// ── Match/timer helper shims ──────────────────────────────────────────────────
+// These preserve existing call signatures throughout index.ts
+function clearTimer(match: ActiveMatch, key: any)                         { _clearTimer(match, key) }
+function clearAllTimers(match: ActiveMatch)                                { _clearAllTimers(match) }
+function setTimer(match: ActiveMatch, key: any, fn: () => void, ms: number) { _setTimer(match, key, fn, ms) }
+
+async function matchSend(payload: any, label: string) {
+  const match = getActiveMatch()
+  if (!match) return null
+  return _matchSendFromManager(match, payload, label, DISCORD_GUILD_ID)
+}
 
 // ── Config proxy ──────────────────────────────────────────────────────────────
 // botConfig is a convenience accessor for getConfig()
@@ -176,186 +210,50 @@ async function isAdmin(interaction: ChatInputCommandInteraction | ButtonInteract
     member.roles.cache.some(r => ['Administrator', 'Sapphire', 'Mod', 'Moderator'].includes(r.name))
 }
 
-function clearTimer(match: ActiveMatch, key: TimerKey) {
-  const t = match.timers.get(key)
-  if (t !== undefined) { clearTimeout(t); match.timers.delete(key) }
-}
-function clearAllTimers(match: ActiveMatch) {
-  for (const t of match.timers.values()) clearTimeout(t)
-  match.timers.clear()
-}
-function setTimer(match: ActiveMatch, key: TimerKey, fn: () => void, ms: number) {
-  clearTimer(match, key)
-  match.timers.set(key, setTimeout(fn, ms))
-}
-
-// ── Config loader ─────────────────────────────────────────────────────────────
-// Local matchSend wrapper — preserves existing call signature throughout index.ts
-// Routes to WebhookSender.matchSend with activeMatch context
-async function matchSend(payload: Parameters<WebhookClient['send']>[0], label: string) {
-  if (!activeMatch) return null
-  return _matchSend(payload, label, activeMatch.matchWebhook, activeMatch.textChannelId, DISCORD_GUILD_ID)
-}
-// ── Match initiation ──────────────────────────────────────────────────────────
+// ── Match lifecycle — thin wrappers delegating to MatchManager ────────────────
 async function initiateMatch(players: QueuePlayer[], waitlist: QueuePlayer[]) {
-  if (activeMatch) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  if (!guild) return
-
-  matchCounter++
-  const num = matchCounter
-  console.log(`[12man] Starting match #${num} with ${players.length} players`)
-
-  const adminRoleIds = ['Administrator', 'Sapphire', 'Spectator', 'ModMail', '12man special privileges', 'Chanserv']
-    .map(name => guild.roles.cache.find(r => r.name === name)?.id).filter(Boolean) as string[]
-
-  // Deduplicate IDs (test mode has same ID multiple times)
-  const seen = new Set<string>()
-  const permOverwrites: any[] = [
-    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-    { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] },
-  ]
-  seen.add(guild.roles.everyone.id)
-  seen.add(client.user!.id)
-  for (const p of players) {
-    if (!isFake(p) && !seen.has(p.discordId)) {
-      permOverwrites.push({ id: p.discordId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] })
-      seen.add(p.discordId)
-    }
-  }
-  for (const id of adminRoleIds) {
-    if (!seen.has(id)) { permOverwrites.push({ id, allow: [PermissionFlagsBits.ViewChannel] }); seen.add(id) }
-  }
-
-  const textCh = await safeOp(() => guild.channels.create({ name: `queue-${num}`, type: ChannelType.GuildText, parent: QUEUE_CATEGORY_ID, permissionOverwrites: permOverwrites }), 'create text channel')
-  const voiceCh = await safeOp(() => guild.channels.create({ name: `Queue#${num}`, type: ChannelType.GuildVoice, parent: QUEUE_CATEGORY_ID, permissionOverwrites: permOverwrites }), 'create gather voice')
-  if (!textCh || !voiceCh) { console.error('[12man] Channel creation failed'); return }
-
-  // Create webhook in private text channel for NeatQueue-style embeds
-  const matchWh = await safeOp(() => (textCh as TextChannel).createWebhook({ name: 'DRAFT MAN 5.0', avatar: client.user?.avatarURL() ?? undefined }), 'create match webhook')
-  const matchWebhook = matchWh ? new WebhookClient({ id: matchWh.id, token: matchWh.token! }) : null
-
-  activeMatch = {
-    matchNumber: num, textChannelId: textCh.id, gatherVoiceId: voiceCh.id,
-    players: [...players], waitlist: [...waitlist],
-    confirmedInVoice: new Set(), activityCheckDone: false,
-    captainA: undefined, captainB: undefined, teamA: [], teamB: [],
-    voteOrder: [...botConfig.vote_order], currentStep: 0,
-    captainCandidates: [], captainVotes: {}, mapOptions: [], mapVotes: {},
-    serverVotes: {}, winnerVotes: {}, draftPickIndex: 0, draftOrder: [],
-    remainingPlayers: [], captainVoteEndTime: 0, mapVoteEndTime: 0, serverVoteEndTime: 0,
-    timers: new Map(),
-    matchWebhook: matchWebhook ?? undefined,
-    captainVoteListMsgId: undefined,
-    mapVoteListMsgId: undefined,
-    serverVoteListMsgId: undefined,
-  }
-
-  // Move real players already in voice
-  for (const p of realPlayers(players)) {
-    const member = await safeOp(() => guild.members.fetch(p.discordId), `fetch member ${p.discordUsername}`)
-    if (member?.voice.channelId) await safeOp(() => member.voice.setChannel(voiceCh.id), `move ${p.discordUsername}`)
-  }
-
-  const ping = realPlayers(players).map(p => `<@${p.discordId}>`).join(' ')
-  const fakeName = TEST_MODE ? ` *(test mode — ${players.length - realPlayers(players).length} fake players)*` : ''
-  const startContent = `${getHeader('queuePopped', botConfig.header_style)}\n${ping}\n\n**Queue #${num} has started!${fakeName}** Join voice channel **Queue#${num}** to confirm your presence.\n\nYou have **${botConfig.activity_window_minutes} minutes** to join voice.`
-
-  if (matchWebhook) {
-    await webhookSend(matchWebhook, { content: startContent }, 'send match start via webhook')
-  } else {
-    await safeOp(() => (textCh as TextChannel).send({ content: startContent }), 'send match start message')
-  }
-
-  setTimer(activeMatch, 'activity', () => runActivityCheck(), botConfig.activity_window_minutes * 60 * 1000)
-
-  // In test mode skip activity check — fake players can't join voice
-  if (TEST_MODE) {
-    clearTimer(activeMatch, 'activity')
-    activeMatch.activityCheckDone = true
-    activeMatch.confirmedInVoice = new Set(realPlayers(players).map(p => p.discordId))
-    setTimeout(() => startVoteSequence(), 2000)
-  }
+  await _initiateMatch(players, waitlist, DISCORD_GUILD_ID, QUEUE_CATEGORY_ID, TEST_MODE, startVoteSequence, runActivityCheck)
+  syncMatch()
 }
-
-// ── Activity check ────────────────────────────────────────────────────────────
 async function runActivityCheck() {
-  if (!activeMatch || activeMatch.activityCheckDone) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const gatherCh = guild?.channels.cache.get(activeMatch.gatherVoiceId) as VoiceChannel
-  const inVoice = new Set([...(gatherCh?.members.keys() ?? [])].filter(id => id !== client.user!.id))
-  const afk = activeMatch.players.filter(p => !isFake(p) && !inVoice.has(p.discordId))
-
-  activeMatch.confirmedInVoice = inVoice
-  activeMatch.activityCheckDone = true
-
-  console.log(`[12man] Activity check: ${inVoice.size} confirmed, ${afk.length} AFK`)
-  if (afk.length === 0) { await startVoteSequence(); return }
-  await handleAfk(afk)
+  await _runActivityCheck(DISCORD_GUILD_ID, startVoteSequence, (afk) => handleAfk(afk))
+  syncMatch()
 }
-
 async function checkEarlyConfirm() {
-  if (!activeMatch || activeMatch.activityCheckDone) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.gatherVoiceId) as VoiceChannel
-  const inVoice = new Set([...(ch?.members.keys() ?? [])].filter(id => id !== client.user!.id))
-  const allConfirmed = realPlayers(activeMatch.players).every(p => inVoice.has(p.discordId))
-  if (!allConfirmed) return
-  activeMatch.activityCheckDone = true
-  clearTimer(activeMatch, 'activity')
-  activeMatch.confirmedInVoice = inVoice
-  console.log('[12man] All players confirmed early — starting votes')
-  await startVoteSequence()
+  await _checkEarlyConfirm(DISCORD_GUILD_ID, startVoteSequence)
+  syncMatch()
 }
-
-// ── AFK / sub flow ────────────────────────────────────────────────────────────
 async function handleAfk(afk: QueuePlayer[]) {
-  if (!activeMatch) return
-  for (const p of afk) {
-    const i = activeMatch.players.findIndex(x => x.discordId === p.discordId)
-    if (i !== -1) activeMatch.players.splice(i, 1)
-  }
-  if (!activeMatch.waitlist.length) {
-    const names = afk.map(p => `@${p.discordUsername}`).join(', ')
-    await matchSend({ content: `❌ Queue cancelled — ${names} did not join voice. Deleting in 18s.` }, 'send cancel msg')
-    await cancelMatch(activeMatch.players)
-    return
-  }
-  await tryNextSub(afk, 0)
-}
-
-async function tryNextSub(afk: QueuePlayer[], idx: number) {
-  if (!activeMatch) return
-  if (idx >= activeMatch.waitlist.length) {
-    await matchSend({ content: `❌ No available subs. Deleting in 18s.` }, 'no subs msg')
-    await cancelMatch(activeMatch.players)
-    return
-  }
-  const sub = activeMatch.waitlist[idx]
-  const afkNames = afk.map(p => `<@${p.discordId}>`).join(', ')
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(`sub_accept_${idx}`).setLabel('✅ Accept').setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId(`sub_decline_${idx}`).setLabel('❌ Decline').setStyle(ButtonStyle.Danger),
+  await _handleAfk(afk, DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL,
+    (a, i) => tryNextSub(a, i),
+    (players) => cancelMatch(players),
   )
-  await matchSend({ content: `<@${sub.discordId}> — ${afkNames} didn't join. Sub in?`, components: [row] }, 'sub prompt')
-  setTimer(activeMatch, 'subWindow', () => tryNextSub(afk, idx + 1), botConfig.sub_window_minutes * 60 * 1000)
+  syncMatch()
 }
-
+async function tryNextSub(afk: QueuePlayer[], idx: number) {
+  await _tryNextSub(afk, idx, DISCORD_GUILD_ID, (players) => cancelMatch(players))
+  syncMatch()
+}
 async function cancelMatch(players: QueuePlayer[]) {
-  const saved = [...players]
-  await cleanupMatch()
-  await requeueAll(saved, DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
+  await _cancelMatch(players, DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
+  syncMatch()
+}
+async function cleanupMatch() {
+  await _cleanupMatch(DISCORD_GUILD_ID)
+  syncMatch()
 }
 
 // ── Vote sequence ─────────────────────────────────────────────────────────────
 async function startVoteSequence() {
-  if (!activeMatch) return
-  activeMatch.currentStep = 0
+  const match = getActiveMatch()
+  if (!match) return
+  match.currentStep = 0
   await runStep()
 }
 async function runStep() {
-  if (!activeMatch) return
-  const step = activeMatch.voteOrder[activeMatch.currentStep]
+  const match = getActiveMatch()
+  if (!match) return
+  const step = match.voteOrder[match.currentStep]
   if (!step) { await startPostDraft(); return }
   if (step === 'captain') await startCaptainVote()
   else if (step === 'map') await startMapVote()
@@ -363,8 +261,9 @@ async function runStep() {
   else if (step === 'draft') await startDraft()
 }
 async function nextStep() {
-  if (!activeMatch) return
-  activeMatch.currentStep++
+  const match = getActiveMatch()
+  if (!match) return
+  match.currentStep++
   await runStep()
 }
 
@@ -1054,7 +953,9 @@ async function processDraftResult(parsed: ParsedKTP) {
 client.once('clientReady', async () => {
   console.log(`[bot] Online as ${client.user?.tag} | TEST_MODE: ${TEST_MODE}`)
   await loadConfig(DISCORD_GUILD_ID, (id) => { queueMessageId = id; setMessageId(id) })
-  matchCounter = await loadMatchCounter()
+  const restoredCounter = await loadMatchCounter()
+  setMatchCounter(restoredCounter)
+  matchCounter = restoredCounter
   queuePlayers = await loadQueueFromDB()
   setQueue(queuePlayers)
   await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
