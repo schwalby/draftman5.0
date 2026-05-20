@@ -230,7 +230,7 @@ async function initiateMatch(players: QueuePlayer[], waitlist: QueuePlayer[]) {
   syncMatch()
 }
 async function runActivityCheck() {
-  await _runActivityCheck(DISCORD_GUILD_ID, startVoteSequence, (afk) => handleAfk(afk))
+  await _runActivityCheck(DISCORD_GUILD_ID, startVoteSequence, (afk: QueuePlayer[]) => handleAfk(afk))
   syncMatch()
 }
 async function checkEarlyConfirm() {
@@ -239,13 +239,13 @@ async function checkEarlyConfirm() {
 }
 async function handleAfk(afk: QueuePlayer[]) {
   await _handleAfk(afk, DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL,
-    (a, i) => tryNextSub(a, i),
-    (players) => cancelMatch(players),
+    (a: QueuePlayer[], i: number) => tryNextSub(a, i),
+    (players: QueuePlayer[]) => cancelMatch(players),
   )
   syncMatch()
 }
 async function tryNextSub(afk: QueuePlayer[], idx: number) {
-  await _tryNextSub(afk, idx, DISCORD_GUILD_ID, (players) => cancelMatch(players))
+  await _tryNextSub(afk, idx, DISCORD_GUILD_ID, (players: QueuePlayer[]) => cancelMatch(players))
   syncMatch()
 }
 async function cancelMatch(players: QueuePlayer[]) {
@@ -295,7 +295,7 @@ async function startMapVote() {
     activeMatch,
     DISCORD_GUILD_ID,
     nextStep,
-    async (reason) => {
+    async (reason: string) => {
       activeMatch!.selectedMap = reason
       await nextStep()
     },
@@ -337,24 +337,7 @@ async function resolveWinner(winner: 'a' | 'b' | 'tie') {
   await _resolveWinner(winner, DISCORD_GUILD_ID, QUEUE_CHANNEL_ID)
 }
 
-// ── Cleanup ───────────────────────────────────────────────────────────────────
-async function cleanupMatch() {
-  if (!activeMatch) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  clearAllTimers(activeMatch)
-
-  // Destroy match webhook before deleting channel
-  if (activeMatch.matchWebhook) {
-    activeMatch.matchWebhook.destroy()
-  }
-
-  for (const id of [activeMatch.textChannelId, activeMatch.teamAVoiceId, activeMatch.teamBVoiceId].filter(Boolean) as string[]) {
-    try { await guild?.channels.cache.get(id)?.delete() } catch { /* already gone */ }
-  }
-  activeMatch = null
-  console.log('[12man] Match cleaned up')
-}
-
+// ── Commands and registration ─────────────────────────────────────────────────
 async function registerCommands() {
   await _registerCommands(DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID)
 }
@@ -578,7 +561,7 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
 
 client.once('clientReady', async () => {
   console.log(`[bot] Online as ${client.user?.tag} | TEST_MODE: ${TEST_MODE}`)
-  await loadConfig(DISCORD_GUILD_ID, (id) => { queueMessageId = id; setMessageId(id) })
+  await loadConfig(DISCORD_GUILD_ID, (id: string) => { queueMessageId = id; setMessageId(id) })
   const restoredCounter = await loadMatchCounter()
   setMatchCounter(restoredCounter)
   matchCounter = restoredCounter
@@ -849,8 +832,8 @@ client.on('interactionCreate', async interaction => {
     if (action === 'minus') current = Math.max(0, current - step)
     else if (action === 'plus') current = current + step
     else if (action === 'save') {
-      await supabase.from('twelve_man_config').update({ [configKey]: current }).eq('guild_id', DISCORD_GUILD_ID)
-      await interaction.reply({ content: `✅ **${configKey}** saved as **${current}**.`, flags: 64 })
+      await supabase.from('twelve_man_config').update({ [String(configKey)]: current }).eq('guild_id', DISCORD_GUILD_ID)
+      await interaction.reply({ content: `✅ **${String(configKey)}** saved as **${current}**.`, flags: 64 })
       return
     }
 
@@ -915,18 +898,18 @@ client.on('interactionCreate', async interaction => {
 client.on('messageCreate', (msg: Message) => processKTPMessage(
   msg,
   RESULTS_CHANNEL_ID,
-  async (parsed) => postWinnerVote(parsed.map, parsed.alliesScore, parsed.axisScore, parsed.winningSide ?? 'unknown'),
-  async (parsed) => _processDraftResult(parsed, MATCH_THRESHOLD, API_BASE_URL, BOT_SECRET, DISCORD_GUILD_ID),
+  async (parsed: import('./bridge/KTPBridge').ParsedKTP) => postWinnerVote(parsed.map, parsed.alliesScore, parsed.axisScore, parsed.winningSide ?? 'unknown'),
+  async (parsed: import('./bridge/KTPBridge').ParsedKTP) => _processDraftResult(parsed, MATCH_THRESHOLD, API_BASE_URL, BOT_SECRET, DISCORD_GUILD_ID),
 ))
 
-client.on('messageUpdate', async (_, msg) => {
+client.on('messageUpdate', async (_: unknown, msg: Message | import('discord.js').PartialMessage) => {
   if (msg.channelId !== RESULTS_CHANNEL_ID || !msg.author?.bot) return
   const full = msg.partial ? await safeOp(() => msg.fetch(), 'fetch updated msg') : msg
   if (full) await processKTPMessage(
     full as Message,
     RESULTS_CHANNEL_ID,
-    async (parsed) => postWinnerVote(parsed.map, parsed.alliesScore, parsed.axisScore, parsed.winningSide ?? 'unknown'),
-    async (parsed) => _processDraftResult(parsed, MATCH_THRESHOLD, API_BASE_URL, BOT_SECRET, DISCORD_GUILD_ID),
+    async (parsed: import('./bridge/KTPBridge').ParsedKTP) => postWinnerVote(parsed.map, parsed.alliesScore, parsed.axisScore, parsed.winningSide ?? 'unknown'),
+    async (parsed: import('./bridge/KTPBridge').ParsedKTP) => _processDraftResult(parsed, MATCH_THRESHOLD, API_BASE_URL, BOT_SECRET, DISCORD_GUILD_ID),
   )
 })
 
