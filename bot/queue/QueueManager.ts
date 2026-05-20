@@ -59,7 +59,7 @@ export async function updateQueueEmbed(
   if (queueWebhook) {
     if (_queueMessageId) {
       const edited = await safeOp(
-        () => queueWebhook.editMessage(_queueMessageId!, { embeds: [embed], components: buttons }),
+        () => queueWebhook!.editMessage(_queueMessageId!, { embeds: [embed], components: buttons }),
         'edit queue embed via webhook',
       )
       if (edited) return

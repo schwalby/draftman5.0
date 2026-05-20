@@ -113,6 +113,7 @@ export async function initiateMatch(
 
   _activeMatch = {
     matchNumber: num,
+    status: 'gathering',
     textChannelId: textCh.id,
     gatherVoiceId: voiceCh.id,
     players: [...players],
@@ -163,9 +164,9 @@ export async function initiateMatch(
   setTimer(_activeMatch, 'activity', onActivityCheck, cfg.activity_window_minutes * 60 * 1000)
 
   if (testMode) {
-    clearTimer(_activeMatch, 'activity')
-    _activeMatch.activityCheckDone = true
-    _activeMatch.confirmedInVoice = new Set(realPlayers(players).map(p => p.discordId))
+    clearTimer(_activeMatch!, 'activity')
+    _activeMatch!.activityCheckDone = true
+    _activeMatch!.confirmedInVoice = new Set(realPlayers(players).map(p => p.discordId))
     setTimeout(() => onStartVoteSequence(), 2000)
   }
 }

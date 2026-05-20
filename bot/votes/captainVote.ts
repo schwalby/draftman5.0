@@ -3,6 +3,10 @@ import { A, ansi } from '../messaging/ansi'
 import { isOnCooldown, setCooldown } from '../cooldowns/cooldowns'
 import { runVote, tallyVotes, randomTiebreak, VoteConfig } from './VoteEngine'
 import { getConfig } from '../config/ConfigManager'
+import { client } from '../core/client'
+import { safeOp } from '../core/safeOp'
+import { TextChannel } from 'discord.js'
+import { matchSend } from '../match/MatchManager'
 
 // ── Captain vote ──────────────────────────────────────────────────────────────
 // Preserved exactly from index.ts — no logic changes
@@ -86,21 +90,8 @@ export async function resolveCaptainVote(
     notVoted.length ? `${A.white}Not voted: ${notVoted.join(', ')}${A.reset}` : '',
   ].filter(Boolean).join('\n')
 
-  // Send result via match webhook or bot channel
-  const { client } = await import('../core/client')
-  const { safeOp }  = await import('../core/safeOp')
-  const { TextChannel } = await import('discord.js')
-  if (match.matchWebhook) {
-    await safeOp(() => match.matchWebhook!.send({
-      username: 'DRAFT MAN 5.0',
-      avatarURL: client.user?.avatarURL() ?? undefined,
-      content: ansi(out),
-    }), 'send captain result')
-  } else {
-    const guild = client.guilds.cache.get(guildId)
-    const ch = guild?.channels.cache.get(match.textChannelId) as InstanceType<typeof TextChannel>
-    await safeOp(() => ch.send({ content: ansi(out) }), 'send captain result')
-  }
+  // Send result via matchSend
+  await matchSend(match, { content: ansi(out) }, 'send captain result', guildId)
 
   if (!top.fake)    await setCooldown(top.discordId, top.discordUsername)
   if (!second.fake) await setCooldown(second.discordId, second.discordUsername)

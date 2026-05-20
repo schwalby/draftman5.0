@@ -30,7 +30,7 @@ import { safeOp } from './core/safeOp'
 import { queueWebhook, webhookSend } from './messaging/WebhookSender'
 
 // ── Phase 4: config imports ───────────────────────────────────────────────────
-import { BotConfig } from './core/types'
+import { BotConfig, QueuePlayer, ActiveMatch, TimerKey } from './core/types'
 import { getConfig, loadConfig, saveQueueMessageId, getMapPool, updateConfig } from './config/ConfigManager'
 
 // ── Phase 5: persistence imports ──────────────────────────────────────────────
@@ -119,60 +119,8 @@ let TEST_MODE = process.env.TEST_MODE === 'true'
 
 
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface QueuePlayer {
-  discordId: string
-  discordUsername: string
-  joinedAt: number
-  fake?: boolean
-}
-
-type TimerKey =
-  | 'activity' | 'vote' | 'subWindow'
-  | 'captainInterval' | 'mapInterval' | 'serverInterval'
-
-interface ActiveMatch {
-  matchNumber: number
-  textChannelId: string
-  gatherVoiceId: string
-  teamAVoiceId?: string
-  teamBVoiceId?: string
-  players: QueuePlayer[]
-  waitlist: QueuePlayer[]
-  confirmedInVoice: Set<string>
-  activityCheckDone: boolean
-  captainA?: QueuePlayer
-  captainB?: QueuePlayer
-  teamA: QueuePlayer[]
-  teamB: QueuePlayer[]
-  voteOrder: string[]
-  currentStep: number
-  captainCandidates: QueuePlayer[]
-  captainVotes: Record<string, string>
-  mapOptions: string[]
-  mapVotes: Record<string, string>
-  serverVotes: Record<string, string>
-  winnerVotes: Record<string, string>
-  selectedMap?: string
-  selectedServer?: string
-  draftPickIndex: number
-  draftOrder: number[]
-  remainingPlayers: QueuePlayer[]
-  captainVoteEndTime: number
-  mapVoteEndTime: number
-  serverVoteEndTime: number
-  captainVoteMsgId?: string
-  captainVoteListMsgId?: string
-  mapVoteMsgId?: string
-  mapVoteListMsgId?: string
-  serverVoteMsgId?: string
-  serverVoteListMsgId?: string
-  draftMsgId?: string
-  winnerVoteMsgId?: string
-  dbMatchId?: string
-  matchWebhook?: WebhookClient
-  timers: Map<TimerKey, ReturnType<typeof setTimeout>>
-}
+// ── Types imported from core/types.ts ────────────────────────────────────────
+// QueuePlayer, ActiveMatch, TimerKey, MatchStatus defined in core/types.ts
 
 // ── Global state ──────────────────────────────────────────────────────────────
 // Queue state is now owned by QueueManager — use accessors
