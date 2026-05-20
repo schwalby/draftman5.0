@@ -55,6 +55,14 @@ import { startCaptainVote as _startCaptainVote } from './votes/captainVote'
 import { startMapVote as _startMapVote } from './votes/mapVote'
 import { startServerVote as _startServerVote } from './votes/serverVote'
 
+// ── Phase 10: draft manager import ────────────────────────────────────────────
+import {
+  startDraft as _startDraft,
+  sendDraftBoard as _sendDraftBoard,
+  handlePick as _handlePick,
+  startPostDraft as _startPostDraft,
+} from './draft/DraftManager'
+
 // ── Phase 9: match manager import ─────────────────────────────────────────────
 import {
   getActiveMatch, setActiveMatch,
@@ -291,135 +299,22 @@ async function startServerVote() {
   await _startServerVote(activeMatch, DISCORD_GUILD_ID, nextStep)
 }
 
-// ── Draft ─────────────────────────────────────────────────────────────────────
+// ── Draft — thin wrappers delegating to DraftManager ─────────────────────────
 async function startDraft() {
-  if (!activeMatch || !activeMatch.captainA || !activeMatch.captainB) return
-  activeMatch.draftOrder = [0, 1, 1, 0, 0, 1, 1, 0, 0, 1]
-  activeMatch.draftPickIndex = 0
-  activeMatch.teamA = [activeMatch.captainA]
-  activeMatch.teamB = [activeMatch.captainB]
-  activeMatch.remainingPlayers = activeMatch.players.filter(
-    p => p.discordId !== activeMatch!.captainA!.discordId && p.discordId !== activeMatch!.captainB!.discordId
-  )
-  if (!activeMatch.remainingPlayers.length) { await startPostDraft(); return }
-  await sendDraftBoard()
+  if (!activeMatch) return
+  await _startDraft(activeMatch, DISCORD_GUILD_ID, startPostDraft)
 }
-
 async function sendDraftBoard() {
-  if (!activeMatch?.captainA || !activeMatch.captainB) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-
-  const pickIdx = activeMatch.draftOrder[activeMatch.draftPickIndex]
-  const active = pickIdx === 0 ? activeMatch.captainA : activeMatch.captainB
-
-  const teamAText = activeMatch.teamA.map(p => `${A.green}${p.discordUsername}${A.reset}`).join('\n') || '—'
-  const teamBText = activeMatch.teamB.map(p => `${A.red}${p.discordUsername}${A.reset}`).join('\n') || '—'
-  const remaining = activeMatch.remainingPlayers.map((p, i) => `${A.white}${i + 1}) ${p.discordUsername}${A.reset}`).join('  ')
-
-  const embed = new EmbedBuilder()
-    .setTitle(`Draft — ${active.discordUsername} picks`)
-    .addFields(
-      { name: `🟢 ${activeMatch.captainA.discordUsername} (Allies)`, value: `\`\`\`ansi\n${teamAText}\n\`\`\``, inline: true },
-      { name: `🔴 ${activeMatch.captainB.discordUsername} (Axis)`, value: `\`\`\`ansi\n${teamBText}\n\`\`\``, inline: true },
-      { name: 'Remaining', value: `\`\`\`ansi\n${remaining}\n\`\`\``, inline: false },
-    )
-    .setColor(0x5865F2)
-
-  const labels = activeMatch.remainingPlayers.map((p, i) => `${i + 1}) ${p.discordUsername}`)
-  const rows = buttonRows(labels, 'draftpick')
-
-  if (activeMatch.draftMsgId) {
-    if (activeMatch.matchWebhook) {
-      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.draftMsgId!, { embeds: [embed], components: rows }), 'edit draft board')
-      return
-    }
-    const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-    const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-    const m = await safeOp(() => ch.messages.fetch(activeMatch!.draftMsgId!), 'fetch draft board')
-    if (m) { await safeOp(() => m.edit({ embeds: [embed], components: rows }), 'edit draft board'); return }
-  }
-  await matchSend({ content: getHeader('snakeDraft', botConfig.header_style) }, 'send draft header')
-  const msg = await matchSend({ embeds: [embed], components: rows }, 'send draft board')
-  if (msg) activeMatch.draftMsgId = msg.id
+  if (!activeMatch) return
+  await _sendDraftBoard(activeMatch, DISCORD_GUILD_ID, startPostDraft)
 }
-
 async function handlePick(idx: number) {
-  if (!activeMatch?.captainA || !activeMatch.captainB) return
-  const picked = activeMatch.remainingPlayers[idx]
-  if (!picked) return
-  if (activeMatch.draftOrder[activeMatch.draftPickIndex] === 0) activeMatch.teamA.push(picked)
-  else activeMatch.teamB.push(picked)
-  activeMatch.remainingPlayers.splice(idx, 1)
-  activeMatch.draftPickIndex++
-  if (!activeMatch.remainingPlayers.length) await startPostDraft()
-  else await sendDraftBoard()
+  if (!activeMatch) return
+  await _handlePick(activeMatch, idx, DISCORD_GUILD_ID, startPostDraft)
 }
-
-// ── Post-draft ────────────────────────────────────────────────────────────────
 async function startPostDraft() {
-  if (!activeMatch?.captainA || !activeMatch.captainB) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-  const num = activeMatch.matchNumber
-
-  const seen2 = new Set<string>([guild!.roles.everyone.id, client.user!.id])
-  const perms2: any[] = [
-    { id: guild!.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-    { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] },
-  ]
-  for (const p of activeMatch.players) {
-    if (!isFake(p) && !seen2.has(p.discordId)) {
-      perms2.push({ id: p.discordId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] })
-      seen2.add(p.discordId)
-    }
-  }
-
-  const voiceA = await safeOp(() => guild!.channels.create({ name: `${activeMatch!.captainA!.discordUsername} - #${num}`, type: ChannelType.GuildVoice, parent: QUEUE_CATEGORY_ID, permissionOverwrites: perms2 }), 'create team A voice')
-  const voiceB = await safeOp(() => guild!.channels.create({ name: `${activeMatch!.captainB!.discordUsername} - #${num}`, type: ChannelType.GuildVoice, parent: QUEUE_CATEGORY_ID, permissionOverwrites: perms2 }), 'create team B voice')
-  if (!voiceA || !voiceB) return
-
-  activeMatch.teamAVoiceId = voiceA.id
-  activeMatch.teamBVoiceId = voiceB.id
-
-  const moveAll = async (team: QueuePlayer[], dest: VoiceChannel) => {
-    for (const p of realPlayers(team)) {
-      const m = await safeOp(() => guild!.members.fetch(p.discordId), `fetch ${p.discordUsername}`)
-      if (m?.voice.channelId) await safeOp(() => m.voice.setChannel(dest.id), `move ${p.discordUsername}`)
-    }
-  }
-  await Promise.all([moveAll(activeMatch.teamA, voiceA as VoiceChannel), moveAll(activeMatch.teamB, voiceB as VoiceChannel)])
-
-  const { data: dbMatch } = await supabase.from('twelve_man_matches').insert({
-    match_number: num, guild_id: DISCORD_GUILD_ID, queue_channel_id: activeMatch.textChannelId,
-    captain_a_discord_id: activeMatch.captainA.discordId,
-    captain_b_discord_id: activeMatch.captainB.discordId,
-    team_a: activeMatch.teamA.map(p => ({ discord_id: p.discordId, username: p.discordUsername })),
-    team_b: activeMatch.teamB.map(p => ({ discord_id: p.discordId, username: p.discordUsername })),
-    map: activeMatch.selectedMap ?? null,
-    server_location: activeMatch.selectedServer ?? null,
-    status: 'in_progress',
-  }).select('id').maybeSingle()
-  if (dbMatch) activeMatch.dbMatchId = dbMatch.id
-
-  const embed = new EmbedBuilder()
-    .setTitle(`⚔️ Queue#${num}`)
-    .addFields(
-      { name: `🟢 ${activeMatch.captainA.discordUsername} (Allies)`, value: activeMatch.teamA.map(p => `<@${p.discordId}>`).join(' ') || '—', inline: true },
-      { name: `🔴 ${activeMatch.captainB.discordUsername} (Axis)`, value: activeMatch.teamB.map(p => `<@${p.discordId}>`).join(' ') || '—', inline: true },
-      { name: 'Map', value: activeMatch.selectedMap ?? 'TBD', inline: true },
-      { name: 'Location', value: activeMatch.selectedServer ?? 'TBD', inline: true },
-      { name: '🔊 Voice', value: `<#${voiceA.id}> · <#${voiceB.id}>`, inline: false },
-    )
-    .setColor(0x5865F2)
-
-  await matchSend({ content: getHeader('matchSummary', botConfig.header_style) }, 'send match summary header')
-  await matchSend({ embeds: [embed] }, 'send match summary')
-
-  // Delete gather voice channel — players have been moved to team channels
-  await safeOp(() => guild!.channels.cache.get(activeMatch!.gatherVoiceId)?.delete(), 'delete gather voice')
-
-  console.log(`[12man] Match #${num} ready`)
+  if (!activeMatch) return
+  await _startPostDraft(activeMatch, DISCORD_GUILD_ID, QUEUE_CATEGORY_ID)
 }
 
 // ── Winner vote ───────────────────────────────────────────────────────────────
