@@ -40,7 +40,7 @@ import { getConfig, loadConfig, saveQueueMessageId, getMapPool, updateConfig } f
 // ── Phase 5: persistence imports ──────────────────────────────────────────────
 import { persistPlayerJoin, persistPlayerLeave, clearPersistedQueue, loadQueueFromDB } from './queue/queuePersistence'
 import { loadMatchCounter } from './match/matchPersistence'
-import { isOnCooldown, setCooldown, decrementCooldowns } from './cooldowns/cooldowns'
+import { decrementCooldowns } from './cooldowns/cooldowns'
 
 // ── Phase 7: queue manager import ─────────────────────────────────────────────
 import {
@@ -49,6 +49,11 @@ import {
   updateQueueEmbed, requeueAll, clearQueue,
   buildQueueEmbed, buildQueueButtons,
 } from './queue/QueueManager'
+
+// ── Phase 8: vote module imports ──────────────────────────────────────────────
+import { startCaptainVote as _startCaptainVote } from './votes/captainVote'
+import { startMapVote as _startMapVote } from './votes/mapVote'
+import { startServerVote as _startServerVote } from './votes/serverVote'
 
 // ── Env validation ────────────────────────────────────────────────────────────
 const REQUIRED_ENV = [
@@ -363,249 +368,28 @@ async function nextStep() {
   await runStep()
 }
 
-// ── Captain vote ──────────────────────────────────────────────────────────────
+// ── Vote functions — thin wrappers delegating to vote modules ─────────────────
 async function startCaptainVote() {
   if (!activeMatch) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-
-  const eligible: QueuePlayer[] = []
-  for (const p of activeMatch.players) {
-    if (!isFake(p) && !await isOnCooldown(p.discordId)) eligible.push(p)
-    else if (isFake(p)) eligible.push(p) // fake players always eligible
-  }
-  activeMatch.captainCandidates = eligible
-
-  const end = Date.now() + botConfig.captain_vote_seconds * 1000
-  activeMatch.captainVoteEndTime = end
-
-  const buildEmbed = () => new EmbedBuilder()
-    .setTitle('⚔️ Vote for Captains')
-    .setDescription(`Vote closes in **${timeLeft(end)}** — you cannot vote for yourself`)
-    .setColor(0xF0B132)
-
-  const labels = eligible.map((p, i) => `${i + 1}) ${p.discordUsername}`)
-  await matchSend({ content: getHeader('captainVote', botConfig.header_style) }, 'send captain header')
-  const voteMsg = await matchSend({ content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch!.captainVotes, true)) }, 'send captain vote list')
-  const msg = await matchSend({ embeds: [buildEmbed()], components: buttonRows(labels, 'captvote') }, 'send captain vote')
-  if (msg) activeMatch.captainVoteMsgId = msg.id
-  if (voteMsg) activeMatch.captainVoteListMsgId = voteMsg.id
-
-  const interval = setInterval(async () => {
-    if (!activeMatch?.captainVoteMsgId) { clearTimer(activeMatch!, 'captainInterval'); return }
-    // Update timer embed via webhook or bot
-    if (activeMatch.matchWebhook) {
-      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.captainVoteMsgId!, { embeds: [buildEmbed()] }), 'update captain vote timer')
-      if (activeMatch.captainVoteListMsgId) await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.captainVoteListMsgId!, { content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch?.captainVotes ?? {}, true)) }), 'update captain vote list')
-    } else {
-      const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-      const ch = guild?.channels.cache.get(activeMatch!.textChannelId) as TextChannel
-      const m = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteMsgId!), 'fetch captain vote msg')
-      if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update captain vote timer')
-      if (activeMatch?.captainVoteListMsgId) {
-        const lm = await safeOp(() => ch.messages.fetch(activeMatch!.captainVoteListMsgId!), 'fetch captain list msg')
-        if (lm) await safeOp(() => lm.edit({ content: ansi(voteList(eligible.map(p => p.discordUsername), activeMatch?.captainVotes ?? {}, true)) }), 'update captain vote list')
-      }
-    }
-  }, 30000)
-  // Store interval handle directly in timers Map — clearTimeout works on intervals in Node.js
-  // This ensures cleanupMatch() can clear it even if the vote is mid-countdown
-  activeMatch.timers.set('captainInterval', interval as unknown as ReturnType<typeof setTimeout>)
-  setTimer(activeMatch, 'vote', () => { clearTimer(activeMatch!, 'captainInterval'); resolveCaptainVote(eligible) }, botConfig.captain_vote_seconds * 1000)
+  await _startCaptainVote(activeMatch, DISCORD_GUILD_ID, nextStep)
 }
 
-async function resolveCaptainVote(eligible: QueuePlayer[]) {
-  if (!activeMatch) return
-  clearTimer(activeMatch, 'vote')
-  clearTimer(activeMatch, 'captainInterval')
-
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-
-  const tally: Record<string, number> = {}
-  for (const voteStr of Object.values(activeMatch.captainVotes)) {
-    for (const id of voteStr.split(',').filter(Boolean)) {
-      tally[id] = (tally[id] ?? 0) + 1
-    }
-  }
-
-  const sorted = [...eligible].sort((a, b) => (tally[b.discordId] ?? 0) - (tally[a.discordId] ?? 0))
-  const top = sorted[0]
-  let second = sorted[1]
-  if (sorted.length > 2 && (tally[sorted[1]?.discordId] ?? 0) === (tally[sorted[2]?.discordId] ?? 0)) {
-    const tied = sorted.filter(p => (tally[p.discordId] ?? 0) === (tally[sorted[1].discordId] ?? 0))
-    second = tied[Math.floor(Math.random() * tied.length)]
-  }
-
-  activeMatch.captainA = top
-  activeMatch.captainB = second
-
-  const votedIds = Object.keys(activeMatch.captainVotes).filter(id => activeMatch!.captainVotes[id].length > 0)
-  const votedNames = votedIds.map(id => activeMatch!.players.find(p => p.discordId === id)?.discordUsername).filter(Boolean)
-  const notVotedNames = realPlayers(activeMatch.players).filter(p => !votedIds.includes(p.discordId)).map(p => p.discordUsername)
-
-  const out = [
-    `${A.bold}${A.yellow}⚔️ Captains Selected!${A.reset}`,
-    ``,
-    `${A.green}Allies: ${top.discordUsername}${A.reset}`,
-    `${A.red}Axis:   ${second.discordUsername}${A.reset}`,
-    ``,
-    `${A.cyan}Voted:     ${votedNames.length ? votedNames.join(', ') : 'none'}${A.reset}`,
-    notVotedNames.length ? `${A.white}Not voted: ${notVotedNames.join(', ')}${A.reset}` : '',
-  ].filter(Boolean).join('\n')
-
-  await matchSend({ content: ansi(out) }, 'send captain result')
-  if (!isFake(top)) await setCooldown(top.discordId, top.discordUsername)
-  if (!isFake(second)) await setCooldown(second.discordId, second.discordUsername)
-  await nextStep()
-}
-
-// ── Map vote ──────────────────────────────────────────────────────────────────
 async function startMapVote() {
   if (!activeMatch) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-
-  const pool = await getMapPool(DISCORD_GUILD_ID)
-  if (!pool.length) {
-    await matchSend({ content: '⚠️ No maps in pool — skipping map vote.' }, 'no maps msg')
-    activeMatch.selectedMap = 'TBD'
-    await nextStep()
-    return
-  }
-
-  const count = botConfig.map_count > 0 ? botConfig.map_count : pool.length
-  const maps = [...pool].sort(() => Math.random() - 0.5).slice(0, count)
-  activeMatch.mapOptions = maps
-
-  const end = Date.now() + botConfig.map_vote_seconds * 1000
-  activeMatch.mapVoteEndTime = end
-
-  const buildEmbed = () => new EmbedBuilder()
-    .setTitle('🗺️ Map Selection')
-    .setDescription(`Vote closes in **${timeLeft(end)}**`)
-    .setColor(0x2D7D46)
-
-  await matchSend({ content: getHeader('mapSelection', botConfig.header_style) }, 'send map header')
-  const voteMsg = await matchSend({ content: ansi(voteList(maps, activeMatch!.mapVotes, true)) }, 'send map vote list')
-  const msg = await matchSend({ embeds: [buildEmbed()], components: buttonRows(maps.map((m, i) => `${i + 1}) ${m}`), 'mapvote') }, 'send map vote')
-  if (msg) activeMatch.mapVoteMsgId = msg.id
-  if (voteMsg) activeMatch.mapVoteListMsgId = voteMsg.id
-
-  const interval = setInterval(async () => {
-    if (!activeMatch?.mapVoteMsgId) { clearTimer(activeMatch!, 'mapInterval'); return }
-    if (activeMatch.matchWebhook) {
-      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.mapVoteMsgId!, { embeds: [buildEmbed()] }), 'update map timer')
-      if (activeMatch.mapVoteListMsgId) await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.mapVoteListMsgId!, { content: ansi(voteList(maps, activeMatch?.mapVotes ?? {}, true)) }), 'update map list')
-    } else {
-      const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-      const ch = guild?.channels.cache.get(activeMatch!.textChannelId) as TextChannel
-      const m = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteMsgId!), 'fetch map vote')
-      if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update map timer')
-      if (activeMatch?.mapVoteListMsgId) {
-        const lm = await safeOp(() => ch.messages.fetch(activeMatch!.mapVoteListMsgId!), 'fetch map list')
-        if (lm) await safeOp(() => lm.edit({ content: ansi(voteList(maps, activeMatch?.mapVotes ?? {}, true)) }), 'update map list')
-      }
-    }
-  }, 30000)
-  activeMatch.timers.set('mapInterval', interval as unknown as ReturnType<typeof setTimeout>)
-  setTimer(activeMatch, 'vote', () => { clearTimer(activeMatch!, 'mapInterval'); resolveMapVote(maps) }, botConfig.map_vote_seconds * 1000)
+  await _startMapVote(
+    activeMatch,
+    DISCORD_GUILD_ID,
+    nextStep,
+    async (reason) => {
+      activeMatch!.selectedMap = reason
+      await nextStep()
+    },
+  )
 }
 
-async function resolveMapVote(maps: string[]) {
-  if (!activeMatch) return
-  clearTimer(activeMatch, 'vote')
-  clearTimer(activeMatch, 'mapInterval')
-
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-
-  const tally: Record<string, number> = {}
-  for (const m of Object.values(activeMatch.mapVotes)) tally[m] = (tally[m] ?? 0) + 1
-  const sorted = [...maps].sort((a, b) => (tally[b] ?? 0) - (tally[a] ?? 0))
-  const top = tally[sorted[0]] ?? 0
-  const tied = sorted.filter(m => (tally[m] ?? 0) === top)
-  const selected = tied[Math.floor(Math.random() * tied.length)]
-  activeMatch.selectedMap = selected
-
-  const votedIds = Object.keys(activeMatch.mapVotes)
-  const votedNames = votedIds.map(id => activeMatch!.players.find(p => p.discordId === id)?.discordUsername).filter(Boolean)
-  const notVoted = realPlayers(activeMatch.players).filter(p => !votedIds.includes(p.discordId)).map(p => p.discordUsername)
-
-  const out = [
-    `${A.bold}${A.green}🗺️ Map: ${selected}${A.reset}`,
-    `${A.cyan}Voted:     ${votedNames.length ? votedNames.join(', ') : 'none'}${A.reset}`,
-    notVoted.length ? `${A.white}Not voted: ${notVoted.join(', ')}${A.reset}` : '',
-  ].filter(Boolean).join('\n')
-
-  await matchSend({ content: ansi(out) }, 'send map result')
-  await nextStep()
-}
-
-// ── Server vote ───────────────────────────────────────────────────────────────
 async function startServerVote() {
   if (!activeMatch) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-  const servers = botConfig.server_locations
-  const end = Date.now() + botConfig.server_vote_seconds * 1000
-  activeMatch.serverVoteEndTime = end
-
-  const buildEmbed = () => new EmbedBuilder()
-    .setTitle('🖥️ Server Location')
-    .setDescription(`Vote closes in **${timeLeft(end)}**`)
-    .setColor(0x5865F2)
-
-  await matchSend({ content: getHeader('serverLocation', botConfig.header_style) }, 'send server header')
-  const voteMsg = await matchSend({ content: ansi(voteList(servers, activeMatch!.serverVotes, true)) }, 'send server vote list')
-  const msg = await matchSend({ embeds: [buildEmbed()], components: buttonRows(servers.map((s, i) => `${i + 1}) ${s}`), 'servervote') }, 'send server vote')
-  if (msg) activeMatch.serverVoteMsgId = msg.id
-  if (voteMsg) activeMatch.serverVoteListMsgId = voteMsg.id
-
-  const interval = setInterval(async () => {
-    if (!activeMatch?.serverVoteMsgId) { clearTimer(activeMatch!, 'serverInterval'); return }
-    if (activeMatch.matchWebhook) {
-      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.serverVoteMsgId!, { embeds: [buildEmbed()] }), 'update server timer')
-      if (activeMatch.serverVoteListMsgId) await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.serverVoteListMsgId!, { content: ansi(voteList(servers, activeMatch?.serverVotes ?? {}, true)) }), 'update server list')
-    } else {
-      const guild2 = client.guilds.cache.get(DISCORD_GUILD_ID)
-      const ch2 = guild2?.channels.cache.get(activeMatch!.textChannelId) as TextChannel
-      const m = await safeOp(() => ch2.messages.fetch(activeMatch!.serverVoteMsgId!), 'fetch server vote')
-      if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update server timer')
-    }
-  }, 30000)
-  activeMatch.timers.set('serverInterval', interval as unknown as ReturnType<typeof setTimeout>)
-  setTimer(activeMatch, 'vote', () => { clearTimer(activeMatch!, 'serverInterval'); resolveServerVote(servers) }, botConfig.server_vote_seconds * 1000)
-}
-
-async function resolveServerVote(servers: string[]) {
-  if (!activeMatch) return
-  clearTimer(activeMatch, 'vote')
-  clearTimer(activeMatch, 'serverInterval')
-
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-
-  const tally: Record<string, number> = {}
-  for (const s of Object.values(activeMatch.serverVotes)) tally[s] = (tally[s] ?? 0) + 1
-  const sorted = [...servers].sort((a, b) => (tally[b] ?? 0) - (tally[a] ?? 0))
-  const top = tally[sorted[0]] ?? 0
-  const tied = sorted.filter(s => (tally[s] ?? 0) === top)
-  const selected = tied[Math.floor(Math.random() * tied.length)]
-  activeMatch.selectedServer = selected
-
-  const votedIds = Object.keys(activeMatch.serverVotes)
-  const votedNames = votedIds.map(id => activeMatch!.players.find(p => p.discordId === id)?.discordUsername).filter(Boolean)
-  const notVoted = realPlayers(activeMatch.players).filter(p => !votedIds.includes(p.discordId)).map(p => p.discordUsername)
-
-  const out = [
-    `${A.bold}${A.cyan}🖥️ Server: ${selected}${A.reset}`,
-    `${A.cyan}Voted:     ${votedNames.length ? votedNames.join(', ') : 'none'}${A.reset}`,
-    notVoted.length ? `${A.white}Not voted: ${notVoted.join(', ')}${A.reset}` : '',
-  ].filter(Boolean).join('\n')
-
-  await matchSend({ content: ansi(out) }, 'send server result')
-  await nextStep()
+  await _startServerVote(activeMatch, DISCORD_GUILD_ID, nextStep)
 }
 
 // ── Draft ─────────────────────────────────────────────────────────────────────
