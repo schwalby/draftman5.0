@@ -2,9 +2,6 @@ import 'dotenv/config'
 import {
   GatewayIntentBits,
   Message,
-  REST,
-  Routes,
-  SlashCommandBuilder,
   ChatInputCommandInteraction,
   ButtonBuilder,
   ButtonStyle,
@@ -74,6 +71,11 @@ import {
 
 // ── Phase 12: KTP bridge import ───────────────────────────────────────────────
 import { processKTPMessage, processDraftResult as _processDraftResult } from './bridge/KTPBridge'
+
+// ── Phase 13: commands and interactions imports ───────────────────────────────
+import { commands, registerCommands as _registerCommands } from './commands/registry'
+import { handleVerify as _handleVerify, handleVerifyLoggedIn } from './commands/verify'
+import { isRateLimited } from './interactions/rateLimiter'
 
 // ── Phase 9: match manager import ─────────────────────────────────────────────
 import {
@@ -179,7 +181,6 @@ let queuePlayers:   QueuePlayer[]  = []  // synced via setQueue()
 let queueWaitlist:  QueuePlayer[]  = []  // synced via setWaitlist()
 let queueMessageId: string | null  = null
 const bannedPlayers        = getBanned()
-const interactionCooldowns = new Map<string, number>()
 
 // activeMatch — synced variable that mirrors MatchManager state
 // getActiveMatch() is the source of truth; activeMatch is a local alias
@@ -215,13 +216,6 @@ const botConfig = new Proxy({} as ReturnType<typeof getConfig>, {
 // ── Utilities ─────────────────────────────────────────────────────────────────
 function isFake(p: QueuePlayer) { return p.fake === true }
 function realPlayers(players: QueuePlayer[]) { return players.filter(p => !isFake(p)) }
-
-function isRateLimited(userId: string): boolean {
-  const last = interactionCooldowns.get(userId) ?? 0
-  if (Date.now() - last < 800) return true
-  interactionCooldowns.set(userId, Date.now())
-  return false
-}
 
 async function isAdmin(interaction: ChatInputCommandInteraction | ButtonInteraction): Promise<boolean> {
   const member = interaction.member as GuildMember
@@ -361,87 +355,12 @@ async function cleanupMatch() {
   console.log('[12man] Match cleaned up')
 }
 
-// ── /verify ───────────────────────────────────────────────────────────────────
-async function sendVerifyLink(interaction: ChatInputCommandInteraction | ButtonInteraction, discordId: string, discordUsername: string, followUp = false) {
-  const res = await fetch(`${API_BASE_URL}/api/verify/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-bot-secret': BOT_SECRET },
-    body: JSON.stringify({ discord_id: discordId, discord_username: discordUsername }),
-  })
-  if (!res.ok) {
-    const msg = res.status === 429 ? '⏳ Too many attempts. Wait 10 minutes.' : '❌ Something went wrong. Try again.'
-    if (followUp) await (interaction as ButtonInteraction).followUp({ content: msg, flags: 64 })
-    else await interaction.editReply({ content: msg })
-    return
-  }
-  const data = await res.json() as { already_verified?: boolean; steam_name?: string; url?: string }
-  if (data.already_verified) {
-    const msg = `✅ Already verified — **${data.steam_name}** is linked.`
-    if (followUp) await (interaction as ButtonInteraction).followUp({ content: msg, flags: 64 })
-    else await interaction.editReply({ content: msg })
-    return
-  }
-  const content = [`**DRAFT MAN 5.0 — Steam Verification**`, ``, `🔗 ${data.url}`, ``, `Your Steam profile must be **public** during verification.`].join('\n')
-  if (followUp) await (interaction as ButtonInteraction).followUp({ content, flags: 64 })
-  else await interaction.editReply({ content })
+async function registerCommands() {
+  await _registerCommands(DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID)
 }
 
 async function handleVerify(interaction: ChatInputCommandInteraction) {
-  await interaction.deferReply({ flags: 64 })
-  const { id: discordId, username: discordUsername } = interaction.user
-  try {
-    const { data: user } = await supabase.from('users').select('id').eq('discord_id', discordId).maybeSingle()
-    if (!user) {
-      const btn = new ButtonBuilder().setCustomId(`verify_loggedin_${discordId}`).setLabel("✓  I'm signed in — send me the link").setStyle(ButtonStyle.Success)
-      await interaction.editReply({
-        content: [`**You need a DRAFTMAN5.0 account first.**`, ``, `🔗 ${API_BASE_URL}/api/auth/signin/discord`, ``, `Sign in with Discord, then click the button below.`].join('\n'),
-        components: [new ActionRowBuilder<ButtonBuilder>().addComponents(btn)],
-      })
-      return
-    }
-    await sendVerifyLink(interaction, discordId, discordUsername)
-  } catch (err) {
-    console.error('[bot] /verify error:', err)
-    await interaction.editReply({ content: '❌ An error occurred. Try again.' })
-  }
-}
-
-// ── /12man commands ───────────────────────────────────────────────────────────
-const commands = [
-  new SlashCommandBuilder().setName('verify').setDescription('Link your Steam account').toJSON(),
-  new SlashCommandBuilder()
-    .setName('12man').setDescription('12 man queue commands')
-    .addSubcommand(s => s.setName('init').setDescription('Post the queue embed'))
-    .addSubcommand(s => s.setName('clear').setDescription('Clear the queue'))
-    .addSubcommand(s => s.setName('forcestart').setDescription('Force start with current players'))
-    .addSubcommand(s => s.setName('cancel').setDescription('Cancel active match and re-queue all'))
-    .addSubcommand(s => s.setName('settings').setDescription('View and change bot settings'))
-    .addSubcommand(s => s.setName('testmode').setDescription('Toggle test mode'))
-    .addSubcommand(s => s.setName('config').setDescription('View current config'))
-    .addSubcommand(s =>
-      s.setName('cooldown').setDescription('Manage captain cooldowns')
-        .addStringOption(o => o.setName('action').setDescription('reset or list').setRequired(true)
-          .addChoices({ name: 'reset', value: 'reset' }, { name: 'list', value: 'list' }))
-        .addUserOption(o => o.setName('player').setDescription('Player')))
-    .addSubcommand(s =>
-      s.setName('player').setDescription('Manage queue players')
-        .addStringOption(o => o.setName('action').setDescription('add, remove, ban, unban, or sub').setRequired(true)
-          .addChoices(
-            { name: 'add', value: 'add' }, { name: 'remove', value: 'remove' },
-            { name: 'ban', value: 'ban' }, { name: 'unban', value: 'unban' },
-            { name: 'sub', value: 'sub' },
-          ))
-        .addUserOption(o => o.setName('player').setDescription('Target player').setRequired(true))
-        .addUserOption(o => o.setName('replacement').setDescription('Replacement (for sub)')))
-    .toJSON(),
-]
-
-async function registerCommands() {
-  const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN)
-  try {
-    await rest.put(Routes.applicationGuildCommands(DISCORD_CLIENT_ID, DISCORD_GUILD_ID), { body: commands })
-    console.log('[bot] Commands registered')
-  } catch (err) { console.error('[bot] Command registration failed:', err) }
+  await _handleVerify(interaction, API_BASE_URL, BOT_SECRET)
 }
 
 async function handle12Man(interaction: ChatInputCommandInteraction) {
@@ -688,13 +607,7 @@ client.on('interactionCreate', async interaction => {
 
   // Verify button
   if (id.startsWith('verify_loggedin_')) {
-    await interaction.deferUpdate()
-    const { data: u } = await supabase.from('users').select('id').eq('discord_id', user.id).maybeSingle()
-    if (!u) {
-      await interaction.followUp({ content: [`❌ Can't find your account.`, `🔗 ${API_BASE_URL}/api/auth/signin/discord`, `Sign in, then try again.`].join('\n'), flags: 64 })
-      return
-    }
-    await sendVerifyLink(interaction, user.id, user.username, true)
+    await handleVerifyLoggedIn(interaction, API_BASE_URL, BOT_SECRET)
     return
   }
 
