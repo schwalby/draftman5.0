@@ -40,7 +40,7 @@ import { getConfig, loadConfig, saveQueueMessageId, getMapPool, updateConfig } f
 // ── Phase 5: persistence imports ──────────────────────────────────────────────
 import { persistPlayerJoin, persistPlayerLeave, clearPersistedQueue, loadQueueFromDB } from './queue/queuePersistence'
 import { loadMatchCounter } from './match/matchPersistence'
-import { decrementCooldowns } from './cooldowns/cooldowns'
+
 
 // ── Phase 7: queue manager import ─────────────────────────────────────────────
 import {
@@ -62,6 +62,16 @@ import {
   handlePick as _handlePick,
   startPostDraft as _startPostDraft,
 } from './draft/DraftManager'
+
+// ── Phase 11: result manager import ───────────────────────────────────────────
+import {
+  initiateResult,
+  handleWinnerVote as _handleWinnerVote,
+  resolveWinner as _resolveWinner,
+  postWinnerVote as _postWinnerVote,
+  isPlayerLocked,
+  getPendingResult,
+} from './result/ResultManager'
 
 // ── Phase 9: match manager import ─────────────────────────────────────────────
 import {
@@ -247,6 +257,8 @@ async function cancelMatch(players: QueuePlayer[]) {
   syncMatch()
 }
 async function cleanupMatch() {
+  const match = getActiveMatch()
+  if (match) await initiateResult(match, DISCORD_GUILD_ID, QUEUE_CHANNEL_ID)
   await _cleanupMatch(DISCORD_GUILD_ID)
   syncMatch()
 }
@@ -317,119 +329,16 @@ async function startPostDraft() {
   await _startPostDraft(activeMatch, DISCORD_GUILD_ID, QUEUE_CATEGORY_ID)
 }
 
-// ── Winner vote ───────────────────────────────────────────────────────────────
+// ── Result — thin wrappers delegating to ResultManager ────────────────────────
 async function postWinnerVote(map: string | null, alliesScore: number, axisScore: number, side: string) {
-  if (!activeMatch?.captainA || !activeMatch.captainB) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-
-  const embed = new EmbedBuilder()
-    .setTitle(`🏆 Winner for Queue#${activeMatch.matchNumber} 🏆`)
-    .setDescription(`**${side} wins ${alliesScore}-${axisScore}${map ? ` on ${map}` : ''}**\n\n${botConfig.vote_threshold} votes required`)
-    .addFields(
-      { name: activeMatch.captainA.discordUsername, value: 'Votes: 0', inline: true },
-      { name: activeMatch.captainB.discordUsername, value: 'Votes: 0', inline: true },
-      { name: 'Tie', value: 'Votes: 0', inline: true },
-    )
-    .setColor(0xF0B132)
-
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId('winner_a').setLabel(activeMatch.captainA.discordUsername).setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('winner_b').setLabel(activeMatch.captainB.discordUsername).setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('winner_tie').setLabel('Tie').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('vote_mvp').setLabel('🏆 Vote MVP').setStyle(ButtonStyle.Success),
-  )
-
-  const msg = await matchSend({ embeds: [embed], components: [row] }, 'send winner vote')
-  if (msg) activeMatch.winnerVoteMsgId = msg.id
+  if (!activeMatch) return
+  await _postWinnerVote(activeMatch, map, alliesScore, axisScore, side, DISCORD_GUILD_ID, QUEUE_CHANNEL_ID)
 }
-
 async function handleWinnerVote(voterId: string, choice: 'a' | 'b' | 'tie') {
-  if (!activeMatch?.captainA || !activeMatch.captainB) return
-  activeMatch.winnerVotes[voterId] = choice
-
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-  const aCount = Object.values(activeMatch.winnerVotes).filter(v => v === 'a').length
-  const bCount = Object.values(activeMatch.winnerVotes).filter(v => v === 'b').length
-  const tCount = Object.values(activeMatch.winnerVotes).filter(v => v === 'tie').length
-  const remaining = Math.max(0, botConfig.vote_threshold - Math.max(aCount, bCount, tCount))
-
-  if (activeMatch.winnerVoteMsgId) {
-    const updatedEmbed = new EmbedBuilder()
-      .setTitle(`🏆 Winner for Queue#${activeMatch.matchNumber} 🏆`)
-      .setDescription(`${botConfig.vote_threshold} votes required`)
-      .setColor(0xF0B132)
-      .addFields(
-        { name: activeMatch.captainA.discordUsername, value: `Votes: ${aCount}`, inline: true },
-        { name: activeMatch.captainB.discordUsername, value: `Votes: ${bCount}`, inline: true },
-        { name: 'Tie', value: `Votes: ${tCount}`, inline: true },
-        { name: '\u200b', value: `${remaining} more votes required`, inline: false },
-      )
-    if (activeMatch.matchWebhook) {
-      await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.winnerVoteMsgId!, { embeds: [updatedEmbed] }), 'update winner vote')
-    } else {
-      const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-      const ch = guild?.channels.cache.get(activeMatch.textChannelId) as TextChannel
-      const m = await safeOp(() => ch.messages.fetch(activeMatch!.winnerVoteMsgId!), 'fetch winner vote')
-      if (m) await safeOp(() => m.edit({ embeds: [updatedEmbed] }), 'update winner vote')
-    }
-  }
-
-  if (aCount >= botConfig.vote_threshold || bCount >= botConfig.vote_threshold || tCount >= botConfig.vote_threshold) {
-    const winner = aCount >= botConfig.vote_threshold ? 'a' : bCount >= botConfig.vote_threshold ? 'b' : 'tie'
-    await resolveWinner(winner)
-  }
+  await _handleWinnerVote(voterId, choice, DISCORD_GUILD_ID, QUEUE_CHANNEL_ID)
 }
-
 async function resolveWinner(winner: 'a' | 'b' | 'tie') {
-  if (!activeMatch?.captainA || !activeMatch.captainB) return
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const winCap  = winner === 'a' ? activeMatch.captainA : winner === 'b' ? activeMatch.captainB : null
-  const loseCap = winner === 'a' ? activeMatch.captainB.discordUsername : activeMatch.captainA.discordUsername
-  const winTeam = winner === 'a' ? activeMatch.teamA : winner === 'b' ? activeMatch.teamB : []
-  const loseTeam = winner === 'a' ? activeMatch.teamB : winner === 'b' ? activeMatch.teamA : []
-
-  if (activeMatch.dbMatchId) {
-    await supabase.from('twelve_man_matches').update({ winner_side: winner, status: 'complete', completed_at: new Date().toISOString() }).eq('id', activeMatch.dbMatchId)
-  }
-  if (!isFake(activeMatch.captainA) && !isFake(activeMatch.captainB)) {
-    await decrementCooldowns(activeMatch.captainA.discordId, activeMatch.captainB.discordId)
-  }
-
-  const qCh = guild?.channels.cache.get(QUEUE_CHANNEL_ID) as TextChannel
-  const winMentions  = realPlayers(winTeam).map(p => `<@${p.discordId}>`).join(' ')
-  const loseMentions = realPlayers(loseTeam).map(p => `<@${p.discordId}>`).join(' ')
-
-  const publicEmbed = new EmbedBuilder()
-    .setTitle(`🏆 Winner for Queue#${activeMatch.matchNumber} 🏆`)
-    .addFields(
-      winner !== 'tie'
-        ? [
-            { name: `${winCap!.discordUsername} — Winners`, value: winMentions || '—', inline: true },
-            { name: `${loseCap} — Losers`, value: loseMentions || '—', inline: true },
-          ]
-        : [
-            { name: activeMatch.captainA.discordUsername, value: realPlayers(activeMatch.teamA).map(p => `<@${p.discordId}>`).join(' ') || '—', inline: true },
-            { name: activeMatch.captainB.discordUsername, value: realPlayers(activeMatch.teamB).map(p => `<@${p.discordId}>`).join(' ') || '—', inline: true },
-            { name: 'Result', value: 'Tie', inline: false },
-          ]
-    )
-    .setColor(winner === 'tie' ? 0x949BA4 : 0xF0B132)
-
-  const mvpRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId('vote_mvp_public').setLabel('🏆 Vote MVP').setStyle(ButtonStyle.Success),
-  )
-  if (queueWebhook) {
-    await webhookSend(queueWebhook, { content: getHeader('winner', botConfig.header_style) }, 'post winner header via webhook')
-    await webhookSend(queueWebhook, { embeds: [publicEmbed], components: [mvpRow] }, 'post public result via webhook')
-  } else {
-    await safeOp(() => qCh.send({ content: getHeader('winner', botConfig.header_style) }), 'post winner header')
-    await safeOp(() => qCh.send({ embeds: [publicEmbed], components: [mvpRow] }), 'post public result')
-  }
-
-  await matchSend({ content: '✅ Result confirmed! Deleting channels in 18 seconds.' }, 'send cleanup notice')
-  setTimeout(() => cleanupMatch(), 18000)
+  await _resolveWinner(winner, DISCORD_GUILD_ID, QUEUE_CHANNEL_ID)
 }
 
 // ── Cleanup ───────────────────────────────────────────────────────────────────
@@ -893,6 +802,7 @@ client.on('interactionCreate', async interaction => {
       await interaction.reply({ content: '❌ Run `/verify` first.', flags: 64 }); return
     }
     if (bannedPlayers.has(user.id)) { await interaction.reply({ content: '❌ You are banned from the queue.', flags: 64 }); return }
+    if (isPlayerLocked(user.id)) { await interaction.reply({ content: '⏳ Queue is locked — please vote for the match winner first.', flags: 64 }); return }
     if (queuePlayers.find(p => p.discordId === user.id)) { await interaction.reply({ content: '⚠️ Already in queue.', flags: 64 }); return }
     if (activeMatch) {
       if (queueWaitlist.find(p => p.discordId === user.id)) { await interaction.reply({ content: '⚠️ Already on waitlist.', flags: 64 }); return }
@@ -1143,9 +1053,11 @@ client.on('interactionCreate', async interaction => {
 
   // Winner vote
   if (['winner_a', 'winner_b', 'winner_tie'].includes(id)) {
-    if (!activeMatch) return
-    if (!activeMatch.players.find(p => p.discordId === user.id)) { await interaction.reply({ content: '❌ You are not a participant in this match.', flags: 64 }); return }
-    if (activeMatch.winnerVotes[user.id]) { await interaction.reply({ content: '⚠️ Already voted.', flags: 64 }); return }
+    const pending = getPendingResult()
+    if (!pending) return
+    const isParticipant = [...pending.teamA, ...pending.teamB].some(p => p.discordId === user.id)
+    if (!isParticipant) { await interaction.reply({ content: '❌ You are not a participant in this match.', flags: 64 }); return }
+    if (pending.winnerVotes[user.id]) { await interaction.reply({ content: '⚠️ Already voted.', flags: 64 }); return }
     await interaction.deferUpdate()
     await handleWinnerVote(user.id, id === 'winner_a' ? 'a' : id === 'winner_b' ? 'b' : 'tie')
     return
