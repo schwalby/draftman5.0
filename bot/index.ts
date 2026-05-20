@@ -42,6 +42,14 @@ import { persistPlayerJoin, persistPlayerLeave, clearPersistedQueue, loadQueueFr
 import { loadMatchCounter } from './match/matchPersistence'
 import { isOnCooldown, setCooldown, decrementCooldowns } from './cooldowns/cooldowns'
 
+// ── Phase 7: queue manager import ─────────────────────────────────────────────
+import {
+  getQueue, getWaitlist, getBanned, getMessageId,
+  setQueue, setWaitlist, setMessageId,
+  updateQueueEmbed, requeueAll, clearQueue,
+  buildQueueEmbed, buildQueueButtons,
+} from './queue/QueueManager'
+
 // ── Env validation ────────────────────────────────────────────────────────────
 const REQUIRED_ENV = [
   'DISCORD_BOT_TOKEN', 'DISCORD_CLIENT_ID', 'DISCORD_GUILD_ID',
@@ -123,12 +131,14 @@ interface ActiveMatch {
 }
 
 // ── Global state ──────────────────────────────────────────────────────────────
-let queuePlayers: QueuePlayer[]  = []
-let queueWaitlist: QueuePlayer[] = []
-let queueMessageId: string | null = null
-let activeMatch: ActiveMatch | null = null
+// Queue state is now owned by QueueManager — use accessors
+// These shims preserve all existing references in index.ts without changes
+let queuePlayers:   QueuePlayer[]  = []  // synced via setQueue()
+let queueWaitlist:  QueuePlayer[]  = []  // synced via setWaitlist()
+let queueMessageId: string | null  = null
+let activeMatch:    ActiveMatch | null = null
 let matchCounter = 0
-const bannedPlayers = new Set<string>()
+const bannedPlayers        = getBanned()
 const interactionCooldowns = new Map<string, number>()
 
 // ── Config proxy ──────────────────────────────────────────────────────────────
@@ -181,56 +191,6 @@ async function matchSend(payload: Parameters<WebhookClient['send']>[0], label: s
   if (!activeMatch) return null
   return _matchSend(payload, label, activeMatch.matchWebhook, activeMatch.textChannelId, DISCORD_GUILD_ID)
 }
-// ── Queue embed ───────────────────────────────────────────────────────────────
-function buildQueueEmbed(): EmbedBuilder {
-  const list = queuePlayers.map(p => `<@${p.discordId}>`).join(' ')
-  return new EmbedBuilder()
-    .setTitle('12 Man Queue')
-    .setDescription(`Queue ${queuePlayers.length}/${botConfig.queue_size}${list ? `\n${list}` : ''}`)
-    .setColor(0x5865F2)
-}
-function buildQueueButtons(): ActionRowBuilder<ButtonBuilder>[] {
-  return [new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId('queue_join').setLabel('Join Queue').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('queue_leave').setLabel('Leave Queue').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setLabel('Web Queue ↗').setStyle(ButtonStyle.Link).setURL(API_BASE_URL),
-  )]
-}
-async function updateQueueEmbed() {
-  const guild = client.guilds.cache.get(DISCORD_GUILD_ID)
-  const channel = guild?.channels.cache.get(QUEUE_CHANNEL_ID) as TextChannel
-  if (!channel) return
-
-  if (queueWebhook) {
-    // Use webhook for NeatQueue-style colored border
-    if (queueMessageId) {
-      const edited = await safeOp(() => queueWebhook.editMessage(queueMessageId!, { embeds: [buildQueueEmbed()], components: buildQueueButtons() }), 'edit queue embed via webhook')
-      if (edited) return
-    }
-    const msg = await webhookSend(queueWebhook, { embeds: [buildQueueEmbed()], components: buildQueueButtons() }, 'send queue embed via webhook')
-    if (msg) await saveQueueMessageId(msg.id, DISCORD_GUILD_ID)
-    return
-  }
-
-  // Fallback: bot message if no webhook configured
-  if (queueMessageId) {
-    const msg = await safeOp(() => channel.messages.fetch(queueMessageId!), 'fetch queue embed')
-    if (msg) { await safeOp(() => msg.edit({ embeds: [buildQueueEmbed()], components: buildQueueButtons() }), 'edit queue embed'); return }
-  }
-  const msg = await safeOp(() => channel.send({ embeds: [buildQueueEmbed()], components: buildQueueButtons() }), 'send queue embed')
-  if (msg) await saveQueueMessageId(msg.id, DISCORD_GUILD_ID)
-}
-
-// ── Re-queue ──────────────────────────────────────────────────────────────────
-async function requeueAll(players: QueuePlayer[]) {
-  const existing = new Set(queuePlayers.map(p => p.discordId))
-  const toAdd = players.filter(p => !isFake(p) && !existing.has(p.discordId) && !bannedPlayers.has(p.discordId))
-  queuePlayers = [...toAdd, ...queuePlayers].slice(0, botConfig.queue_size)
-  for (const p of toAdd) await persistPlayerJoin(p)
-  await updateQueueEmbed()
-  console.log(`[12man] Re-queued ${toAdd.length} players`)
-}
-
 // ── Match initiation ──────────────────────────────────────────────────────────
 async function initiateMatch(players: QueuePlayer[], waitlist: QueuePlayer[]) {
   if (activeMatch) return
@@ -379,7 +339,7 @@ async function tryNextSub(afk: QueuePlayer[], idx: number) {
 async function cancelMatch(players: QueuePlayer[]) {
   const saved = [...players]
   await cleanupMatch()
-  await requeueAll(saved)
+  await requeueAll(saved, DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
 }
 
 // ── Vote sequence ─────────────────────────────────────────────────────────────
@@ -1006,7 +966,7 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
 
   if (sub === 'init') {
     await interaction.deferReply()
-    await updateQueueEmbed()
+    await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
     await interaction.editReply({ content: '✅ Queue embed posted.' })
     return
   }
@@ -1016,7 +976,7 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
     queuePlayers = []
     queueWaitlist = []
     await clearPersistedQueue()
-    await updateQueueEmbed()
+    await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
     await interaction.editReply({ content: '✅ Queue cleared.' })
     return
   }
@@ -1097,7 +1057,7 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
     queuePlayers = []
     queueWaitlist = []
     await clearPersistedQueue()
-    await updateQueueEmbed()
+    await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
     await initiateMatch(players, waitlist)
     await interaction.editReply({ content: `✅ Started with ${players.length} players${TEST_MODE ? ' (TEST MODE)' : ''}.` })
     return
@@ -1146,11 +1106,11 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
       const p: QueuePlayer = { discordId: target.id, discordUsername: target.username, joinedAt: Date.now() }
       queuePlayers.push(p)
       await persistPlayerJoin(p)
-      await updateQueueEmbed()
+      await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
       if (queuePlayers.length >= botConfig.queue_size) {
         const players = [...queuePlayers]; const wl = [...queueWaitlist]
         queuePlayers = []; queueWaitlist = []
-        await clearPersistedQueue(); await updateQueueEmbed()
+        await clearPersistedQueue(); await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
         await initiateMatch(players, wl)
       }
       await interaction.editReply({ content: `✅ **${target.username}** added.` })
@@ -1162,7 +1122,7 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
       if (idx !== -1) {
         queuePlayers.splice(idx, 1)
         await persistPlayerLeave(target.id)
-        await updateQueueEmbed()
+        await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
         await interaction.editReply({ content: `✅ **${target.username}** removed.` })
         return
       }
@@ -1175,7 +1135,7 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
     if (action === 'ban') {
       bannedPlayers.add(target.id)
       const idx = queuePlayers.findIndex(p => p.discordId === target.id)
-      if (idx !== -1) { queuePlayers.splice(idx, 1); await persistPlayerLeave(target.id); await updateQueueEmbed() }
+      if (idx !== -1) { queuePlayers.splice(idx, 1); await persistPlayerLeave(target.id); await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL) }
       await interaction.editReply({ content: `✅ **${target.username}** banned.` })
       return
     }
@@ -1309,10 +1269,11 @@ async function processDraftResult(parsed: ParsedKTP) {
 
 client.once('clientReady', async () => {
   console.log(`[bot] Online as ${client.user?.tag} | TEST_MODE: ${TEST_MODE}`)
-  await loadConfig(DISCORD_GUILD_ID, (id) => { queueMessageId = id })
+  await loadConfig(DISCORD_GUILD_ID, (id) => { queueMessageId = id; setMessageId(id) })
   matchCounter = await loadMatchCounter()
   queuePlayers = await loadQueueFromDB()
-  await updateQueueEmbed()
+  setQueue(queuePlayers)
+  await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
   await registerCommands()
 })
 
@@ -1363,11 +1324,11 @@ client.on('interactionCreate', async interaction => {
     queuePlayers.push(p)
     await interaction.deferUpdate()
     await persistPlayerJoin(p)
-    await updateQueueEmbed()
+    await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
     if (queuePlayers.length >= botConfig.queue_size) {
       const players = [...queuePlayers]; const wl = [...queueWaitlist]
       queuePlayers = []; queueWaitlist = []
-      await clearPersistedQueue(); await updateQueueEmbed()
+      await clearPersistedQueue(); await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
       await initiateMatch(players, wl)
     }
     return
@@ -1384,7 +1345,7 @@ client.on('interactionCreate', async interaction => {
     const removed = queuePlayers.splice(idx, 1)[0]
     await interaction.deferUpdate()
     await persistPlayerLeave(removed.discordId)
-    await updateQueueEmbed()
+    await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
     return
   }
 
