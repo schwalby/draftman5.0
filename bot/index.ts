@@ -37,6 +37,11 @@ import { queueWebhook, webhookSend, matchSend as _matchSend, botWebhookOptions }
 import { BotConfig } from './core/types'
 import { getConfig, loadConfig, saveQueueMessageId, getMapPool, updateConfig } from './config/ConfigManager'
 
+// ── Phase 5: persistence imports ──────────────────────────────────────────────
+import { persistPlayerJoin, persistPlayerLeave, clearPersistedQueue, loadQueueFromDB } from './queue/queuePersistence'
+import { loadMatchCounter } from './match/matchPersistence'
+import { isOnCooldown, setCooldown, decrementCooldowns } from './cooldowns/cooldowns'
+
 // ── Env validation ────────────────────────────────────────────────────────────
 const REQUIRED_ENV = [
   'DISCORD_BOT_TOKEN', 'DISCORD_CLIENT_ID', 'DISCORD_GUILD_ID',
@@ -176,46 +181,6 @@ async function matchSend(payload: Parameters<WebhookClient['send']>[0], label: s
   if (!activeMatch) return null
   return _matchSend(payload, label, activeMatch.matchWebhook, activeMatch.textChannelId, DISCORD_GUILD_ID)
 }
-// ── DB: captain cooldowns ─────────────────────────────────────────────────────
-async function isOnCooldown(id: string): Promise<boolean> {
-  const { data } = await supabase.from('twelve_man_captain_cooldowns').select('games_remaining').eq('discord_user_id', id).maybeSingle()
-  return (data?.games_remaining ?? 0) > 0
-}
-async function setCooldown(id: string, username: string) {
-  await supabase.from('twelve_man_captain_cooldowns').upsert(
-    { discord_user_id: id, discord_username: username, games_remaining: botConfig.captain_cooldown_games, updated_at: new Date().toISOString() },
-    { onConflict: 'discord_user_id' }
-  )
-}
-async function decrementCooldowns(aId: string, bId: string) {
-  for (const id of [aId, bId]) {
-    const { data } = await supabase.from('twelve_man_captain_cooldowns').select('games_remaining').eq('discord_user_id', id).maybeSingle()
-    const cur = data?.games_remaining ?? 0
-    if (cur > 0) await supabase.from('twelve_man_captain_cooldowns').update({ games_remaining: cur - 1, updated_at: new Date().toISOString() }).eq('discord_user_id', id)
-  }
-}
-
-// ── DB: queue persistence (upsert per player) ─────────────────────────────────
-async function persistPlayerJoin(p: QueuePlayer) {
-  if (isFake(p)) return
-  await supabase.from('twelve_man_queue_state').upsert(
-    { discord_user_id: p.discordId, discord_username: p.discordUsername, joined_at: new Date(p.joinedAt).toISOString(), is_waitlist: false },
-    { onConflict: 'discord_user_id' }
-  )
-}
-async function persistPlayerLeave(discordId: string) {
-  await supabase.from('twelve_man_queue_state').delete().eq('discord_user_id', discordId)
-}
-async function clearPersistedQueue() {
-  await supabase.from('twelve_man_queue_state').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-}
-async function loadQueueFromDB() {
-  const { data } = await supabase.from('twelve_man_queue_state').select('*').eq('is_waitlist', false).order('joined_at', { ascending: true })
-  if (!data?.length) { console.log('[12man] Queue empty on startup'); return }
-  queuePlayers = data.map((r: any) => ({ discordId: r.discord_user_id, discordUsername: r.discord_username, joinedAt: new Date(r.joined_at).getTime() }))
-  console.log(`[12man] Restored ${queuePlayers.length} players from DB`)
-}
-
 // ── Queue embed ───────────────────────────────────────────────────────────────
 function buildQueueEmbed(): EmbedBuilder {
   const list = queuePlayers.map(p => `<@${p.discordId}>`).join(' ')
@@ -1020,19 +985,6 @@ const commands = [
     .toJSON(),
 ]
 
-async function loadMatchCounter() {
-  const { data } = await supabase
-    .from('twelve_man_matches')
-    .select('match_number')
-    .order('match_number', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (data?.match_number) {
-    matchCounter = data.match_number
-    console.log(`[12man] Match counter restored to ${matchCounter}`)
-  }
-}
-
 async function registerCommands() {
   const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN)
   try {
@@ -1356,8 +1308,8 @@ async function processDraftResult(parsed: ParsedKTP) {
 client.once('clientReady', async () => {
   console.log(`[bot] Online as ${client.user?.tag} | TEST_MODE: ${TEST_MODE}`)
   await loadConfig(DISCORD_GUILD_ID, (id) => { queueMessageId = id })
-  await loadMatchCounter()
-  await loadQueueFromDB()
+  matchCounter = await loadMatchCounter()
+  queuePlayers = await loadQueueFromDB()
   await updateQueueEmbed()
   await registerCommands()
 })
