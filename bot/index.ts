@@ -432,7 +432,7 @@ async function startCaptainVote() {
   if (voteMsg) activeMatch.captainVoteListMsgId = voteMsg.id
 
   const interval = setInterval(async () => {
-    if (!activeMatch?.captainVoteMsgId) { clearInterval(interval); return }
+    if (!activeMatch?.captainVoteMsgId) { clearTimer(activeMatch!, 'captainInterval'); return }
     // Update timer embed via webhook or bot
     if (activeMatch.matchWebhook) {
       await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.captainVoteMsgId!, { embeds: [buildEmbed()] }), 'update captain vote timer')
@@ -448,8 +448,10 @@ async function startCaptainVote() {
       }
     }
   }, 30000)
-  setTimer(activeMatch, 'captainInterval', () => clearInterval(interval), botConfig.captain_vote_seconds * 1000 + 1000)
-  setTimer(activeMatch, 'vote', () => { clearInterval(interval); resolveCaptainVote(eligible) }, botConfig.captain_vote_seconds * 1000)
+  // Store interval handle directly in timers Map — clearTimeout works on intervals in Node.js
+  // This ensures cleanupMatch() can clear it even if the vote is mid-countdown
+  activeMatch.timers.set('captainInterval', interval as unknown as ReturnType<typeof setTimeout>)
+  setTimer(activeMatch, 'vote', () => { clearTimer(activeMatch!, 'captainInterval'); resolveCaptainVote(eligible) }, botConfig.captain_vote_seconds * 1000)
 }
 
 async function resolveCaptainVote(eligible: QueuePlayer[]) {
@@ -531,7 +533,7 @@ async function startMapVote() {
   if (voteMsg) activeMatch.mapVoteListMsgId = voteMsg.id
 
   const interval = setInterval(async () => {
-    if (!activeMatch?.mapVoteMsgId) { clearInterval(interval); return }
+    if (!activeMatch?.mapVoteMsgId) { clearTimer(activeMatch!, 'mapInterval'); return }
     if (activeMatch.matchWebhook) {
       await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.mapVoteMsgId!, { embeds: [buildEmbed()] }), 'update map timer')
       if (activeMatch.mapVoteListMsgId) await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.mapVoteListMsgId!, { content: ansi(voteList(maps, activeMatch?.mapVotes ?? {}, true)) }), 'update map list')
@@ -546,8 +548,8 @@ async function startMapVote() {
       }
     }
   }, 30000)
-  setTimer(activeMatch, 'mapInterval', () => clearInterval(interval), botConfig.map_vote_seconds * 1000 + 1000)
-  setTimer(activeMatch, 'vote', () => { clearInterval(interval); resolveMapVote(maps) }, botConfig.map_vote_seconds * 1000)
+  activeMatch.timers.set('mapInterval', interval as unknown as ReturnType<typeof setTimeout>)
+  setTimer(activeMatch, 'vote', () => { clearTimer(activeMatch!, 'mapInterval'); resolveMapVote(maps) }, botConfig.map_vote_seconds * 1000)
 }
 
 async function resolveMapVote(maps: string[]) {
@@ -601,7 +603,7 @@ async function startServerVote() {
   if (voteMsg) activeMatch.serverVoteListMsgId = voteMsg.id
 
   const interval = setInterval(async () => {
-    if (!activeMatch?.serverVoteMsgId) { clearInterval(interval); return }
+    if (!activeMatch?.serverVoteMsgId) { clearTimer(activeMatch!, 'serverInterval'); return }
     if (activeMatch.matchWebhook) {
       await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.serverVoteMsgId!, { embeds: [buildEmbed()] }), 'update server timer')
       if (activeMatch.serverVoteListMsgId) await safeOp(() => activeMatch!.matchWebhook!.editMessage(activeMatch!.serverVoteListMsgId!, { content: ansi(voteList(servers, activeMatch?.serverVotes ?? {}, true)) }), 'update server list')
@@ -612,8 +614,8 @@ async function startServerVote() {
       if (m) await safeOp(() => m.edit({ embeds: [buildEmbed()] }), 'update server timer')
     }
   }, 30000)
-  setTimer(activeMatch, 'serverInterval', () => clearInterval(interval), botConfig.server_vote_seconds * 1000 + 1000)
-  setTimer(activeMatch, 'vote', () => { clearInterval(interval); resolveServerVote(servers) }, botConfig.server_vote_seconds * 1000)
+  activeMatch.timers.set('serverInterval', interval as unknown as ReturnType<typeof setTimeout>)
+  setTimer(activeMatch, 'vote', () => { clearTimer(activeMatch!, 'serverInterval'); resolveServerVote(servers) }, botConfig.server_vote_seconds * 1000)
 }
 
 async function resolveServerVote(servers: string[]) {
