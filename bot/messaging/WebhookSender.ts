@@ -24,15 +24,7 @@ export async function webhookSend(
   payload: Parameters<WebhookClient['send']>[0],
   label: string,
 ) {
-  const opts = botWebhookOptions()
-  const body = payload as Record<string, unknown>
-  return safeOp(() => webhook.send({
-    ...opts,
-    ...(body.content   !== undefined && { content:    body.content }),
-    ...(body.embeds    !== undefined && { embeds:     body.embeds }),
-    ...(body.components !== undefined && { components: body.components }),
-    ...(body.files     !== undefined && { files:      body.files }),
-  } as Parameters<WebhookClient['send']>[0]), label)
+  return safeOp(() => webhook.send({ ...botWebhookOptions(), ...(payload as object) }), label)
 }
 
 // ── Match channel send ────────────────────────────────────────────────────────

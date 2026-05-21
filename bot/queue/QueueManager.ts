@@ -63,7 +63,7 @@ export async function updateQueueEmbed(
       if (old) await safeOp(() => old.delete(), 'delete old queue embed')
       _queueMessageId = null
     }
-    const msg = await webhookSend(queueWebhook, { embeds: [embed.toJSON()], components: buttons.map(r => r.toJSON()) }, 'send queue embed via webhook')
+    const msg = await webhookSend(queueWebhook, { embeds: [embed], components: buttons }, 'send queue embed via webhook')
     if (msg) {
       _queueMessageId = msg.id
       await saveQueueMessageId(msg.id, guildId)
