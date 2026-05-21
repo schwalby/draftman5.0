@@ -281,8 +281,18 @@ export async function cleanupMatch(guildId: string): Promise<void> {
     _activeMatch.matchWebhook.destroy()
   }
 
-  for (const id of [_activeMatch.textChannelId, _activeMatch.teamAVoiceId, _activeMatch.teamBVoiceId].filter(Boolean) as string[]) {
-    try { await guild?.channels.cache.get(id)?.delete() } catch { /* already gone */ }
+  const channelIds = [
+    _activeMatch.textChannelId,
+    _activeMatch.gatherVoiceId,
+    _activeMatch.teamAVoiceId,
+    _activeMatch.teamBVoiceId,
+  ].filter(Boolean) as string[]
+
+  for (const id of channelIds) {
+    try {
+      const ch = guild?.channels.cache.get(id) ?? await guild?.channels.fetch(id).catch(() => null)
+      await ch?.delete()
+    } catch { /* already gone */ }
   }
   _activeMatch = null
   console.log('[12man] Match cleaned up')
