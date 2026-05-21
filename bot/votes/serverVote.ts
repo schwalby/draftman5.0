@@ -19,7 +19,6 @@ export async function startServerVote(
 
   const config: VoteConfig = {
     headerKey:    'serverLocation',
-    embedTitle:   '🖥️ Server Location',
     embedColor:   0x5865F2,
     buttonPrefix: 'servervote',
     intervalKey:  'serverInterval',

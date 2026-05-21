@@ -26,7 +26,6 @@ export async function startCaptainVote(
 
   const config: VoteConfig = {
     headerKey:    'captainVote',
-    embedTitle:   '⚔️ Vote for Captains',
     embedColor:   0xF0B132,
     buttonPrefix: 'captvote',
     intervalKey:  'captainInterval',

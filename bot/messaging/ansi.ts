@@ -1,3 +1,7 @@
+// ── Spaced caps title (Raid Helper style) ────────────────────────────────────
+export const spacedCaps = (text: string) =>
+  text.toUpperCase().split('').join(' ').replace(/  /g, '   ')
+
 // ── ANSI color codes ──────────────────────────────────────────────────────────
 export const A = {
   reset:  '\u001b[0m',

@@ -12,7 +12,7 @@ import { safeOp } from '../core/safeOp'
 import { getConfig } from '../config/ConfigManager'
 import { A, ansi } from '../messaging/ansi'
 import { buttonRows } from '../messaging/embeds'
-import { getHeader } from '../messaging/headers'
+import { getTitle } from '../messaging/headers'
 import { webhookSend } from '../messaging/WebhookSender'
 import { matchSend } from '../match/MatchManager'
 
@@ -59,7 +59,8 @@ export async function sendDraftBoard(
   const remaining  = match.remainingPlayers.map((p, i) => `${A.white}${i + 1}) ${p.discordUsername}${A.reset}`).join('  ')
 
   const embed = new EmbedBuilder()
-    .setTitle(`Draft — ${active.discordUsername} picks`)
+    .setTitle(getTitle('snakeDraft'))
+    .setDescription(`**${active.discordUsername} picks**`)
     .addFields(
       { name: `🟢 ${match.captainA.discordUsername} (Allies)`, value: `\`\`\`ansi\n${teamAText}\n\`\`\``, inline: true },
       { name: `🔴 ${match.captainB.discordUsername} (Axis)`,   value: `\`\`\`ansi\n${teamBText}\n\`\`\``, inline: true },
@@ -80,7 +81,6 @@ export async function sendDraftBoard(
     if (m) { await safeOp(() => m.edit({ embeds: [embed], components: rows }), 'edit draft board'); return }
   }
 
-  await matchSend(match, { content: getHeader('snakeDraft', cfg.header_style) }, 'send draft header', guildId)
   const msg = await matchSend(match, { embeds: [embed], components: rows }, 'send draft board', guildId)
   if (msg) match.draftMsgId = msg.id
 }
@@ -157,7 +157,8 @@ export async function startPostDraft(
   if (dbMatch) match.dbMatchId = dbMatch.id
 
   const embed = new EmbedBuilder()
-    .setTitle(`⚔️ Queue#${num}`)
+    .setTitle(getTitle('matchSummary'))
+    .setDescription(`**Queue #${num}**`)
     .addFields(
       { name: `🟢 ${match.captainA.discordUsername} (Allies)`, value: match.teamA.map(p => `<@${p.discordId}>`).join(' ') || '—', inline: true },
       { name: `🔴 ${match.captainB.discordUsername} (Axis)`,   value: match.teamB.map(p => `<@${p.discordId}>`).join(' ') || '—', inline: true },
@@ -167,7 +168,6 @@ export async function startPostDraft(
     )
     .setColor(0x5865F2)
 
-  await matchSend(match, { content: getHeader('matchSummary', cfg.header_style) }, 'send match summary header', guildId)
   await matchSend(match, { embeds: [embed] }, 'send match summary', guildId)
 
   // Delete gather voice — players moved to team channels

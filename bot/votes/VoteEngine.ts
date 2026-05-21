@@ -4,15 +4,14 @@ import { client } from '../core/client'
 import { safeOp } from '../core/safeOp'
 import { A, ansi, timeLeft, voteList } from '../messaging/ansi'
 import { buttonRows } from '../messaging/embeds'
-import { getHeader } from '../messaging/headers'
+import { getTitle, HeaderKey } from '../messaging/headers'
 import { getConfig } from '../config/ConfigManager'
 
 // ── Vote config ───────────────────────────────────────────────────────────────
 // Each vote type provides this config to VoteEngine.runVote()
 export interface VoteConfig {
   // Identity
-  headerKey: Parameters<typeof getHeader>[0]
-  embedTitle: string
+  headerKey: HeaderKey
   embedColor: number
   buttonPrefix: string
   intervalKey: TimerKey
@@ -108,14 +107,13 @@ export async function runVote(
   const cfg = getConfig()
 
   const buildEmbed = () => new EmbedBuilder()
-    .setTitle(config.embedTitle)
+    .setTitle(getTitle(config.headerKey))
     .setDescription(`Vote closes in **${timeLeft(end)}**`)
     .setColor(config.embedColor)
 
   const buildList = () => ansi(voteList(config.candidates, config.getVotes(match), true))
 
-  // Send header, list, and embed with buttons
-  await sendToMatch(match, { content: getHeader(config.headerKey, cfg.header_style) }, `send ${config.headerKey} header`, guildId)
+  // Send list and embed with buttons — title is now part of the embed
   const listMsg = await sendToMatch(match, { content: buildList() }, `send ${config.headerKey} list`, guildId)
   const voteMsg = await sendToMatch(match, {
     embeds: [buildEmbed()],

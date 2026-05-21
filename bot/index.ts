@@ -20,7 +20,6 @@ import {
 
 // ── Phase 2: messaging module imports ─────────────────────────────────────────
 import { A, ansi, timeLeft, voteList } from './messaging/ansi'
-import { getHeader } from './messaging/headers'
 import { buttonRows } from './messaging/embeds'
 
 // ── Phase 3: infrastructure singleton imports ─────────────────────────────────
@@ -314,6 +313,8 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply()
     queuePlayers = []
     queueWaitlist = []
+    setQueue([])
+    setWaitlist([])
     await clearPersistedQueue()
     await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
     await interaction.editReply({ content: '✅ Queue cleared.' })
@@ -395,6 +396,8 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
 
     queuePlayers = []
     queueWaitlist = []
+    setQueue([])
+    setWaitlist([])
     await clearPersistedQueue()
     await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
     await initiateMatch(players, waitlist)
@@ -449,6 +452,7 @@ async function handle12Man(interaction: ChatInputCommandInteraction) {
       if (queuePlayers.length >= botConfig.queue_size) {
         const players = [...queuePlayers]; const wl = [...queueWaitlist]
         queuePlayers = []; queueWaitlist = []
+        setQueue([]); setWaitlist([])
         await clearPersistedQueue(); await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
         await initiateMatch(players, wl)
       }
@@ -565,6 +569,7 @@ client.on('interactionCreate', async interaction => {
     if (queuePlayers.length >= botConfig.queue_size) {
       const players = [...queuePlayers]; const wl = [...queueWaitlist]
       queuePlayers = []; queueWaitlist = []
+      setQueue([]); setWaitlist([])
       await clearPersistedQueue(); await updateQueueEmbed(DISCORD_GUILD_ID, QUEUE_CHANNEL_ID, API_BASE_URL)
       await initiateMatch(players, wl)
     }

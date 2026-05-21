@@ -58,11 +58,8 @@ export async function updateQueueEmbed(
 
   if (queueWebhook) {
     if (_queueMessageId) {
-      const edited = await safeOp(
-        () => queueWebhook!.editMessage(_queueMessageId!, { embeds: [embed], components: buttons }),
-        'edit queue embed via webhook',
-      )
-      if (edited) return
+      await safeOp(() => queueWebhook!.deleteMessage(_queueMessageId!), 'delete old queue embed')
+      _queueMessageId = null
     }
     const msg = await webhookSend(queueWebhook, { embeds: [embed], components: buttons }, 'send queue embed via webhook')
     if (msg) {
@@ -74,8 +71,9 @@ export async function updateQueueEmbed(
 
   // Fallback: bot message
   if (_queueMessageId) {
-    const msg = await safeOp(() => channel.messages.fetch(_queueMessageId!), 'fetch queue embed')
-    if (msg) { await safeOp(() => msg.edit({ embeds: [embed], components: buttons }), 'edit queue embed'); return }
+    const old = await safeOp(() => channel.messages.fetch(_queueMessageId!), 'fetch queue embed')
+    if (old) await safeOp(() => old.delete(), 'delete old queue embed')
+    _queueMessageId = null
   }
   const msg = await safeOp(() => channel.send({ embeds: [embed], components: buttons }), 'send queue embed')
   if (msg) {

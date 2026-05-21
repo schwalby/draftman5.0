@@ -28,7 +28,6 @@ export async function startMapVote(
 
   const config: VoteConfig = {
     headerKey:    'mapSelection',
-    embedTitle:   '🗺️ Map Selection',
     embedColor:   0x2D7D46,
     buttonPrefix: 'mapvote',
     intervalKey:  'mapInterval',

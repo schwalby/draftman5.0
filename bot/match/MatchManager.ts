@@ -1,6 +1,7 @@
 import {
   ChannelType,
   PermissionFlagsBits,
+  EmbedBuilder,
   TextChannel,
   VoiceChannel,
   WebhookClient,
@@ -13,7 +14,7 @@ import { client } from '../core/client'
 import { safeOp } from '../core/safeOp'
 import { getConfig } from '../config/ConfigManager'
 import { webhookSend } from '../messaging/WebhookSender'
-import { getHeader } from '../messaging/headers'
+import { getTitle } from '../messaging/headers'
 import { ansi } from '../messaging/ansi'
 import { requeueAll } from '../queue/QueueManager'
 
@@ -153,12 +154,15 @@ export async function initiateMatch(
 
   const ping = realPlayers(players).map(p => `<@${p.discordId}>`).join(' ')
   const fakeName = testMode ? ` *(test mode — ${players.length - realPlayers(players).length} fake players)*` : ''
-  const startContent = `${getHeader('queuePopped', cfg.header_style)}\n${ping}\n\n**Queue #${num} has started!${fakeName}** Join voice channel **Queue#${num}** to confirm your presence.\n\nYou have **${cfg.activity_window_minutes} minutes** to join voice.`
+  const startEmbed = new EmbedBuilder()
+    .setTitle(getTitle('queuePopped'))
+    .setDescription(`${ping}\n\n**Queue #${num} has started!${fakeName}** Join voice channel **Queue#${num}** to confirm your presence.\n\nYou have **${cfg.activity_window_minutes} minutes** to join voice.`)
+    .setColor(0x5865F2)
 
   if (matchWebhook) {
-    await webhookSend(matchWebhook, { content: startContent }, 'send match start via webhook')
+    await webhookSend(matchWebhook, { embeds: [startEmbed] }, 'send match start via webhook')
   } else {
-    await safeOp(() => (textCh as TextChannel).send({ content: startContent }), 'send match start message')
+    await safeOp(() => (textCh as TextChannel).send({ embeds: [startEmbed] }), 'send match start message')
   }
 
   setTimer(_activeMatch, 'activity', onActivityCheck, cfg.activity_window_minutes * 60 * 1000)

@@ -10,7 +10,7 @@ import { client } from '../core/client'
 import { supabase } from '../core/supabase'
 import { safeOp } from '../core/safeOp'
 import { getConfig } from '../config/ConfigManager'
-import { getHeader } from '../messaging/headers'
+import { getTitle } from '../messaging/headers'
 import { webhookSend, queueWebhook } from '../messaging/WebhookSender'
 import { matchSend } from '../match/MatchManager'
 import { decrementCooldowns } from '../cooldowns/cooldowns'
@@ -96,8 +96,8 @@ async function postWinnerVoteInQueueChannel(
   const qCh = guild?.channels.cache.get(queueChannelId) as TextChannel
 
   const embed = new EmbedBuilder()
-    .setTitle(`🏆 Winner for Queue#${_pendingResult.matchNumber} 🏆`)
-    .setDescription(`Vote for the winning team.\n\n**${cfg.vote_threshold} votes required to confirm**\n\n⚠️ Queue is locked until voting completes.`)
+    .setTitle(getTitle('winner'))
+    .setDescription(`**Queue #${_pendingResult.matchNumber}**\n\nVote for the winning team.\n\n**${cfg.vote_threshold} votes required to confirm**\n\n⚠️ Queue is locked until voting completes.`)
     .addFields(
       { name: _pendingResult.captainAName, value: 'Votes: 0', inline: true },
       { name: _pendingResult.captainBName, value: 'Votes: 0', inline: true },
@@ -112,11 +112,9 @@ async function postWinnerVoteInQueueChannel(
   )
 
   if (queueWebhook) {
-    await webhookSend(queueWebhook, { content: getHeader('winner', cfg.header_style) }, 'post winner header')
     const msg = await webhookSend(queueWebhook, { embeds: [embed], components: [row] }, 'post winner vote')
     if (msg && _pendingResult) _pendingResult.winnerVoteMsgId = msg.id
   } else {
-    await safeOp(() => qCh.send({ content: getHeader('winner', cfg.header_style) }), 'post winner header')
     const msg = await safeOp(() => qCh.send({ embeds: [embed], components: [row] }), 'post winner vote')
     if (msg && _pendingResult) _pendingResult.winnerVoteMsgId = msg.id
   }

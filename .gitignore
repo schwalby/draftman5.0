@@ -9,6 +9,9 @@ out/
 .env.local
 .env
 
+# compiled output
+bot/dist/
+
 # misc
 .DS_Store
 *.pem
