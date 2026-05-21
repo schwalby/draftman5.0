@@ -2,7 +2,7 @@ import { EmbedBuilder, WebhookClient, TextChannel } from 'discord.js'
 import { ActiveMatch, TimerKey } from '../core/types'
 import { client } from '../core/client'
 import { safeOp } from '../core/safeOp'
-import { A, ansi, timeLeft, voteList } from '../messaging/ansi'
+import { timeLeft } from '../messaging/ansi'
 import { buttonRows } from '../messaging/embeds'
 import { getTitle, HeaderKey } from '../messaging/headers'
 import { getConfig } from '../config/ConfigManager'
@@ -106,30 +106,30 @@ export async function runVote(
 
   const cfg = getConfig()
 
+  const buildListText = () => {
+    const counts = tallyVotes(config.getVotes(match))
+    return config.candidates
+      .map((c, i) => `${i + 1}) ${c}  —  ${counts[c] ?? 0} votes`)
+      .join('\n')
+  }
+
   const buildEmbed = () => new EmbedBuilder()
     .setTitle(getTitle(config.headerKey))
-    .setDescription(`Vote closes in **${timeLeft(end)}**`)
+    .setDescription(`${buildListText()}\n\nVote closes in **${timeLeft(end)}**`)
     .setColor(config.embedColor)
 
-  const buildList = () => ansi(voteList(config.candidates, config.getVotes(match), true))
-
-  // Send list and embed with buttons — title is now part of the embed
-  const listMsg = await sendToMatch(match, { content: buildList() }, `send ${config.headerKey} list`, guildId)
   const voteMsg = await sendToMatch(match, {
     embeds: [buildEmbed()],
     components: buttonRows(config.candidates.map((c, i) => `${i + 1}) ${c}`), config.buttonPrefix),
   }, `send ${config.headerKey} vote`, guildId)
 
   if (voteMsg?.id) config.setMsgId(match, voteMsg.id)
-  if (listMsg?.id) config.setListMsgId(match, listMsg.id)
 
   // Countdown interval — stored in timers Map for safe cleanup
   const interval = setInterval(async () => {
-    const msgId     = config.getMsgId(match)
-    const listMsgId = config.getListMsgId(match)
+    const msgId = config.getMsgId(match)
     if (!msgId) { clearTimeout(match.timers.get(config.intervalKey)!); match.timers.delete(config.intervalKey); return }
-    if (msgId)     await editMatchMessage(match, msgId,     { embeds: [buildEmbed()] }, `update ${config.headerKey} timer`, guildId)
-    if (listMsgId) await editMatchMessage(match, listMsgId, { content: buildList() },   `update ${config.headerKey} list`,  guildId)
+    await editMatchMessage(match, msgId, { embeds: [buildEmbed()] }, `update ${config.headerKey} embed`, guildId)
   }, 30000)
 
   // Store interval handle in timers Map so cleanupMatch() always clears it
