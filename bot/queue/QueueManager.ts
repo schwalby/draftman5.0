@@ -56,28 +56,13 @@ export async function updateQueueEmbed(
   const embed   = buildQueueEmbed(apiBaseUrl)
   const buttons = buildQueueButtons(apiBaseUrl)
 
-  if (queueWebhook) {
-    if (_queueMessageId) {
-      // Delete via channel (not webhook) so we can remove messages regardless of who sent them
-      const old = await safeOp(() => channel.messages.fetch(_queueMessageId!), 'fetch old queue embed')
-      if (old) await safeOp(() => old.delete(), 'delete old queue embed')
-      _queueMessageId = null
-    }
-    const msg = await webhookSend(queueWebhook, { embeds: [embed], components: buttons }, 'send queue embed via webhook')
-    if (msg) {
-      _queueMessageId = msg.id
-      await saveQueueMessageId(msg.id, guildId)
-    }
-    return
-  }
-
-  // Fallback: bot message
+  // Always send via bot (not webhook) — incoming webhooks silently strip interactive components
   if (_queueMessageId) {
-    const old = await safeOp(() => channel.messages.fetch(_queueMessageId!), 'fetch queue embed')
+    const old = await safeOp(() => channel.messages.fetch(_queueMessageId!), 'fetch old queue embed')
     if (old) await safeOp(() => old.delete(), 'delete old queue embed')
     _queueMessageId = null
   }
-  const msg = await safeOp(() => channel.send({ embeds: [embed.toJSON()], components: buttons.map(r => r.toJSON()) }), 'send queue embed')
+  const msg = await safeOp(() => channel.send({ embeds: [embed], components: buttons }), 'send queue embed')
   if (msg) {
     _queueMessageId = msg.id
     await saveQueueMessageId(msg.id, guildId)
