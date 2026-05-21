@@ -75,7 +75,7 @@ export async function updateQueueEmbed(
     if (old) await safeOp(() => old.delete(), 'delete old queue embed')
     _queueMessageId = null
   }
-  const msg = await safeOp(() => channel.send({ embeds: [embed], components: buttons }), 'send queue embed')
+  const msg = await safeOp(() => channel.send({ embeds: [embed.toJSON()], components: buttons.map(r => r.toJSON()) }), 'send queue embed')
   if (msg) {
     _queueMessageId = msg.id
     await saveQueueMessageId(msg.id, guildId)
