@@ -106,17 +106,31 @@ export async function runVote(
 
   const cfg = getConfig()
 
-  const buildListText = () => {
+  const buildLines = () => {
     const counts = tallyVotes(config.getVotes(match))
-    return config.candidates
-      .map((c, i) => `${i + 1}) ${c}  —  ${counts[c] ?? 0} votes`)
-      .join('\n')
+    return config.candidates.map((c, i) => `${i + 1}) ${c}  —  ${counts[c] ?? 0} votes`)
   }
 
-  const buildEmbed = () => new EmbedBuilder()
-    .setTitle(getTitle(config.headerKey))
-    .setDescription(`${buildListText()}\n\nVote closes in **${timeLeft(end)}**`)
-    .setColor(config.embedColor)
+  const buildEmbed = () => {
+    const lines = buildLines()
+    const embed = new EmbedBuilder()
+      .setTitle(getTitle(config.headerKey))
+      .setColor(config.embedColor)
+
+    if (lines.length >= 6) {
+      const half = Math.ceil(lines.length / 2)
+      embed
+        .setDescription(`Vote closes in **${timeLeft(end)}**`)
+        .addFields(
+          { name: '​', value: lines.slice(0, half).join('\n'), inline: true },
+          { name: '​', value: lines.slice(half).join('\n'), inline: true },
+        )
+    } else {
+      embed.setDescription(`${lines.join('\n')}\n\nVote closes in **${timeLeft(end)}**`)
+    }
+
+    return embed
+  }
 
   const voteMsg = await sendToMatch(match, {
     embeds: [buildEmbed()],
