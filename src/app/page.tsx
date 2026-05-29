@@ -2,13 +2,15 @@
 
 import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 
 export default function LandingPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
   useEffect(() => {
     if (status === 'authenticated') {
       const isAdmin = session?.user?.isOrganizer || session?.user?.isSuperUser
@@ -16,7 +18,64 @@ export default function LandingPage() {
     }
   }, [session, status, router])
 
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+    const GRID = 28, REACH = 110, OFF = GRID / 2
+    const DR = 126, DG = 170, DB = 200
+    let mx = -9999, my = -9999, raf: number
+
+    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      if (mx >= 0) {
+        const x0 = Math.floor((mx - REACH - OFF) / GRID) * GRID + OFF
+        const y0 = Math.floor((my - REACH - OFF) / GRID) * GRID + OFF
+        const x1 = Math.ceil((mx + REACH - OFF) / GRID) * GRID + OFF
+        const y1 = Math.ceil((my + REACH - OFF) / GRID) * GRID + OFF
+        for (let dx = x0; dx <= x1; dx += GRID) {
+          for (let dy = y0; dy <= y1; dy += GRID) {
+            const dist = Math.hypot(dx - mx, dy - my)
+            if (dist > REACH) continue
+            const t = 1 - dist / REACH
+            const ease = t * t * (3 - 2 * t)
+            const alpha = ease * 0.65
+            const ds = 0.8 + ease * 1.1
+            const halo = ctx.createRadialGradient(dx, dy, 0, dx, dy, ds * 6)
+            halo.addColorStop(0, `rgba(${DR},${DG},${DB},${(ease * 0.22).toFixed(3)})`)
+            halo.addColorStop(1, `rgba(${DR},${DG},${DB},0)`)
+            ctx.beginPath(); ctx.arc(dx, dy, ds * 6, 0, Math.PI * 2)
+            ctx.fillStyle = halo; ctx.fill()
+            ctx.beginPath(); ctx.arc(dx, dy, ds, 0, Math.PI * 2)
+            ctx.fillStyle = `rgba(${DR},${DG},${DB},${Math.min(alpha, 1).toFixed(3)})`
+            ctx.fill()
+          }
+        }
+      }
+      raf = requestAnimationFrame(draw)
+    }
+
+    const onMove = (e: MouseEvent) => { mx = e.clientX; my = e.clientY }
+    const onLeave = () => { mx = -9999; my = -9999 }
+
+    window.addEventListener('resize', resize)
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseleave', onLeave)
+    resize(); draw()
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', resize)
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseleave', onLeave)
+    }
+  }, [])
+
   return (
+    <>
+    <canvas ref={canvasRef} style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0 }} />
     <div style={{
       minHeight: '100vh',
       display: 'flex',
@@ -24,6 +83,8 @@ export default function LandingPage() {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '60px 24px',
+      position: 'relative',
+      zIndex: 1,
     }}>
       <style>{`
         @media (max-width: 600px) {
@@ -132,7 +193,7 @@ export default function LandingPage() {
       <div className="lp-cards" style={{ display: 'flex', gap: 12, marginBottom: 48, width: '100%', maxWidth: 560 }}>
         {[
           {
-            icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>,
+            icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
             title: 'Draft Signups',
             desc: 'Sign up by class, check in before the draft, get picked by captains.',
           },
@@ -175,5 +236,6 @@ export default function LandingPage() {
       </div>
 
     </div>
+    </>
   )
 }
