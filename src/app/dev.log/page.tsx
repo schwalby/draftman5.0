@@ -158,7 +158,7 @@ export default function DevLog() {
     <>
       <Topbar />
       <div style={{
-        maxWidth: 700,
+        maxWidth: 1000,
         margin: '0 auto',
         padding: '3rem 1.5rem 6rem',
       }}>
@@ -284,7 +284,7 @@ export default function DevLog() {
                 color: 'var(--text-dim)',
                 lineHeight: 1.8,
                 margin: 0,
-                maxWidth: 580,
+                maxWidth: '100%',
               }}>
                 {entry.body}
               </p>
