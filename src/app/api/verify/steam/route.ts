@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+function getPublicBase(req: NextRequest): string {
+  // Railway (and most reverse proxies) forward the original host via headers.
+  // req.url gives the internal address (localhost:3000), so we must use headers.
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
+  const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host')
+  if (host) return `${proto}://${host}`
+  // Last resort: env var or hardcoded production URL
+  return process.env.NEXTAUTH_URL ?? 'https://draftman50-production.up.railway.app'
+}
+
 // GET /api/verify/steam?token=xxx
 // Redirects the user to Steam's OpenID login page
 export async function GET(req: NextRequest) {
@@ -8,7 +18,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/verify?error=missing_token', req.url))
   }
 
-  const base = new URL(req.url).origin
+  const base = getPublicBase(req)
   const returnTo = `${base}/api/verify/callback?token=${token}`
 
   // Steam OpenID 2.0 parameters

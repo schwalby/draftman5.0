@@ -4,6 +4,13 @@ import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
+function getPublicBase(req: NextRequest): string {
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
+  const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host')
+  if (host) return `${proto}://${host}`
+  return process.env.NEXTAUTH_URL ?? 'https://draftman50-production.up.railway.app'
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -59,5 +66,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/portal?error=verify_failed', req.url))
   }
 
-  return NextResponse.redirect(new URL(`/api/verify/steam?token=${token}`, req.url))
+  const base = getPublicBase(req)
+  return NextResponse.redirect(`${base}/api/verify/steam?token=${token}`)
 }
