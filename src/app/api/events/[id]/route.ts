@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 // GET /api/events/[id] — get single event
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('events')
     .select('*')
     .eq('id', params.id)
@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   updates.updated_at = new Date().toISOString()
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('events')
     .update(updates)
     .eq('id', params.id)
@@ -54,7 +54,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await getSupabaseAdmin()
     .from('events')
     .delete()
     .eq('id', params.id)

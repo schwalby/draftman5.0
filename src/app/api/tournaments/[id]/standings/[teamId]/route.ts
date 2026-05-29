@@ -8,7 +8,7 @@ export async function PATCH(
   { params }: { params: { id: string; teamId: string } }
 ) {
   const session = await getServerSession(authOptions)
-  const isAdmin = session?.user?.isOrganizer || (session?.user as any)?.isSuperUser
+  const isAdmin = session?.user?.isOrganizer || session?.user?.isSuperUser
   if (!isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json()

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
+import { requireFields } from '@/lib/validate'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -9,8 +10,10 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const supabase = getSupabaseAdmin()
+
   // Fetch events
-  const { data: events, error } = await supabaseAdmin
+  const { data: events, error } = await supabase
     .from('events')
     .select('*')
     .order('created_at', { ascending: false })
@@ -25,7 +28,7 @@ export async function GET() {
 
   // Fetch signup counts for all events in one query
   const eventIds = events.map((e: any) => e.id)
-  const { data: signupCounts } = await supabaseAdmin
+  const { data: signupCounts } = await supabase
     .from('signups')
     .select('event_id')
     .in('event_id', eventIds)
@@ -53,8 +56,12 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
+  const err = requireFields(body, ['name', 'type', 'format'])
+  if (err) return err
 
-  const { data, error } = await supabaseAdmin
+  const supabase = getSupabaseAdmin()
+
+  const { data, error } = await supabase
     .from('events')
     .insert({
       name: body.name,

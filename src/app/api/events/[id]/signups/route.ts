@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
+import { requireFields } from '@/lib/validate'
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
@@ -24,9 +25,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
+  const err = requireFields(body, ['class'])
+  if (err) return err
   const supabase = getSupabaseAdmin()
 
-  const userId = (session.user as any).userId
+  const userId = session.user.userId
 
   const { data, error } = await supabase
     .from('signups')
@@ -46,13 +49,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  if (!session || !(session.user as any).isOrganizer) {
+  if (!session || !session.user.isOrganizer) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const body = await req.json()
-  const { signupId, ...updates } = body
+  const { signupId, ringer, flagged, admin_note, class: playerClass, priority } = body
   if (!signupId) return NextResponse.json({ error: 'signupId required' }, { status: 400 })
+
+  const updates: Record<string, unknown> = {}
+  if (ringer      !== undefined) updates.ringer      = ringer
+  if (flagged     !== undefined) updates.flagged     = flagged
+  if (admin_note  !== undefined) updates.admin_note  = admin_note
+  if (playerClass !== undefined) updates.class       = playerClass
+  if (priority    !== undefined) updates.priority    = priority
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 })
+  }
 
   const supabase = getSupabaseAdmin()
 
@@ -83,8 +97,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const actorId = (session.user as any).userId
-  const actorName = session.user?.name ?? 'unknown'
+  const actorId = session.user.userId
+  const actorName = session.user.name ?? 'unknown'
 
   // Audit flag changes
   if ('flagged' in updates && existing) {
@@ -131,8 +145,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
   const { searchParams } = new URL(req.url)
   const signupId = searchParams.get('signupId')
-  const userId = (session.user as any).userId
-  const isAdmin = (session.user as any).isOrganizer || (session.user as any).isSuperUser
+  const userId = session.user.userId
+  const isAdmin = session.user.isOrganizer || session.user.isSuperUser
 
   if (!signupId) return NextResponse.json({ error: 'signupId required' }, { status: 400 })
 

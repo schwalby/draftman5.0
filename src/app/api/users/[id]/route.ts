@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  if (!session || !(session.user as any).isSuperUser) {
+  if (!session || !session.user.isSuperUser) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -40,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const targetName = targetUser?.ingame_name || targetUser?.discord_username || params.id
 
   // Self-demotion guard for SuperUser
-  if (body.is_superuser === false && params.id === (session.user as any).userId) {
+  if (body.is_superuser === false && params.id === session.user.userId) {
     return NextResponse.json({ error: 'Cannot remove your own SuperUser status' }, { status: 400 })
   }
 
@@ -54,8 +54,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Audit role changes
-  const actorId = (session.user as any).userId
-  const actorName = session.user?.name ?? 'unknown'
+  const actorId = session.user.userId
+  const actorName = session.user.name ?? 'unknown'
 
   const roleFields: Array<{ field: string; role: string }> = [
     { field: 'is_superuser', role: 'SuperUser' },
@@ -85,7 +85,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  if (!session || !(session.user as any).isSuperUser) {
+  if (!session || !session.user.isSuperUser) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -105,8 +105,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
   await logAudit({
     action: 'user.delete',
-    actorId: (session.user as any).userId,
-    actorName: session.user?.name ?? 'unknown',
+    actorId: session.user.userId,
+    actorName: session.user.name ?? 'unknown',
     targetId: params.id,
     targetName,
     metadata: {},

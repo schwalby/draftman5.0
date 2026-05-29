@@ -1,6 +1,8 @@
 import { NextAuthOptions } from 'next-auth'
 import DiscordProvider from 'next-auth/providers/discord'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
+
+const ROLES_TTL_MS = 5 * 60 * 1000 // re-fetch roles every 5 minutes
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -16,8 +18,9 @@ export const authOptions: NextAuthOptions = {
     async signIn({ account, profile }) {
       if (account?.provider === 'discord' && profile) {
         const p = profile as any
+        const supabase = getSupabaseAdmin()
 
-        const { count } = await supabaseAdmin
+        const { count } = await supabase
           .from('users')
           .select('*', { count: 'exact', head: true })
         const isFirstUser = count === 0
@@ -28,7 +31,7 @@ export const authOptions: NextAuthOptions = {
         const isFakeUser = p.id?.startsWith('1000000000000000')
         const autoGrantOrganizer = isFirstUser || (isDevMode && !isFakeUser)
 
-        await supabaseAdmin.from('users').upsert({
+        await supabase.from('users').upsert({
           discord_id: p.id,
           discord_username: p.username,
           discord_avatar: p.avatar ?? null,
@@ -46,7 +49,7 @@ export const authOptions: NextAuthOptions = {
         token.discordUsername = p.username
         token.discordAvatar = p.avatar ?? null
 
-        const { data: dbUser } = await supabaseAdmin
+        const { data: dbUser } = await getSupabaseAdmin()
           .from('users')
           .select('id, is_organizer, is_superuser, is_captain, ingame_name')
           .eq('discord_id', p.id)
@@ -58,6 +61,32 @@ export const authOptions: NextAuthOptions = {
           token.isSuperUser = dbUser.is_superuser
           token.isCaptain = dbUser.is_captain
           token.ingameName = dbUser.ingame_name
+          token.rolesCheckedAt = Date.now()
+        }
+      } else if (token.userId) {
+        const now = Date.now()
+        if (now - (token.rolesCheckedAt ?? 0) > ROLES_TTL_MS) {
+          try {
+            const { data: dbUser } = await getSupabaseAdmin()
+              .from('users')
+              .select('is_organizer, is_superuser, is_captain, ingame_name')
+              .eq('id', token.userId)
+              .single()
+            if (dbUser) {
+              token.isOrganizer = dbUser.is_organizer
+              token.isSuperUser = dbUser.is_superuser
+              token.isCaptain = dbUser.is_captain
+              token.ingameName = dbUser.ingame_name
+            } else {
+              // Row deleted — revoke all elevated access immediately
+              token.isOrganizer = false
+              token.isSuperUser = false
+              token.isCaptain = false
+            }
+            token.rolesCheckedAt = now
+          } catch {
+            // DB error — keep cached roles and don't stamp so we retry next tick
+          }
         }
       }
       return token

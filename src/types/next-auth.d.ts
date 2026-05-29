@@ -28,5 +28,6 @@ declare module 'next-auth/jwt' {
     isSuperUser?: boolean
     isCaptain?: boolean
     ingameName?: string
+    rolesCheckedAt?: number
   }
 }

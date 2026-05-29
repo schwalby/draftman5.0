@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('rules_sections')
     .select('*, rules_items(id, content, position)')
     .order('position', { ascending: true })
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const body = await req.json()
 
   // Get max position
-  const { data: sections } = await supabaseAdmin
+  const { data: sections } = await getSupabaseAdmin()
     .from('rules_sections')
     .select('position')
     .order('position', { ascending: false })
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
   const nextPos = sections && sections.length > 0 ? sections[0].position + 1 : 0
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('rules_sections')
     .insert({ title: body.title || 'New Section', position: nextPos })
     .select()

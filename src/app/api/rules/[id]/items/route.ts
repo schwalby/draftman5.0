@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function POST(
   req: Request,
@@ -14,7 +14,7 @@ export async function POST(
 
   const body = await req.json()
 
-  const { data: items } = await supabaseAdmin
+  const { data: items } = await getSupabaseAdmin()
     .from('rules_items')
     .select('position')
     .eq('section_id', params.id)
@@ -23,7 +23,7 @@ export async function POST(
 
   const nextPos = items && items.length > 0 ? items[0].position + 1 : 0
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('rules_items')
     .insert({ section_id: params.id, content: body.content || '', position: nextPos })
     .select()

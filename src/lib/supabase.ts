@@ -12,10 +12,3 @@ export function getSupabaseAdmin() {
     auth: { autoRefreshToken: false, persistSession: false }
   })
 }
-
-// Backwards compat singleton
-export const supabaseAdmin = typeof window === 'undefined'
-  ? createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    })
-  : null as any

@@ -41,7 +41,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)
-  if (!session || !(session.user as any).isSuperUser && !(session.user as any).isOrganizer) {
+  if (!session || !session.user.isSuperUser && !session.user.isOrganizer) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -82,8 +82,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     await logAudit({
       action: 'tournament.champion',
-      actorId: (session.user as any).userId,
-      actorName: session.user?.name ?? 'unknown',
+      actorId: session.user.userId,
+      actorName: session.user.name ?? 'unknown',
       targetId: champion_team_id,
       targetName: team?.name ?? 'unknown team',
       metadata: {

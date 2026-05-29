@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string; teamId: string } }
 ) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.isOrganizer && !(session?.user as any)?.isSuperUser) {
+  if (!session?.user?.isOrganizer && !session?.user?.isSuperUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -23,7 +23,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('teams')
     .update(updates)
     .eq('id', params.teamId)

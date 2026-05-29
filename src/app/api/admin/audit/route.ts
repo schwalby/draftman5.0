@@ -5,7 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  if (!session || !(session.user as any).isSuperUser) {
+  if (!session || !session.user.isSuperUser) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function DELETE(
   _req: Request,
@@ -12,18 +12,20 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Get the last pick
-  const { data: lastPick } = await supabaseAdmin
+  const supabase = getSupabaseAdmin()
+
+  // Get the last pick by insertion time — immune to pick_number ties
+  const { data: lastPick } = await supabase
     .from('draft_picks')
     .select('id')
     .eq('event_id', params.id)
-    .order('pick_number', { ascending: false })
+    .order('picked_at', { ascending: false })
     .limit(1)
     .single()
 
   if (!lastPick) return NextResponse.json({ error: 'No picks to undo' }, { status: 400 })
 
-  const { error } = await supabaseAdmin
+  const { error } = await supabase
     .from('draft_picks')
     .delete()
     .eq('id', lastPick.id)

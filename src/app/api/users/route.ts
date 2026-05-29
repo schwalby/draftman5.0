@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -10,7 +10,7 @@ export async function GET() {
   }
 
   // Only SuperUsers can list all users
-  const { data: me, error: meErr } = await supabaseAdmin
+  const { data: me, error: meErr } = await getSupabaseAdmin()
     .from('users')
     .select('is_superuser')
     .eq('id', session.user.userId)
@@ -20,7 +20,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('users')
     .select('id, discord_id, discord_avatar, discord_username, ingame_name, is_organizer, is_superuser, created_at')
     .order('created_at', { ascending: true })

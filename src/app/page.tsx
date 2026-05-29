@@ -21,7 +21,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      const isAdmin = (session?.user as any)?.isOrganizer || (session?.user as any)?.isSuperUser
+      const isAdmin = session?.user?.isOrganizer || session?.user?.isSuperUser
       router.push(isAdmin ? '/dashboard' : '/portal')
     }
   }, [session, status, router])

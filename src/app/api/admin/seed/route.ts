@@ -11,7 +11,7 @@ const SLOTS_PER_TEAM = 5
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!(session?.user as any)?.isSuperUser) {
+  if (!session?.user?.isSuperUser) {
     return NextResponse.json({ error: 'SuperUser only' }, { status: 403 })
   }
 

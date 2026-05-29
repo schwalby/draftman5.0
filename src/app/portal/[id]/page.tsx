@@ -71,7 +71,7 @@ export default function PlayerProfilePage() {
   const [draftPicks, setDraftPicks] = useState<DraftPickRecord[]>([])
   const [loading, setLoading] = useState(true)
 
-  const isAdmin = session?.user?.isOrganizer || (session?.user as any)?.isSuperUser
+  const isAdmin = session?.user?.isOrganizer || session?.user?.isSuperUser
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/')

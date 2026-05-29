@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function GET(
   req: NextRequest,
@@ -11,7 +11,7 @@ export async function GET(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { data: teams, error } = await supabaseAdmin
+    const { data: teams, error } = await getSupabaseAdmin()
       .from('teams')
       .select('*, captain:captain_id(id, ingame_name, discord_username, is_captain)')
       .eq('event_id', params.id)
@@ -45,16 +45,14 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid teams data' }, { status: 400 })
     }
 
-    // Delete existing teams for this event before reinserting
-    const { error: deleteError } = await supabaseAdmin
-      .from('teams')
-      .delete()
-      .eq('event_id', params.id)
+    const supabase = getSupabaseAdmin()
 
-    if (deleteError) {
-      console.error('DELETE existing teams error:', deleteError)
-      return NextResponse.json({ error: deleteError.message }, { status: 500 })
-    }
+    // Snapshot existing IDs before touching anything
+    const { data: existing } = await supabase
+      .from('teams')
+      .select('id')
+      .eq('event_id', params.id)
+    const oldIds = existing?.map((t: { id: string }) => t.id) ?? []
 
     const rows = teams.map((t: {
       name: string
@@ -69,7 +67,8 @@ export async function POST(
       pick_order: t.pick_order,
     }))
 
-    const { data, error } = await supabaseAdmin
+    // Insert first — if this fails, old teams are still intact
+    const { data, error } = await supabase
       .from('teams')
       .insert(rows)
       .select()
@@ -77,6 +76,17 @@ export async function POST(
     if (error) {
       console.error('INSERT teams error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Delete old rows only after successful insert
+    if (oldIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('teams')
+        .delete()
+        .in('id', oldIds)
+      if (deleteError) {
+        console.error('DELETE old teams error:', deleteError)
+      }
     }
 
     return NextResponse.json({ teams: data })

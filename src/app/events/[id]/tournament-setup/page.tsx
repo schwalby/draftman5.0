@@ -42,7 +42,7 @@ export default function TournamentSetupPage() {
   const router = useRouter()
   const eventId = params.id as string
 
-  const isAdmin = !!(session?.user?.isOrganizer || (session?.user as any)?.isSuperUser)
+  const isAdmin = !!(session?.user?.isOrganizer || session?.user?.isSuperUser)
 
   const [event, setEvent] = useState<Event | null>(null)
   const [teams, setTeams] = useState<Team[]>([])

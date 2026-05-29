@@ -19,12 +19,12 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
   const pathname = usePathname();
 
   const isOrganizer = session?.user?.isOrganizer;
-  const isSuperUser = (session?.user as any)?.isSuperUser;
+  const isSuperUser = session?.user?.isSuperUser;
   const isAdmin = isOrganizer || isSuperUser;
 
-  const avatar = (session?.user as any)?.discordAvatar;
-  const discordId = (session?.user as any)?.discordId;
-  const username = (session?.user as any)?.discordUsername || session?.user?.name || '?';
+  const avatar = session?.user?.discordAvatar;
+  const discordId = session?.user?.discordId;
+  const username = session?.user?.discordUsername || session?.user?.name || '?';
   const initial = username.charAt(0).toUpperCase();
 
   const avatarUrl = avatar && discordId

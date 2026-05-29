@@ -40,7 +40,7 @@ export default function DashboardPage() {
   const [resetModal, setResetModal] = useState<string | null>(null);
 
   const isOrganizer = session?.user?.isOrganizer;
-  const isSuperUser = (session?.user as any)?.isSuperUser;
+  const isSuperUser = session?.user?.isSuperUser;
   const isAdmin = isOrganizer || isSuperUser;
 
   useEffect(() => {

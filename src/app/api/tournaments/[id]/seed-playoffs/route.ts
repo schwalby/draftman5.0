@@ -8,7 +8,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.isOrganizer && !(session?.user as any)?.isSuperUser) {
+  if (!session?.user?.isOrganizer && !session?.user?.isSuperUser) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -111,7 +111,7 @@ export default function AuditPage() {
 
   useEffect(() => {
     if (status === 'loading') return
-    if (!session || !(session.user as any).isSuperUser) {
+    if (!session || !session.user.isSuperUser) {
       router.push('/dashboard')
       return
     }

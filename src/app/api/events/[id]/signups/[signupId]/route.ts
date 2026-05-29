@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 export async function PATCH(
   req: NextRequest,
@@ -24,7 +24,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'No valid fields' }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('signups')
     .update(updates)
     .eq('id', params.signupId)

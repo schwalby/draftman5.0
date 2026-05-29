@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
+import { requireFields } from '@/lib/validate'
 
 export async function PATCH(
   req: NextRequest,
@@ -20,6 +21,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const reportErr = requireFields(body, ['winner_id', 'score_team1', 'score_team2'])
+    if (reportErr) return reportErr
     const { winner_id, score_team1, score_team2, map, ktp_match_id } = body
 
     const { data: match } = await supabase
@@ -71,12 +74,12 @@ export async function PATCH(
   // All other actions require a valid session
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const isSuperUser = (session.user as any).isSuperUser
-  const isOrganizer = (session.user as any).isOrganizer
-  const isCaptain = (session.user as any).isCaptain
+  const isSuperUser = session.user.isSuperUser
+  const isOrganizer = session.user.isOrganizer
+  const isCaptain = session.user.isCaptain
   const canConfirm = isSuperUser || isOrganizer || isCaptain
-  const actorId = (session.user as any).userId
-  const actorName = session.user?.name ?? 'unknown'
+  const actorId = session.user.userId
+  const actorName = session.user.name ?? 'unknown'
 
   const { data: match } = await supabase
     .from('tournament_matches')
@@ -164,6 +167,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const editErr = requireFields(body, ['winner_id', 'score_team1', 'score_team2'])
+    if (editErr) return editErr
     const { winner_id, score_team1, score_team2, map, reason } = body
 
     // Save to audit edits table
@@ -257,15 +262,17 @@ async function recalcStandings(supabase: any, tournamentId: string, groupId: str
   for (const m of matches) {
     if (!m.winner_id || !m.team1_id || !m.team2_id) continue
     const loserId = m.winner_id === m.team1_id ? m.team2_id : m.team1_id
+    const winnerScore = m.winner_id === m.team1_id ? (m.score_team1 ?? 0) : (m.score_team2 ?? 0)
+    const loserScore  = m.winner_id === m.team1_id ? (m.score_team2 ?? 0) : (m.score_team1 ?? 0)
     if (stats[m.winner_id]) {
       stats[m.winner_id].wins++
-      stats[m.winner_id].pf += m.score_team1 ?? 0
-      stats[m.winner_id].pa += m.score_team2 ?? 0
+      stats[m.winner_id].pf += winnerScore
+      stats[m.winner_id].pa += loserScore
     }
     if (stats[loserId]) {
       stats[loserId].losses++
-      stats[loserId].pf += m.score_team2 ?? 0
-      stats[loserId].pa += m.score_team1 ?? 0
+      stats[loserId].pf += loserScore
+      stats[loserId].pa += winnerScore
     }
   }
 

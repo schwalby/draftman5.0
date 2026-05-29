@@ -118,7 +118,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const timerSecsRef = useRef(90)
 
-  const isAdmin = !!(session?.user?.isOrganizer || (session?.user as any)?.isSuperUser)
+  const isAdmin = !!(session?.user?.isOrganizer || session?.user?.isSuperUser)
   const myUserId = session?.user?.userId
 
   useEffect(() => {

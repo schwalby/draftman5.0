@@ -2,6 +2,29 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Communication Style
+
+The user has AuDHD (Autism + ADHD). Keep all detailed explanations — do NOT shorten or simplify them. But every response longer than a few sentences MUST begin with a TL;DR block formatted exactly like this:
+
+```
+---
+**TL;DR**
+🔴 [critical / do this now]
+🟡 [important / do this soon]
+🟢 [low urgency / do when ready]
+
+*Full details below ↓*
+---
+```
+
+Rules:
+- 🔴 = something broken or risky right now
+- 🟡 = should be done before the next event/deploy
+- 🟢 = improvement, no immediate risk
+- Max 5 bullets in the TL;DR — the user can read the full explanation when they're ready to dig in
+- If there's only one thing to communicate, one bullet is fine
+- For simple short replies (a direct answer, a quick edit), skip the TL;DR entirely
+
 ## Project Overview
 
 
