@@ -138,6 +138,13 @@ const entries: Entry[] = [
     tags: ['Security audit', 'CVE-2026-31431', 'API auth confirmed', 'Player docs', 'Flowcharts', 'Bot spec'],
   },
   {
+    session: '20',
+    date: 'May 29, 2026',
+    heading: 'The bracket gets fixed and the summary page ships.',
+    body: 'Three silent bugs in the tournament system were found and fixed. seed-playoffs was ordering standings by a seed column that is never written to — all seeds were null, so QF matchups were assigned by insertion order instead of performance. Fixed by sorting in JS by wins desc, then point differential desc, with seed_override respected if set. QF seed badges (A1, B4, etc.) were only rendering correctly for two of the eight teams — the rest showed just a group letter. Fixed with a static match-slot lookup keyed to the fixed cross-seed scheme. The declare champion flow was silently failing with "champion_team_id required" because the frontend was sending only the action and never the winner\'s ID — fixed by passing pendingChampion.id from the closure. Then the two new history pages went from mockup to shipped. /events/[id]/summary is a full event recap: a horizontal teams row (flex, equal width, clickable to team detail, result badge at bottom), a playoff bracket with four equal columns and centered fixed-width match cards showing seed badges and map names, and a round robin section with group standings and per-round results including the map played. /events/[id]/teams/[teamId] shows the team hero, stat boxes, full roster table with pick order and class, and complete match history. The dashboard VIEW button for completed events now routes to /summary. Half-score support added end-to-end: KTPBridge now parses 1st Half and 2nd Half lines from the Scores embed field, passes them through the report API, stores them in four new columns on tournament_matches (migration shipped), and the team detail page renders them as a subtitle under the total score.',
+    tags: ['Bracket seeding fix', 'QF seed badges', 'Declare champion fix', 'Draft summary page', 'Team detail page', 'Dashboard routing', 'Half scores', 'KTPBridge', 'DB migration'],
+  },
+  {
     session: '19',
     date: 'May 15, 2026',
     heading: 'Verify ships. Portal gets smarter.',
