@@ -87,15 +87,25 @@ export default function LandingPage() {
       zIndex: 1,
     }}>
       <style>{`
+        @keyframes lp-up { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes lp-pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.4;transform:scale(.65);} }
+        .lp-animate { opacity:0; animation: lp-up .55s ease forwards; }
         @media (max-width: 600px) {
           .lp-title { font-size: 40px !important; }
           .lp-cards { flex-direction: column !important; }
           .lp-cards > div { flex: unset !important; width: 100% !important; }
         }
+        .lp-discord-btn { transition: transform .12s ease, box-shadow .15s ease; }
+        .lp-discord-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(88,101,242,0.45); }
+        .lp-discord-btn:active { transform: translateY(1px); box-shadow: none; }
+        .lp-card { transition: border-color .2s, transform .2s, box-shadow .2s; position: relative; overflow: hidden; }
+        .lp-card::before { content:''; position:absolute; width:180px; height:180px; border-radius:50%; background:radial-gradient(circle,rgba(200,184,122,0.07) 0%,transparent 70%); pointer-events:none; transform:translate(-50%,-50%); opacity:0; transition:opacity .3s; left:var(--cx,50%); top:var(--cy,50%); }
+        .lp-card:hover { border-color: rgba(200,184,122,0.35) !important; transform:translateY(-3px); box-shadow:0 8px 28px rgba(0,0,0,0.5); }
+        .lp-card:hover::before { opacity:1; }
       `}</style>
 
       {/* Pill */}
-      <div style={{
+      <div className="lp-animate" style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 8,
@@ -106,13 +116,14 @@ export default function LandingPage() {
         fontSize: 11,
         color: 'var(--text-dim)',
         letterSpacing: '0.08em',
+        animationDelay: '0s',
       }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--khaki)', display: 'inline-block' }} />
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--khaki)', display: 'inline-block', animation: 'lp-pulse 2.4s ease-in-out infinite' }} />
         Day of Defeat 1.3 · Community Platform
       </div>
 
       {/* Icon */}
-      <div style={{ marginBottom: 24 }}>
+      <div className="lp-animate" style={{ marginBottom: 24, animationDelay: '0.08s' }}>
         <Image
           src="/icon.png"
           alt="DRAFT MAN"
@@ -123,30 +134,36 @@ export default function LandingPage() {
       </div>
 
       {/* Title */}
-      <div style={{
+      <div className="lp-animate lp-title" style={{
         fontFamily: 'var(--font-heading)',
         fontSize: 64,
         letterSpacing: '0.06em',
-        color: 'var(--khaki)',
+        background: 'linear-gradient(135deg, #a08848 0%, #c8b87a 35%, #ede0a8 55%, #c8b87a 75%, #a08848 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+        filter: 'drop-shadow(0 0 3px rgba(200,184,122,0.55)) drop-shadow(0 0 8px rgba(200,184,122,0.2))',
         lineHeight: 1,
         marginBottom: 10,
-      }} className="lp-title">
+        animationDelay: '0.15s',
+      }}>
         DRAFTMAN5.0
       </div>
 
       {/* Subtitle */}
-      <div style={{
+      <div className="lp-animate" style={{
         fontSize: 11,
         letterSpacing: '0.2em',
         color: 'var(--text-dim)',
         marginBottom: 28,
         fontFamily: 'var(--font-body)',
+        animationDelay: '0.22s',
       }}>
         COMMUNITY EVENT PLATFORM
       </div>
 
       {/* Description */}
-      <p style={{
+      <p className="lp-animate" style={{
         fontSize: 13,
         color: 'var(--text-dim)',
         lineHeight: 1.8,
@@ -154,6 +171,7 @@ export default function LandingPage() {
         maxWidth: 420,
         marginBottom: 32,
         fontFamily: 'var(--font-body)',
+        animationDelay: '0.28s',
       }}>
         Sign up for drafts and community events, check in before matches, and join the draft board — all connected to your{' '}
         <span style={{ color: 'var(--text)', textDecoration: 'underline' }}>Discord account.</span>
@@ -162,6 +180,7 @@ export default function LandingPage() {
       {/* Discord button */}
       <button
         onClick={() => signIn('discord', { callbackUrl: '/dashboard' })}
+        className="lp-animate lp-discord-btn"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -176,6 +195,8 @@ export default function LandingPage() {
           cursor: 'pointer',
           letterSpacing: '0.04em',
           marginBottom: 12,
+          boxShadow: '0 4px 24px rgba(88,101,242,0.25)',
+          animationDelay: '0.34s',
         }}
       >
         <svg width="20" height="15" viewBox="0 0 71 55" fill="white" xmlns="http://www.w3.org/2000/svg">
@@ -185,12 +206,12 @@ export default function LandingPage() {
       </button>
 
       {/* Privacy note */}
-      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 48, fontFamily: 'var(--font-body)' }}>
+      <div className="lp-animate" style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 48, fontFamily: 'var(--font-body)', animationDelay: '0.38s' }}>
         We only request your username and avatar. No passwords stored.
       </div>
 
       {/* Feature cards */}
-      <div className="lp-cards" style={{ display: 'flex', gap: 12, marginBottom: 48, width: '100%', maxWidth: 560 }}>
+      <div className="lp-cards lp-animate" style={{ display: 'flex', gap: 12, marginBottom: 48, width: '100%', maxWidth: 560, animationDelay: '0.44s' }}>
         {[
           {
             icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
@@ -208,14 +229,21 @@ export default function LandingPage() {
             desc: 'Watch the signup sheet and draft board update in real time.',
           },
         ].map((card) => (
-          <div key={card.title} style={{
-            flex: 1,
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 4,
-            padding: '16px 14px',
-          }}>
-            <div style={{ color: 'var(--text-dim)', marginBottom: 8 }}>{card.icon}</div>
+          <div
+            key={card.title}
+            className="lp-card"
+            style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 14px' }}
+            onMouseMove={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              e.currentTarget.style.setProperty('--cx', (e.clientX - r.left) + 'px')
+              e.currentTarget.style.setProperty('--cy', (e.clientY - r.top) + 'px')
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.setProperty('--cx', '50%')
+              e.currentTarget.style.setProperty('--cy', '50%')
+            }}
+          >
+            <div style={{ color: 'var(--khaki)', marginBottom: 8, opacity: 0.7 }}>{card.icon}</div>
             <div style={{ fontSize: 12, color: 'var(--text)', fontFamily: 'var(--font-body)', marginBottom: 6, fontWeight: 600 }}>
               {card.title}
             </div>
@@ -227,7 +255,7 @@ export default function LandingPage() {
       </div>
 
       {/* Footer */}
-      <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', textAlign: 'center', lineHeight: 2, fontFamily: 'var(--font-body)' }}>
+      <div className="lp-animate" style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', textAlign: 'center', lineHeight: 2, fontFamily: 'var(--font-body)', animationDelay: '0.5s' }}>
         DRAFT MAN 5.0 · Day of Defeat 1.3
         <br />
         <Link href="/rules" style={{ color: 'var(--khaki)', textDecoration: 'underline', fontSize: 11 }}>

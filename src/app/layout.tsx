@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from '@/components/Providers'
+import { CustomCursor } from '@/components/CustomCursor'
 
 export const metadata: Metadata = {
   title: 'DRAFT MAN 5.0',
@@ -33,6 +34,7 @@ export default function RootLayout({
         }} />
       </head>
       <body>
+        <CustomCursor />
         <Providers>{children}</Providers>
       </body>
     </html>
