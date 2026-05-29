@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Topbar } from '@/components/Topbar'
 import { Spinner } from '@/components/Spinner'
 
@@ -40,6 +40,7 @@ function RuleItem({ text }: { text: string }) {
 export default function RulesPage() {
   const [sections, setSections] = useState<RulesSection[]>([])
   const [loading, setLoading] = useState(true)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/api/rules')
@@ -48,21 +49,37 @@ export default function RulesPage() {
       .catch(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    if (loading) return
+    const el = contentRef.current
+    if (!el) return
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('rl-in'); io.unobserve(e.target) } })
+    }, { threshold: 0.1 })
+    el.querySelectorAll('.rl-reveal, .rl-reveal-left').forEach(node => io.observe(node))
+    return () => io.disconnect()
+  }, [loading])
+
   return (
     <>
       <Topbar />
-      <div style={{ maxWidth: 680, margin: '0 auto', padding: '40px 24px 80px' }}>
-        <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 40, color: 'var(--khaki)', marginBottom: 6 }}>
+      <style>{`
+        .rl-reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.45s ease, transform 0.45s ease; }
+        .rl-reveal-left { opacity: 0; transform: translateX(-12px); transition: opacity 0.45s ease, transform 0.45s ease; }
+        .rl-reveal.rl-in, .rl-reveal-left.rl-in { opacity: 1; transform: none; }
+      `}</style>
+      <div ref={contentRef} style={{ maxWidth: 680, margin: '0 auto', padding: '40px 24px 80px' }}>
+        <h1 className="rl-reveal" style={{ fontFamily: 'var(--font-heading)', fontSize: 40, color: 'var(--khaki)', marginBottom: 6 }}>
           Rules &amp; Format
         </h1>
-        <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 40, fontFamily: 'var(--font-body)' }}>
+        <div className="rl-reveal" style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 40, fontFamily: 'var(--font-body)', transitionDelay: '0.05s' }}>
           Day of Defeat 1.3 &nbsp;·&nbsp; Draft Events
         </div>
 
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spinner /></div>
-        ) : sections.map(section => (
-          <div key={section.id} style={{ marginBottom: 36 }}>
+        ) : sections.map((section, si) => (
+          <div key={section.id} className="rl-reveal" style={{ marginBottom: 36, transitionDelay: `${0.05 + si * 0.06}s` }}>
             <div style={{
               fontSize: 11, fontWeight: 500, letterSpacing: '0.12em',
               textTransform: 'uppercase', color: 'var(--khaki)',
@@ -73,8 +90,10 @@ export default function RulesPage() {
             </div>
             {(section.rules_items || [])
               .sort((a, b) => a.position - b.position)
-              .map(item => (
-                <RuleItem key={item.id} text={item.content} />
+              .map((item, ii) => (
+                <div key={item.id} className="rl-reveal-left" style={{ transitionDelay: `${0.08 + si * 0.06 + ii * 0.04}s` }}>
+                  <RuleItem text={item.content} />
+                </div>
               ))
             }
           </div>

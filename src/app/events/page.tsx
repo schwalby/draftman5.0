@@ -78,6 +78,15 @@ export default function EventsPage() {
     <>
       <Topbar />
 
+      <style>{`
+        .ev-row { transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; position: relative; overflow: hidden; }
+        .ev-row::before { content: ''; position: absolute; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, rgba(126,184,212,0.06) 0%, transparent 70%); pointer-events: none; transform: translate(-50%, -50%); opacity: 0; transition: opacity 0.3s; left: var(--cx, 50%); top: var(--cy, 50%); }
+        .ev-row:hover { border-color: rgba(126,184,212,0.38) !important; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.45); }
+        .ev-row:hover::before { opacity: 1; }
+        .ev-signup-pill { transition: transform 0.12s, box-shadow 0.12s; }
+        .ev-signup-pill:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(200,184,122,0.2); }
+      `}</style>
+
       <main style={{ maxWidth: 760, margin: '0 auto', padding: '36px 24px 80px' }}>
         <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 32, letterSpacing: '0.04em', color: 'var(--text)', lineHeight: 1, marginBottom: 6 }}>
           Events
@@ -102,6 +111,7 @@ export default function EventsPage() {
             <Link
               key={event.id}
               href={`/events/${event.id}`}
+              className="ev-row"
               style={{
                 display: 'flex', alignItems: 'center', gap: 16,
                 background: 'var(--surface)',
@@ -109,6 +119,15 @@ export default function EventsPage() {
                 borderLeft: inProgress ? '3px solid var(--green-light)' : isSignedUp ? '3px solid var(--khaki)' : undefined,
                 borderRadius: 4, padding: '18px 20px', marginBottom: 8,
                 textDecoration: 'none', color: 'var(--text)',
+              }}
+              onMouseMove={(e) => {
+                const r = e.currentTarget.getBoundingClientRect()
+                e.currentTarget.style.setProperty('--cx', (e.clientX - r.left) + 'px')
+                e.currentTarget.style.setProperty('--cy', (e.clientY - r.top) + 'px')
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.setProperty('--cx', '50%')
+                e.currentTarget.style.setProperty('--cy', '50%')
               }}
             >
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
@@ -140,7 +159,7 @@ export default function EventsPage() {
                     </span>
                   </div>
                 ) : (
-                  <div style={{
+                  <div className="ev-signup-pill" style={{
                     fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
                     letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 16px',
                     borderRadius: 3, border: '1px solid var(--khaki)', color: 'var(--khaki)',

@@ -297,6 +297,14 @@ export default function SettingsPage() {
     <>
       <Topbar />
 
+      <style>{`
+        .st-filter-btn { transition: color 0.15s, border-color 0.15s, background 0.15s; }
+        .st-filter-btn:not(.st-active):hover { color: var(--text-dim) !important; border-color: rgba(126,184,212,0.38) !important; }
+        .st-user-row { transition: background 0.15s; }
+        .st-user-row:hover { background: rgba(126,184,212,0.03); }
+        .st-search:focus { border-color: rgba(126,184,212,0.38) !important; outline: none; }
+      `}</style>
+
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '36px 24px' }}>
 
         {/* Page header */}
@@ -326,6 +334,7 @@ export default function SettingsPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by name or Discord…"
+              className="st-search"
               style={{
                 width: '100%', background: 'var(--surface)', border: '1px solid var(--border)',
                 color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12,
@@ -337,6 +346,7 @@ export default function SettingsPage() {
             <button
               key={f}
               onClick={() => setFilter(f)}
+              className={`st-filter-btn${filter === f ? ' st-active' : ''}`}
               style={{
                 fontFamily: 'var(--font-heading)', fontSize: 10, letterSpacing: '0.1em',
                 padding: '7px 14px', borderRadius: 3, cursor: 'pointer', textTransform: 'uppercase',
@@ -379,7 +389,7 @@ export default function SettingsPage() {
                 const initial = displayName[0].toUpperCase()
 
                 return (
-                  <tr key={u.id} style={{ borderBottom: idx < realUsers.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <tr key={u.id} className="st-user-row" style={{ borderBottom: idx < realUsers.length - 1 ? '1px solid var(--border)' : 'none' }}>
 
                     {/* Player cell */}
                     <td style={{ padding: '12px 16px' }}>
