@@ -53,7 +53,7 @@ const initialState: FormState = {
 
 function buildCheckinAt(date: string, time: string): string | null {
   if (!date || !time) return null;
-  return `${date}T${time}:00`;
+  return new Date(`${date}T${time}:00`).toISOString();
 }
 
 function fmtDateOnly(d: string): string {
@@ -89,8 +89,8 @@ export default function NewEventPage() {
     slots_sniper: f.slots.sniper,
     capacity: f.playerCap,
     maps: f.maps,
-    starts_at: f.draftDate ? `${f.draftDate}T00:00:00` : null,
-    signup_opens_at: f.signupOpens || null,
+    starts_at: f.draftDate ? new Date(`${f.draftDate}T00:00:00`).toISOString() : null,
+    signup_opens_at: f.signupOpens ? new Date(f.signupOpens).toISOString() : null,
     checkin_opens_at: buildCheckinAt(f.draftDate, f.checkinTime),
     notes: f.notes || null,
     stream_url: f.streamUrl || null,

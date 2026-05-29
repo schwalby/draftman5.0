@@ -94,6 +94,8 @@ export default function EditEventPage() {
 
   const totalCapacity = form ? Object.values(form.slots).reduce((a, b) => a + b, 0) : 0;
 
+  const toUtcIso = (local: string) => local ? new Date(local).toISOString() : null;
+
   const buildPayload = (f: FormState) => ({
     name: f.name || 'Untitled Draft',
     type: f.type,
@@ -105,9 +107,9 @@ export default function EditEventPage() {
     slots_sniper: f.slots.sniper,
     capacity: f.playerCap,
     maps: f.maps,
-    starts_at: f.startsAt || null,
-    signup_opens_at: f.signupOpens || null,
-    checkin_opens_at: f.checkinOpens || null,
+    starts_at: toUtcIso(f.startsAt),
+    signup_opens_at: toUtcIso(f.signupOpens),
+    checkin_opens_at: toUtcIso(f.checkinOpens),
     notes: f.notes || null,
     stream_url: f.streamUrl || null,
   });
