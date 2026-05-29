@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
   // ── 7. Notify bot to grant Discord role ────────────────────────────────────
   // Bug fix: await the grant call and handle failure — do not fire and forget.
   // If grant fails the user sees success but never gets the role, causing confusion.
-  const base = process.env.NEXTAUTH_URL ?? 'https://draftman50-production.up.railway.app'
+  const base = new URL(req.url).origin
   try {
     const grantRes = await fetch(`${base}/api/verify/grant`, {
       method: 'POST',

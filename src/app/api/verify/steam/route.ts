@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/verify?error=missing_token', req.url))
   }
 
-  const base = process.env.NEXTAUTH_URL ?? 'https://draftman50-production.up.railway.app'
+  const base = new URL(req.url).origin
   const returnTo = `${base}/api/verify/callback?token=${token}`
 
   // Steam OpenID 2.0 parameters
