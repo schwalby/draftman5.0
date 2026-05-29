@@ -226,12 +226,11 @@ export default function TournamentPage() {
     const res = await fetch(`/api/tournaments/${tournament!.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'declare_champion' }),
+      body: JSON.stringify({ action: 'declare_champion', champion_team_id: pendingChampion?.id }),
     })
     setSaving(false)
     if (!res.ok) { const d = await res.json(); showToast(d.error || 'Error', true); return }
-    const d = await res.json()
-    showToast(`${d.champion?.name ?? 'Champion'} declared winner!`)
+    showToast(`${pendingChampion?.name ?? 'Champion'} declared winner!`)
     setModal(null)
     await fetchData()
   }
