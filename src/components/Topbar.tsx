@@ -177,8 +177,8 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
       width: '28px',
       height: '28px',
       borderRadius: '50%',
-      border: '1px solid var(--border)',
-      background: 'rgba(126,184,212,0.15)',
+      border: '1.5px solid var(--khaki)',
+      background: 'rgba(200,184,122,0.12)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -187,6 +187,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
       fontWeight: 'bold' as const,
       overflow: 'hidden',
       flexShrink: 0,
+      boxShadow: '0 0 6px rgba(200,184,122,0.25)',
     },
     signOut: {
       background: 'none',
@@ -216,6 +217,10 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
     .tb-mobile-drawer a.active-item { color: var(--khaki); }
     .tb-mobile-drawer .drawer-arrow { color: var(--text-muted); font-size: 10px; }
     .tb-mobile-drawer .drawer-signout { color: var(--text-muted); cursor: pointer; background: none; border: none; font-family: var(--font-body); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; width: 100%; text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+    .tb-nav a[href]:not(.tb-active), .tb-nav a:not(.tb-active) { position: relative; }
+    .tb-nav a[href]:not(.tb-active)::after, .tb-nav a:not(.tb-active)::after { content: ''; position: absolute; bottom: 0; left: 16px; right: 16px; height: 2px; background: var(--khaki); width: 0; transition: width 0.22s ease; }
+    .tb-nav a[href]:not(.tb-active):hover { color: var(--text-dim) !important; }
+    .tb-nav a[href]:not(.tb-active):hover::after { width: calc(100% - 32px); }
   `;
 
   function toggleTheme() {
@@ -309,10 +314,6 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
 
       {/* Right side */}
       <div style={styles.right}>
-        <button style={styles.themeToggle} onClick={toggleTheme} title="Toggle theme">
-          ◑
-        </button>
-
         <div style={styles.avatar}>
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element

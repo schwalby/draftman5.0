@@ -120,8 +120,12 @@ export default function DashboardPage() {
     pageTitle: {
       fontFamily: 'var(--font-heading)',
       fontSize: '22px',
-      color: 'var(--text)',
       letterSpacing: '0.04em',
+      background: 'linear-gradient(135deg, #a08848 0%, #c8b87a 40%, #ede0a8 60%, #c8b87a 80%, #a08848 100%)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text',
+      filter: 'drop-shadow(0 0 3px rgba(200,184,122,0.3))',
     },
     newEventBtn: {
       display: 'inline-flex',
@@ -315,11 +319,19 @@ export default function DashboardPage() {
           .db-card { flex-direction: column !important; align-items: flex-start !important; }
           .db-actions { flex-wrap: wrap !important; margin-top: 10px; }
         }
+        .db-event-card { transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; }
+        .db-event-card:hover { border-color: rgba(126,184,212,0.38) !important; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,0.45); }
+        .db-btn { transition: transform 0.12s, box-shadow 0.12s, color 0.15s, border-color 0.15s; }
+        .db-btn:hover { transform: translateY(-1px); }
+        .db-btn:active { transform: translateY(1px) !important; box-shadow: none !important; }
+        .db-btn-primary:hover { box-shadow: 0 4px 14px rgba(200,184,122,0.2); border-color: var(--khaki) !important; }
+        .db-new-event:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(200,184,122,0.3); background: #d4c688 !important; }
+        .db-new-event:active { transform: translateY(1px) !important; box-shadow: none !important; }
       `}</style>
       <main style={s.main} className="db-main">
         <div style={s.pageHeader}>
           <div style={s.pageTitle}>Organizer Dashboard</div>
-          <Link href="/events/new" style={s.newEventBtn}>+ New Event</Link>
+          <Link href="/events/new" style={s.newEventBtn} className="db-new-event">+ New Event</Link>
         </div>
 
         {loading ? (
@@ -344,7 +356,7 @@ export default function DashboardPage() {
                     : 0;
 
                   return (
-                    <div key={event.id} style={s.eventCard} className="db-card">
+                    <div key={event.id} style={s.eventCard} className="db-card db-event-card">
                       <div style={s.eventInfo}>
                         <div style={s.eventName}>{event.name}</div>
                         <div style={s.eventMeta}>
@@ -388,13 +400,13 @@ export default function DashboardPage() {
 
                       <div style={s.actions} className="db-actions">
                         {/* View / navigate */}
-                        <Link href={getNavHref(event)} style={s.actionBtn}>
+                        <Link href={getNavHref(event)} style={s.actionBtn} className="db-btn">
                           {section === 'in_progress' ? 'Resume →' : 'View'}
                         </Link>
 
                         {/* Edit — not on completed */}
                         {section !== 'completed' && (
-                          <Link href={`/events/${event.id}/edit`} style={s.actionBtn}>
+                          <Link href={`/events/${event.id}/edit`} style={s.actionBtn} className="db-btn">
                             Edit
                           </Link>
                         )}
@@ -403,6 +415,7 @@ export default function DashboardPage() {
                         {(section === 'published' || section === 'unpublished') && (
                           <button
                             style={{ ...s.actionBtn, ...(section === 'published' ? {} : s.actionBtnPrimary) }}
+                            className={`db-btn${section === 'unpublished' ? ' db-btn-primary' : ''}`}
                             onClick={() => handlePublish(event.id, event.status)}
                           >
                             {section === 'published' ? 'Unpublish' : 'Publish'}

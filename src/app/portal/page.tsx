@@ -108,7 +108,6 @@ function PortalContent() {
   const [steamEditing, setSteamEditing] = useState(false)
   const [steamSaving, setSteamSaving] = useState(false)
   const [steamError, setSteamError] = useState<string | null>(null)
-  const [showManualSteam, setShowManualSteam] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/')
@@ -305,24 +304,14 @@ function PortalContent() {
                       </svg>
                       Verify with Steam
                     </a>
-                    <button
-                      onClick={() => setShowManualSteam(v => !v)}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer', width: '100%',
-                        fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.05em',
-                        padding: '2px 0', marginBottom: showManualSteam ? 8 : 0,
-                      }}
-                    >
-                      {showManualSteam ? '▴ Hide manual entry' : '▾ Already know your Steam ID?'}
-                    </button>
                     <div style={{ marginTop: 10, padding: '7px 10px', background: 'rgba(126,184,212,0.04)', border: '1px solid var(--border)', borderRadius: 3, fontSize: 10, color: 'var(--text-muted, #5a5444)', lineHeight: 1.7 }}>
                       <span style={{ color: 'var(--text-dim)' }}>What we store:</span> your Steam display name, avatar, and ID only. No sensitive data is collected or shared.{' '}
                       <a href="/disclaimer" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>Learn more</a>
                     </div>
                   </>
                 )}
-                {(showManualSteam || steamEditing) && (
-                  <div style={{ borderTop: steamEditing ? 'none' : '1px solid var(--border)', paddingTop: steamEditing ? 0 : 10 }}>
+                {steamEditing && (
+                  <div>
                     <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8, lineHeight: 1.6 }}>
                       Accepted formats: <span style={{ color: 'var(--text)' }}>STEAM_0:0:XXXXXXX</span>, <span style={{ color: 'var(--text)' }}>STEAM_0:1:XXXXXXX</span>, or SteamID64.
                     </div>
