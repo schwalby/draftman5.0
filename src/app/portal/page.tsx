@@ -250,7 +250,7 @@ function PortalContent() {
                 width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
                 background: 'var(--surface2)', border: '1px solid var(--border)',
                 overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'var(--font-heading)', fontSize: 18, color: 'var(--khaki)',
+                fontFamily: 'var(--font-heading)', fontSize: 18, color: 'var(--khaki-gold)',
               }}>
                 {discordAvatarUrl
                   ? <img src={discordAvatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -264,7 +264,7 @@ function PortalContent() {
                 <span style={{
                   fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
                   padding: '2px 7px', borderRadius: 2, display: 'inline-block',
-                  border: '1px solid rgba(126,184,212,0.3)', color: 'var(--khaki)',
+                  border: '1px solid rgba(200,184,122,0.3)', color: 'var(--khaki-gold)',
                 }}>
                   {roleLabel}
                 </span>
@@ -333,7 +333,7 @@ function PortalContent() {
                         style={{
                           fontSize: 11, fontFamily: 'var(--font-body)', letterSpacing: '0.08em',
                           padding: '7px 14px', borderRadius: 3, cursor: 'pointer',
-                          background: 'var(--khaki)', color: '#0d0f12', border: 'none',
+                          background: 'var(--khaki-gold)', color: '#0d0f12', border: 'none',
                           opacity: steamSaving || !steamIdInput.trim() ? 0.5 : 1,
                         }}
                       >
@@ -467,13 +467,13 @@ function PortalContent() {
                       borderRadius: 3, textDecoration: 'none', textAlign: 'center',
                       border: inProgress
                         ? '1px solid var(--green-light)'
-                        : isSignedUp ? '1px solid var(--border)' : '1px solid var(--khaki)',
+                        : isSignedUp ? '1px solid var(--border)' : '1px solid var(--khaki-gold)',
                       color: inProgress
                         ? 'var(--green-light)'
-                        : isSignedUp ? 'var(--text-dim)' : 'var(--khaki)',
+                        : isSignedUp ? 'var(--text-dim)' : 'var(--khaki-gold)',
                       background: inProgress
                         ? 'rgba(90,156,90,0.08)'
-                        : isSignedUp ? 'transparent' : 'rgba(126,184,212,0.08)',
+                        : isSignedUp ? 'transparent' : 'rgba(200,184,122,0.08)',
                       pointerEvents: (!canSignup && !isSignedUp && !inProgress) ? 'none' : 'auto',
                       opacity: (!canSignup && !isSignedUp && !inProgress) ? 0.4 : 1,
                     }}>

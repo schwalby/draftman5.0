@@ -350,9 +350,9 @@ export default function SettingsPage() {
               style={{
                 fontFamily: 'var(--font-heading)', fontSize: 10, letterSpacing: '0.1em',
                 padding: '7px 14px', borderRadius: 3, cursor: 'pointer', textTransform: 'uppercase',
-                border: filter === f ? '1px solid var(--khaki)' : '1px solid var(--border)',
-                background: filter === f ? 'rgba(126,184,212,0.07)' : 'transparent',
-                color: filter === f ? 'var(--khaki)' : 'var(--text-dim)',
+                border: filter === f ? '1px solid var(--khaki-gold)' : '1px solid var(--border)',
+                background: filter === f ? 'rgba(200,184,122,0.07)' : 'transparent',
+                color: filter === f ? 'var(--khaki-gold)' : 'var(--text-dim)',
               }}
             >
               {f === 'all' ? 'All' : f === 'admin' ? 'Draft Admins' : 'SuperUsers'}

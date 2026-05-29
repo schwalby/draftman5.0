@@ -132,7 +132,7 @@ export default function DashboardPage() {
       alignItems: 'center',
       gap: '6px',
       padding: '8px 18px',
-      background: 'var(--khaki)',
+      background: 'var(--khaki-gold)',
       color: '#0e0e0e',
       border: 'none',
       borderRadius: '3px',
@@ -267,8 +267,8 @@ export default function DashboardPage() {
       borderColor: 'transparent',
     },
     actionBtnPrimary: {
-      borderColor: 'var(--khaki)',
-      color: 'var(--khaki)',
+      borderColor: 'var(--khaki-gold)',
+      color: 'var(--khaki-gold)',
     },
     modalOverlay: {
       position: 'fixed' as const,
@@ -324,7 +324,7 @@ export default function DashboardPage() {
         .db-btn { transition: transform 0.12s, box-shadow 0.12s, color 0.15s, border-color 0.15s; }
         .db-btn:hover { transform: translateY(-1px); }
         .db-btn:active { transform: translateY(1px) !important; box-shadow: none !important; }
-        .db-btn-primary:hover { box-shadow: 0 4px 14px rgba(200,184,122,0.2); border-color: var(--khaki) !important; }
+        .db-btn-primary:hover { box-shadow: 0 4px 14px rgba(200,184,122,0.2); border-color: var(--khaki-gold) !important; }
         .db-new-event:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(200,184,122,0.3); background: #d4c688 !important; }
         .db-new-event:active { transform: translateY(1px) !important; box-shadow: none !important; }
       `}</style>

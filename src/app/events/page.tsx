@@ -162,8 +162,8 @@ export default function EventsPage() {
                   <div className="ev-signup-pill" style={{
                     fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
                     letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 16px',
-                    borderRadius: 3, border: '1px solid var(--khaki)', color: 'var(--khaki)',
-                    background: 'rgba(126,184,212,0.08)', cursor: 'pointer', marginTop: 8,
+                    borderRadius: 3, border: '1px solid var(--khaki-gold)', color: 'var(--khaki-gold)',
+                    background: 'rgba(200,184,122,0.08)', cursor: 'pointer', marginTop: 8,
                     display: 'inline-block'
                   }}>Sign Up</div>
                 )}
