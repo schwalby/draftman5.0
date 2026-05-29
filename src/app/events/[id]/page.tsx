@@ -178,10 +178,8 @@ export default function EventPage() {
     submittingRef.current = true;
     setSubmitting(true);
     if (mySignup) {
-      await fetch(`/api/events/${eventId}/signups`, {
+      await fetch(`/api/events/${eventId}/signups?signupId=${mySignup!.id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
       });
     } else {
       await fetch(`/api/events/${eventId}/signups`, {

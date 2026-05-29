@@ -831,7 +831,8 @@ export default function TournamentPage() {
                       const s1 = Math.floor(Math.random() * 400) + 100
                       const s2 = Math.floor(Math.random() * (s1 - 50)) + 50
                       const ok = await patchMatch(modal.match!.id, {
-                        action: 'report',
+                        action: 'simulate',
+                        winner_id: modal.match!.team1!.id,
                         score_team1: s1,
                         score_team2: s2,
                       })

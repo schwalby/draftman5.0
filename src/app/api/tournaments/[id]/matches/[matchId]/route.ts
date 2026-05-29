@@ -71,6 +71,32 @@ export async function PATCH(
     return NextResponse.json({ success: true })
   }
 
+  if (action === 'simulate') {
+    if (!session?.user?.isOrganizer && !session?.user?.isSuperUser) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const simErr = requireFields(body, ['winner_id', 'score_team1', 'score_team2'])
+    if (simErr) return simErr
+    const { winner_id, score_team1, score_team2 } = body
+
+    const { error } = await supabase
+      .from('tournament_matches')
+      .update({
+        winner_id,
+        score_team1,
+        score_team2,
+        map: null,
+        status: 'awaiting_confirmation',
+        confirmed: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', params.matchId)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  }
+
   // All other actions require a valid session
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

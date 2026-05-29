@@ -26,24 +26,36 @@ export async function GET() {
     return NextResponse.json([])
   }
 
-  // Fetch signup counts for all events in one query
   const eventIds = events.map((e: any) => e.id)
-  const { data: signupCounts } = await supabase
-    .from('signups')
-    .select('event_id')
-    .in('event_id', eventIds)
-    .neq('status', 'withdrawn')
 
-  // Build a count map
+  // Fetch signup counts and current user's signups in parallel
+  const [{ data: signupCounts }, { data: mySignups }] = await Promise.all([
+    supabase
+      .from('signups')
+      .select('event_id')
+      .in('event_id', eventIds)
+      .neq('status', 'withdrawn'),
+    supabase
+      .from('signups')
+      .select('event_id, class')
+      .in('event_id', eventIds)
+      .eq('user_id', session.user.userId),
+  ])
+
   const countMap: Record<string, number> = {}
   for (const s of signupCounts ?? []) {
     countMap[s.event_id] = (countMap[s.event_id] ?? 0) + 1
   }
 
-  // Attach signup_count to each event
+  const mySignupMap: Record<string, { class: string[] }> = {}
+  for (const s of mySignups ?? []) {
+    mySignupMap[s.event_id] = { class: s.class }
+  }
+
   const eventsWithCounts = events.map((e: any) => ({
     ...e,
     signup_count: countMap[e.id] ?? 0,
+    my_signup: mySignupMap[e.id] ?? null,
   }))
 
   return NextResponse.json(eventsWithCounts)
