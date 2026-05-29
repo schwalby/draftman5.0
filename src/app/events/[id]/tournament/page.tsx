@@ -218,6 +218,7 @@ export default function TournamentPage() {
     setSaving(false)
     if (!res.ok) { showToast('Failed to seed playoffs', true); return }
     showToast('Playoffs seeded!')
+    setModal(null)
     await fetchData()
   }
 
@@ -503,7 +504,7 @@ export default function TournamentPage() {
               </button>
             )}
             {isAdmin && (
-              <button style={{ ...S.btn, ...S.btnGhost }} onClick={seedPlayoffs} disabled={saving}>
+              <button style={{ ...S.btn, ...S.btnGhost }} onClick={() => openModal('seed-playoffs')} disabled={saving}>
                 SEED PLAYOFFS
               </button>
             )}
@@ -589,29 +590,49 @@ export default function TournamentPage() {
                             {rMatches.some(m => m.status === 'in_progress') ? 'IN PROGRESS' : rMatches.every(m => m.status === 'complete') ? 'COMPLETE' : 'PENDING'}
                           </span>
                         </div>
-                        {rMatches.map(m => (
-                          <div
-                            key={m.id}
-                            onContextMenu={e => openCtx(e, m.status === 'complete' ? 'match-complete' : m.status === 'awaiting_confirmation' ? 'match-unconf' : 'match-pending', m)}
-                            style={{ ...S.roundMatch, background: m.status === 'awaiting_confirmation' ? 'rgba(200,132,42,0.04)' : undefined }}
-                          >
-                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                              <div style={{ width: 7, height: 7, borderRadius: '50%', background: m.team1?.color ?? 'var(--border)', flexShrink: 0 }} />
-                              <span style={{ fontFamily: 'var(--font-heading)', fontSize: 11, fontWeight: 600, letterSpacing: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.team1?.name ?? 'TBD'}</span>
-                              {m.status === 'complete' && m.winner?.id === m.team1?.id && <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--green)', letterSpacing: 1 }}>W</span>}
-                              {m.status === 'awaiting_confirmation' && <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--amber)', letterSpacing: 1 }}>?</span>}
+                        {rMatches.map(m => {
+                          const unconf = m.status === 'awaiting_confirmation'
+                          const complete = m.status === 'complete'
+                          const wc = m.winner?.color ?? 'var(--amber)'
+                          return (
+                            <div key={m.id}>
+                              <div
+                                onContextMenu={e => openCtx(e, complete ? 'match-complete' : unconf ? 'match-unconf' : 'match-pending', m)}
+                                style={{
+                                  ...S.roundMatch,
+                                  borderLeft: unconf ? `2px solid ${wc}66` : undefined,
+                                  background: unconf ? `${wc}08` : undefined,
+                                }}
+                              >
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: m.team1?.color ?? 'var(--border)', flexShrink: 0 }} />
+                                  <span style={{ fontFamily: 'var(--font-heading)', fontSize: 11, fontWeight: 600, letterSpacing: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.team1?.name ?? 'TBD'}</span>
+                                  {complete && m.winner?.id === m.team1?.id && <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--green)', letterSpacing: 1 }}>W</span>}
+                                </div>
+                                <span style={{ fontFamily: 'var(--font-heading)', fontSize: 13, fontWeight: 700, minWidth: 32, textAlign: 'center', color: complete && m.winner?.id === m.team1?.id ? 'var(--khaki)' : unconf && m.winner?.id === m.team1?.id ? wc : 'var(--text-dim)' }}>{m.score_team1 ?? '—'}</span>
+                                <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, color: 'var(--border-strong)' }}>vs</span>
+                                <span style={{ fontFamily: 'var(--font-heading)', fontSize: 13, fontWeight: 700, minWidth: 32, textAlign: 'center', color: complete && m.winner?.id === m.team2?.id ? 'var(--khaki)' : unconf && m.winner?.id === m.team2?.id ? wc : 'var(--text-dim)' }}>{m.score_team2 ?? '—'}</span>
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, justifyContent: 'flex-end', minWidth: 0 }}>
+                                  {complete && m.winner?.id === m.team2?.id && <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--green)', letterSpacing: 1 }}>W</span>}
+                                  <span style={{ fontFamily: 'var(--font-heading)', fontSize: 11, fontWeight: 600, letterSpacing: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.team2?.name ?? 'TBD'}</span>
+                                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: m.team2?.color ?? 'var(--border)', flexShrink: 0 }} />
+                                </div>
+                              </div>
+                              {unconf && canConfirm && (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', borderLeft: `2px solid ${wc}66`, background: `${wc}0c`, borderTop: `1px solid ${wc}22` }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, opacity: 0.7 }}>
+                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: wc, animation: 'pulse 1.4s ease-in-out infinite' }} />
+                                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, letterSpacing: 2, color: wc, fontWeight: 700 }}>UNCONFIRMED</span>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 5 }}>
+                                    <button style={S.btnSmReject} onClick={e => { e.stopPropagation(); openModal('reject', m) }}>REJECT</button>
+                                    <button style={S.btnSmConfirm} onClick={e => { e.stopPropagation(); confirmMatch(m) }} disabled={saving}>CONFIRM</button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <span style={{ fontFamily: 'var(--font-heading)', fontSize: 13, fontWeight: 700, minWidth: 32, textAlign: 'center', color: m.status === 'complete' && m.winner?.id === m.team1?.id ? 'var(--khaki)' : m.status === 'awaiting_confirmation' ? 'rgba(200,132,42,0.7)' : 'var(--text-dim)' }}>{m.score_team1 ?? '—'}</span>
-                            <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, color: 'var(--border-strong)' }}>vs</span>
-                            <span style={{ fontFamily: 'var(--font-heading)', fontSize: 13, fontWeight: 700, minWidth: 32, textAlign: 'center', color: m.status === 'complete' && m.winner?.id === m.team2?.id ? 'var(--khaki)' : m.status === 'awaiting_confirmation' ? 'rgba(200,132,42,0.7)' : 'var(--text-dim)' }}>{m.score_team2 ?? '—'}</span>
-                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 7, justifyContent: 'flex-end', minWidth: 0 }}>
-                              {m.status === 'complete' && m.winner?.id === m.team2?.id && <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--green)', letterSpacing: 1 }}>W</span>}
-                              {m.status === 'awaiting_confirmation' && <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, color: 'var(--amber)', letterSpacing: 1 }}>?</span>}
-                              <span style={{ fontFamily: 'var(--font-heading)', fontSize: 11, fontWeight: 600, letterSpacing: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.team2?.name ?? 'TBD'}</span>
-                              <div style={{ width: 7, height: 7, borderRadius: '50%', background: m.team2?.color ?? 'var(--border)', flexShrink: 0 }} />
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     ))}
                   </div>
@@ -781,6 +802,38 @@ export default function TournamentPage() {
                   <button style={{ ...S.btn, ...S.btnChampion }} onClick={declareChampion} disabled={saving}>
                     🏆 CONFIRM — {pendingChampion.name} WINS
                   </button>
+                </div>
+              </>
+            )}
+            {modal.type === 'seed-playoffs' && (
+              <>
+                <div style={S.modalTitle}>SEED PLAYOFFS</div>
+                <div style={S.modalSub}>Round robin standings will be locked in and teams assigned to quarterfinal matches.</div>
+                {groups.length > 0 && (
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                    {groups.map(g => {
+                      const gs = getGroupStandings(g.id)
+                      const accentColor = g.label === 'A' ? '#4a7abf' : '#b85c38'
+                      return (
+                        <div key={g.id} style={{ flex: 1, background: 'var(--surface2)', borderRadius: 3, padding: '10px 12px' }}>
+                          <div style={{ fontFamily: 'var(--font-heading)', fontSize: 10, fontWeight: 700, letterSpacing: 3, color: accentColor, marginBottom: 8 }}>GROUP {g.label}</div>
+                          {gs.slice(0, 4).map((s, i) => (
+                            <div key={s.team_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', borderBottom: i < 3 ? '1px solid var(--border)' : 'none' }}>
+                              <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, color: 'var(--text-dim)', width: 12 }}>{i + 1}</span>
+                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: s.teams?.color ?? '#888' }} />
+                              <span style={{ fontFamily: 'var(--font-heading)', fontSize: 11, fontWeight: 600, flex: 1 }}>{s.teams?.name}</span>
+                              <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, color: 'var(--text-dim)' }}>{s.wins}W {s.losses}L</span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <div style={S.modalWarning}>Quarterfinal matchups will be cross-seeded (A1 vs B4, B2 vs A3, A2 vs B3, B1 vs A4). This cannot be undone without admin override.</div>
+                <div style={S.modalActions}>
+                  <button style={{ ...S.btn, ...S.btnGhost }} onClick={() => setModal(null)}>CANCEL</button>
+                  <button style={{ ...S.btn, ...S.btnPrimary }} onClick={seedPlayoffs} disabled={saving}>CONFIRM — SEED PLAYOFFS</button>
                 </div>
               </>
             )}
