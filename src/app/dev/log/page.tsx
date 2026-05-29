@@ -109,6 +109,13 @@ const entries: Entry[] = [
     body: 'Three major systems shipped in one session. The audit log captures every meaningful action on the platform — match edits, confirmations, rejections, role changes, signup flags, notes, ringer toggles, user deletes, and champion declarations — all written to a new audit_log table via a shared logAudit() helper. The log page lives at a hidden URL, SuperUser only, with keyword search and action filtering. Steam ID collection was added next: players enter their Steam ID on the portal, it validates against the Steam Web API, stores the raw input for display and SteamID64 for bot matching, and pulls their Steam avatar and display name automatically. Event signup is now gated — no Steam ID, no signup. Finally, DRAFT_MAN5.0 went live as a Discord bot: it watches the #results-screenshots channel, parses KTP Score Bot embeds on match complete, extracts Steam IDs, cross-references drafted rosters, and auto-reports confirmed results to the API. The bot runs as a separate Railway service and was online and watching the channel before the session ended.',
     tags: ['Audit log', 'Steam ID validation', 'Steam avatar', 'Signup gate', 'Discord bot live', 'Railway bot service'],
   },
+  {
+    session: '15',
+    date: 'May 29, 2026',
+    heading: 'Design system locked. Warmth added.',
+    body: 'Full UI pass to close the gap between the approved HTML mockups and the live site. The core problem: a previous colour migration had pointed --khaki at steel blue (#7eb8d4), so every "khaki" element on every page was rendering cold. Fixed by restoring --khaki to actual warm gold (#c8b87a) and introducing --blue for the steel accent. This single globals.css change cascaded warmth across the entire app instantly — logo, page headings, primary buttons, avatar ring, role badges, champion cards, draft timer, captain crown, section headers. The light/dark theme toggle was removed from both the topbar and the landing page — only one colour scheme now exists. Mockup-first workflow formalised: HTML mockup files for dashboard, portal, events, rules, and settings live in the project root and are the authoritative visual spec. Individual page fixes: event detail page title colour, rules page heading switched from flat gold to the same gradient used on every other page, portal Discord avatar given a gold ring and glow matching the mockup. Micro-interactions added across all main pages: event card hover lift and blue cursor spotlight, button hover lift with shadow, nav underline draw animation on hover, scroll reveal animations on rules sections, staggered load-in animations on the landing page, reactive dot grid canvas on the landing page, feature card spotlight on landing. Draft Signups icon changed from a sun to a people/group SVG. Nav icon bumped up in size.',
+    tags: ['--khaki restored', 'Theme toggle removed', 'Mockup spec formalised', 'Micro-interactions', 'Reactive canvas', 'Load-in animations', 'Portal card hover', 'Rules gradient heading'],
+  },
 ];
 
 export default function DevLog() {
@@ -152,7 +159,7 @@ export default function DevLog() {
             color: 'var(--text-dim)',
             letterSpacing: '0.06em',
           }}>
-            {entries.length} sessions · April 2026 · Next.js + Supabase + Discord OAuth
+            {entries.length} sessions · April–May 2026 · Next.js + Supabase + Discord OAuth
           </div>
         </div>
 
