@@ -23,7 +23,7 @@ type Match = {
   team1_id: string | null; team2_id: string | null
   winner_id: string | null; score_team1: number | null; score_team2: number | null
   status: string; map: string | null
-  team1?: { name: string } | null; team2?: { name: string } | null
+  team1?: { name: string } | { name: string }[] | null; team2?: { name: string } | { name: string }[] | null
 }
 type Tournament = { id: string; champion_team_id: string | null }
 
@@ -256,7 +256,9 @@ export default function TeamDetailPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {matches.map(m => {
                 const isTeam1 = m.team1_id === team.id
-                const opponent = isTeam1 ? (m.team2 as any)?.name : (m.team1 as any)?.name
+                const t1 = Array.isArray(m.team1) ? m.team1[0] : m.team1
+                const t2 = Array.isArray(m.team2) ? m.team2[0] : m.team2
+                const opponent = isTeam1 ? t2?.name : t1?.name
                 const myScore = isTeam1 ? m.score_team1 : m.score_team2
                 const oppScore = isTeam1 ? m.score_team2 : m.score_team1
                 const won = m.winner_id === team.id
