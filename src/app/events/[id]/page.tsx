@@ -275,7 +275,7 @@ export default function EventPage() {
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div>
-              <h1 className="ev-title" style={{ fontFamily: 'var(--font-heading)', fontSize: 36, color: 'var(--text)', marginBottom: 6 }}>
+              <h1 className="ev-title" style={{ fontFamily: 'var(--font-heading)', fontSize: 36, color: 'var(--khaki)', marginBottom: 6 }}>
                 {event.name}
               </h1>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
