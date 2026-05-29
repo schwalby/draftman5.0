@@ -415,7 +415,7 @@ export default function TournamentPage() {
               borderBottom: i === 0 ? '1px solid var(--border)' : 'none',
             }}>
               <div style={{ width: 3, height: 26, borderRadius: 2, background: team?.color ?? 'var(--border)', flexShrink: 0 }} />
-              {groupLabel && <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, letterSpacing: 1, padding: '1px 5px', borderRadius: 2, fontWeight: 700, background: groupLabel === 'A' ? 'rgba(74,122,191,0.2)' : 'rgba(184,92,56,0.2)', color: groupLabel === 'A' ? '#4a7abf' : '#b85c38', flexShrink: 0 }}>{groupLabel}{i === 0 ? (match.stage === 'quarterfinal' && match.match_number <= 2 ? (match.match_number === 1 ? '1' : '2') : '') : ''}</span>}
+              {groupLabel && <span style={{ fontFamily: 'var(--font-body)', fontSize: 8, letterSpacing: 1, padding: '1px 5px', borderRadius: 2, fontWeight: 700, background: groupLabel === 'A' ? 'rgba(74,122,191,0.2)' : 'rgba(184,92,56,0.2)', color: groupLabel === 'A' ? '#4a7abf' : '#b85c38', flexShrink: 0 }}>{groupLabel}{match.stage === 'quarterfinal' ? (({ '1-0': 1, '1-1': 4, '2-0': 2, '2-1': 3, '3-0': 2, '3-1': 3, '4-0': 1, '4-1': 4 } as Record<string, number>)[`${match.match_number}-${i}`] ?? '') : ''}</span>}
               <span style={{ fontFamily: 'var(--font-heading)', fontSize: 12, fontWeight: 600, letterSpacing: 1, flex: 1, color: team ? 'var(--text)' : 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team?.name ?? 'TBD'}</span>
               <span style={{ fontFamily: 'var(--font-heading)', fontSize: 14, fontWeight: 700, minWidth: 32, textAlign: 'right', color: isWinner ? 'var(--khaki)' : unconf ? 'rgba(200,132,42,0.7)' : 'var(--text-dim)' }}>{score ?? '—'}</span>
             </div>

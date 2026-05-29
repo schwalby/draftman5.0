@@ -25,7 +25,7 @@ export async function POST(
     return NextResponse.json({ error: 'Need at least 2 groups to seed playoffs' }, { status: 400 })
   }
 
-  // Fetch standings per group, ordered by seed
+  // Fetch standings per group, sorted by performance (wins desc, then point differential desc)
   const groupStandings: Record<string, any[]> = {}
   for (const g of groups) {
     const { data } = await getSupabaseAdmin()
@@ -33,8 +33,18 @@ export async function POST(
       .select('team_id, seed, seed_override, wins, losses, points_for, points_against')
       .eq('group_id', g.id)
       .eq('tournament_id', tournamentId)
-      .order('seed')
-    groupStandings[g.label] = data ?? []
+    const sorted = (data ?? []).sort((a: any, b: any) => {
+      const aOverride = a.seed_override, bOverride = b.seed_override
+      if (aOverride != null && bOverride != null) return aOverride - bOverride
+      if (aOverride != null) return -1
+      if (bOverride != null) return 1
+      if (b.wins !== a.wins) return b.wins - a.wins
+      const diffA = a.points_for - a.points_against
+      const diffB = b.points_for - b.points_against
+      if (diffB !== diffA) return diffB - diffA
+      return b.points_for - a.points_for
+    })
+    groupStandings[g.label] = sorted
   }
 
   const A = groupStandings['A'] ?? []
