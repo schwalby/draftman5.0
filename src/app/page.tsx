@@ -2,35 +2,19 @@
 
 import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 
 export default function LandingPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [theme, setTheme] = useState<'light' | 'slate'>('light')
-
-  // Load saved theme on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('draftman-theme') as 'light' | 'slate' | null
-      if (saved === 'slate') setTheme('slate')
-    } catch(e) {}
-  }, [])
-
   useEffect(() => {
     if (status === 'authenticated') {
       const isAdmin = session?.user?.isOrganizer || session?.user?.isSuperUser
       router.push(isAdmin ? '/dashboard' : '/portal')
     }
   }, [session, status, router])
-
-  const handleTheme = (t: 'light' | 'slate') => {
-    setTheme(t)
-    document.documentElement.setAttribute('data-theme', t === 'slate' ? 'slate' : '')
-    try { localStorage.setItem('draftman-theme', t) } catch(e) {}
-  }
 
   return (
     <div style={{
@@ -178,30 +162,6 @@ export default function LandingPage() {
               {card.desc}
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Light / Dark toggle */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24 }}>
-        {(['light', 'slate'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => handleTheme(t)}
-            style={{
-              padding: '4px 14px',
-              fontSize: 10,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              border: '1px solid var(--border-strong)',
-              borderRadius: 3,
-              cursor: 'pointer',
-              background: theme === t ? 'var(--khaki)' : 'transparent',
-              color: theme === t ? 'var(--bg)' : 'var(--text-dim)',
-              fontFamily: 'var(--font-body)',
-            }}
-          >
-            {t === 'light' ? 'LIGHT' : 'DARK'}
-          </button>
         ))}
       </div>
 
