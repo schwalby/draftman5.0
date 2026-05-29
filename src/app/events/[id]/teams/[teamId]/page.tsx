@@ -22,6 +22,8 @@ type Match = {
   id: string; stage: string; round: number; match_number: number
   team1_id: string | null; team2_id: string | null
   winner_id: string | null; score_team1: number | null; score_team2: number | null
+  score_half1_team1: number | null; score_half1_team2: number | null
+  score_half2_team1: number | null; score_half2_team2: number | null
   status: string; map: string | null
   team1?: { name: string } | { name: string }[] | null; team2?: { name: string } | { name: string }[] | null
 }
@@ -85,7 +87,7 @@ export default function TeamDetailPage() {
       const [{ data: s }, { data: m }] = await Promise.all([
         sb.from('tournament_standings').select('team_id, wins, losses, points_for, points_against, seed').eq('tournament_id', t.id).eq('team_id', teamId).maybeSingle(),
         sb.from('tournament_matches')
-          .select('id, stage, round, match_number, team1_id, team2_id, winner_id, score_team1, score_team2, status, map, team1:team1_id(name), team2:team2_id(name)')
+          .select('id, stage, round, match_number, team1_id, team2_id, winner_id, score_team1, score_team2, score_half1_team1, score_half1_team2, score_half2_team1, score_half2_team2, status, map, team1:team1_id(name), team2:team2_id(name)')
           .eq('tournament_id', t.id)
           .or(`team1_id.eq.${teamId},team2_id.eq.${teamId}`)
           .eq('status', 'complete')
@@ -277,8 +279,18 @@ export default function TeamDetailPage() {
                       <span style={{ color: 'var(--text-dim)', fontSize: 10, margin: '0 6px' }}>vs</span>
                       <span style={{ color: 'var(--text-dim)' }}>{opponent ?? 'TBD'}</span>
                     </div>
-                    <div style={{ fontFamily: 'var(--font-heading)', fontSize: 18, fontWeight: 700, color: 'var(--khaki)', minWidth: 70, textAlign: 'right' }}>
-                      {myScore ?? '—'} – {oppScore ?? '—'}
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: 'var(--font-heading)', fontSize: 18, fontWeight: 700, color: 'var(--khaki)' }}>
+                        {myScore ?? '—'} – {oppScore ?? '—'}
+                      </div>
+                      {m.score_half1_team1 != null && (
+                        <div style={{ fontFamily: 'var(--font-body)', fontSize: 9, color: 'var(--text-dim)', letterSpacing: 1, marginTop: 2 }}>
+                          {isTeam1
+                            ? `${m.score_half1_team1}–${m.score_half1_team2} · ${m.score_half2_team1}–${m.score_half2_team2}`
+                            : `${m.score_half1_team2}–${m.score_half1_team1} · ${m.score_half2_team2}–${m.score_half2_team1}`
+                          }
+                        </div>
+                      )}
                     </div>
                     <span style={{
                       fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 2, padding: '3px 8px', borderRadius: 3, fontWeight: 700, minWidth: 28, textAlign: 'center',

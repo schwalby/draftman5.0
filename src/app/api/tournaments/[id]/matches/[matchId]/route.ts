@@ -23,7 +23,8 @@ export async function PATCH(
 
     const reportErr = requireFields(body, ['winner_id', 'score_team1', 'score_team2'])
     if (reportErr) return reportErr
-    const { winner_id, score_team1, score_team2, map, ktp_match_id } = body
+    const { winner_id, score_team1, score_team2, map, ktp_match_id,
+            score_half1_team1, score_half1_team2, score_half2_team1, score_half2_team2 } = body
 
     const { data: match } = await supabase
       .from('tournament_matches')
@@ -37,6 +38,10 @@ export async function PATCH(
         winner_id,
         score_team1,
         score_team2,
+        score_half1_team1: score_half1_team1 ?? null,
+        score_half1_team2: score_half1_team2 ?? null,
+        score_half2_team1: score_half2_team1 ?? null,
+        score_half2_team2: score_half2_team2 ?? null,
         map: map ?? null,
         ktp_match_id: ktp_match_id ?? null,
         status: 'awaiting_confirmation',

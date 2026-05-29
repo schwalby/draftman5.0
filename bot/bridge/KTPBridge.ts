@@ -7,6 +7,10 @@ export interface ParsedKTP {
   axisPlayers:   string[]
   alliesScore:   number
   axisScore:     number
+  half1Allies:   number | null
+  half1Axis:     number | null
+  half2Allies:   number | null
+  half2Axis:     number | null
   winningSide:   'allies' | 'axis' | null
   map:           string | null
   ktpMatchId:    string | null
@@ -43,19 +47,26 @@ export function parseKTP(embed: Embed): ParsedKTP | null {
   const status = fields.find(f => f.name.toLowerCase() === 'status')?.value ?? ''
   if (!status.includes('MATCH COMPLETE')) return null
 
-  const winMatch   = status.match(/(Allies|Axis) wins!/i)
-  const scoreMatch = status.match(/Final:\s*(\d+)-(\d+)/i)
-  const footer     = embed.footer?.text ?? ''
-  const mapMatch   = footer.match(/Map:\s*([^\s|]+)/i)
-  const ktpMatch   = footer.match(/Match:\s*([^\s|]+)/i)
-  const alliesF    = fields.find(f => /allies/i.test(f.name))
-  const axisF      = fields.find(f => /axis/i.test(f.name))
+  const winMatch    = status.match(/(Allies|Axis) wins!/i)
+  const scoreMatch  = status.match(/Final:\s*(\d+)-(\d+)/i)
+  const footer      = embed.footer?.text ?? ''
+  const mapMatch    = footer.match(/Map:\s*([^\s|]+)/i)
+  const ktpMatch    = footer.match(/Match:\s*([^\s|]+)/i)
+  const alliesF     = fields.find(f => /allies/i.test(f.name))
+  const axisF       = fields.find(f => /axis/i.test(f.name))
+  const scoresF     = fields.find(f => f.name.toLowerCase() === 'scores')?.value ?? ''
+  const half1Match  = scoresF.match(/1st Half:\s*Allies\s*(\d+)\s*-\s*(\d+)\s*Axis/i)
+  const half2Match  = scoresF.match(/2nd Half:\s*(\d+)\s*-\s*(\d+)/i)
 
   return {
     alliesPlayers: alliesF ? extractSteamIds(alliesF.value) : [],
     axisPlayers:   axisF   ? extractSteamIds(axisF.value)   : [],
     alliesScore:   scoreMatch ? parseInt(scoreMatch[1]) : 0,
     axisScore:     scoreMatch ? parseInt(scoreMatch[2]) : 0,
+    half1Allies:   half1Match ? parseInt(half1Match[1]) : null,
+    half1Axis:     half1Match ? parseInt(half1Match[2]) : null,
+    half2Allies:   half2Match ? parseInt(half2Match[1]) : null,
+    half2Axis:     half2Match ? parseInt(half2Match[2]) : null,
     winningSide:   winMatch ? (winMatch[1].toLowerCase() as 'allies' | 'axis') : null,
     map:           mapMatch ? mapMatch[1] : null,
     ktpMatchId:    ktpMatch ? ktpMatch[1] : null,
@@ -151,6 +162,10 @@ export async function processDraftResult(
       winner_id: winnerId,
       score_team1: parsed.alliesScore,
       score_team2: parsed.axisScore,
+      score_half1_team1: parsed.half1Allies,
+      score_half1_team2: parsed.half1Axis,
+      score_half2_team1: parsed.half2Allies,
+      score_half2_team2: parsed.half2Axis,
       map: parsed.map,
       ktp_match_id: parsed.ktpMatchId,
     }),
