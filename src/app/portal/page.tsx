@@ -214,6 +214,14 @@ function PortalContent() {
           .portal-profile-grid { grid-template-columns: 1fr !important; }
           .portal-events-grid { grid-template-columns: 1fr !important; }
         }
+        .portal-card { transition: border-color 0.2s, box-shadow 0.2s; position: relative; overflow: hidden; }
+        .portal-card::before { content: ''; position: absolute; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, rgba(126,184,212,0.06) 0%, transparent 70%); pointer-events: none; transform: translate(-50%,-50%); opacity: 0; transition: opacity 0.3s; left: var(--cx, 50%); top: var(--cy, 50%); }
+        .portal-card:hover { border-color: rgba(126,184,212,0.38) !important; box-shadow: 0 6px 24px rgba(0,0,0,0.4); }
+        .portal-card:hover::before { opacity: 1; }
+        .portal-event-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .portal-event-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .portal-event-btn { transition: transform 0.12s, box-shadow 0.12s; }
+        .portal-event-btn:hover { transform: translateY(-1px); }
       `}</style>
 
       {/* Verified banner */}
@@ -240,7 +248,10 @@ function PortalContent() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 36 }} className="portal-profile-grid">
 
           {/* Discord card */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 20px' }}>
+          <div className="portal-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 20px' }}
+            onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--cx', (e.clientX-r.left)+'px'); e.currentTarget.style.setProperty('--cy', (e.clientY-r.top)+'px') }}
+            onMouseLeave={e => { e.currentTarget.style.setProperty('--cx','50%'); e.currentTarget.style.setProperty('--cy','50%') }}
+          >
             <div style={{
               fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em',
               color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: 12,
@@ -248,9 +259,10 @@ function PortalContent() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                background: 'var(--surface2)', border: '1px solid var(--border)',
+                background: 'var(--surface2)', border: '1.5px solid var(--khaki)',
                 overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'var(--font-heading)', fontSize: 18, color: 'var(--khaki)',
+                boxShadow: '0 0 8px rgba(200,184,122,0.2)',
               }}>
                 {discordAvatarUrl
                   ? <img src={discordAvatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -273,7 +285,10 @@ function PortalContent() {
           </div>
 
           {/* Steam card */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 20px' }}>
+          <div className="portal-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 20px' }}
+            onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--cx', (e.clientX-r.left)+'px'); e.currentTarget.style.setProperty('--cy', (e.clientY-r.top)+'px') }}
+            onMouseLeave={e => { e.currentTarget.style.setProperty('--cx','50%'); e.currentTarget.style.setProperty('--cy','50%') }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div style={{
                 fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.18em',
@@ -417,7 +432,7 @@ function PortalContent() {
                 const canSignup = hasSteamId
 
                 return (
-                  <div key={event.id} style={{
+                  <div key={event.id} className="portal-event-card" style={{
                     background: 'var(--surface)',
                     border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(126,184,212,0.35)' : 'var(--border)'}`,
                     borderLeft: `3px solid ${inProgress ? 'var(--green-light)' : isSignedUp ? 'var(--khaki)' : 'var(--border)'}`,

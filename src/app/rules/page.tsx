@@ -69,7 +69,7 @@ export default function RulesPage() {
         .rl-reveal.rl-in, .rl-reveal-left.rl-in { opacity: 1; transform: none; }
       `}</style>
       <div ref={contentRef} style={{ maxWidth: 680, margin: '0 auto', padding: '40px 24px 80px' }}>
-        <h1 className="rl-reveal" style={{ fontFamily: 'var(--font-heading)', fontSize: 40, color: 'var(--khaki)', marginBottom: 6 }}>
+        <h1 className="rl-reveal" style={{ fontFamily: 'var(--font-heading)', fontSize: 40, marginBottom: 6, background: 'linear-gradient(135deg, #a08848 0%, #c8b87a 40%, #ede0a8 60%, #c8b87a 80%, #a08848 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', filter: 'drop-shadow(0 0 3px rgba(200,184,122,0.3))' }}>
           Rules &amp; Format
         </h1>
         <div className="rl-reveal" style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 40, fontFamily: 'var(--font-body)', transitionDelay: '0.05s' }}>
