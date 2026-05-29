@@ -322,6 +322,27 @@ function VerifyContent() {
         <strong style={{ color: 'var(--text-dim)' }}>Privacy note:</strong> Your profile only needs to be public during verification. Once done, you can set it back to private or friends-only.
       </p>
 
+      {/* Data disclaimer */}
+      <div style={{ width: '100%', maxWidth: 420, border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--text-dim)', fontFamily: 'var(--font-body)' }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          What we collect
+        </div>
+        <div style={{ padding: '8px 14px' }}>
+          {['Steam display name', 'Avatar image', 'Steam ID', 'Verification status (owns DoD, account age)'].map(item => (
+            <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '3px 0', fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-body)' }}>
+              <span style={{ color: 'var(--green-light)', fontSize: 10 }}>✓</span>
+              {item}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: 'rgba(200,184,122,0.03)', borderTop: '1px solid var(--border)', fontSize: 10, color: 'var(--text-muted, #5a5444)', fontFamily: 'var(--font-body)' }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          No passwords, emails, payment info, or personal data.{' '}
+          <a href="/disclaimer" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>Full disclaimer</a>
+        </div>
+      </div>
+
       {steamLoginUrl ? (
         <a href={steamLoginUrl} style={sharedStyles.steamBtn}>
           <SteamIcon />

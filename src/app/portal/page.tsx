@@ -315,6 +315,10 @@ function PortalContent() {
                     >
                       {showManualSteam ? '▴ Hide manual entry' : '▾ Already know your Steam ID?'}
                     </button>
+                    <div style={{ marginTop: 10, padding: '7px 10px', background: 'rgba(200,184,122,0.04)', border: '1px solid var(--border)', borderRadius: 3, fontSize: 10, color: 'var(--text-muted, #5a5444)', lineHeight: 1.7 }}>
+                      <span style={{ color: 'var(--text-dim)' }}>What we store:</span> your Steam display name, avatar, and ID only. No sensitive data is collected or shared.{' '}
+                      <a href="/disclaimer" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>Learn more</a>
+                    </div>
                   </>
                 )}
                 {(showManualSteam || steamEditing) && (
