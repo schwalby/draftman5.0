@@ -93,7 +93,7 @@ export default function DashboardPage() {
   }
 
   function getNavHref(e: EventRow): string {
-    if (e.status === 'completed') return `/events/${e.id}/tournament`;
+    if (e.status === 'completed') return `/events/${e.id}/summary`;
     return `/events/${e.id}`;
   }
 
