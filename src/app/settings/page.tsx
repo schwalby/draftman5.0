@@ -54,6 +54,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [seedLog, setSeedLog] = useState<string[]>([])
+  const [seedingSignups, setSeedingSignups] = useState(false)
+  const [seedSignupsLog, setSeedSignupsLog] = useState<string[]>([])
   const [showTestAccounts, setShowTestAccounts] = useState(false)
 
   // Fake bot result state
@@ -181,6 +183,27 @@ export default function SettingsPage() {
         ? 'full SuperUser privileges — including the ability to manage other users\' roles.'
         : 'their SuperUser access.'
     : ''
+
+  // ── DEV: Seed event + signups only (no teams, no picks) ────────
+  async function seedSignupsOnly() {
+    setSeedingSignups(true)
+    setSeedSignupsLog([])
+    const log = (msg: string) => setSeedSignupsLog(prev => [...prev, msg])
+    try {
+      log('Creating event...')
+      const res = await fetch('/api/admin/seed-signups', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) { log(`❌ ${data.error ?? 'Failed'}`); setSeedingSignups(false); return }
+      log(`✓ Event created: ${data.eventName}`)
+      log(`✓ Fake users signed up`)
+      log('No teams or picks — ready to test the draft flow.')
+      log('Redirecting to event...')
+      setTimeout(() => router.push(`/events/${data.eventId}`), 800)
+    } catch (e) {
+      log(`❌ Error: ${String(e)}`)
+      setSeedingSignups(false)
+    }
+  }
 
   // ── DEV: Seed a test draft ─────────────────────────────────────
   async function seedTestDraft() {
@@ -524,6 +547,36 @@ export default function SettingsPage() {
               {seedLog.length > 0 && (
                 <div style={{ marginTop: 16, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '10px 14px' }}>
                   {seedLog.map((line, i) => (
+                    <div key={i} style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: line.startsWith('❌') ? 'var(--rust)' : line.startsWith('✓') ? 'var(--green-light)' : 'var(--text-dim)', lineHeight: 1.8 }}>
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Seed Signups Only */}
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--rust)', borderRadius: 4, padding: '20px 24px', marginTop: 12 }}>
+              <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Seed Signups Only</div>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
+                Creates a 6v6 event and signs up all fake users — no teams, no picks. Use this to test the full draft flow from scratch.
+              </div>
+              <button
+                onClick={seedSignupsOnly}
+                disabled={seedingSignups}
+                style={{
+                  fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', padding: '8px 20px', borderRadius: 3,
+                  border: '1px solid var(--rust)', color: seedingSignups ? 'var(--text-dim)' : 'var(--rust)',
+                  background: seedingSignups ? 'transparent' : 'rgba(192,57,43,0.08)',
+                  cursor: seedingSignups ? 'not-allowed' : 'pointer', opacity: seedingSignups ? 0.6 : 1,
+                }}
+              >
+                {seedingSignups ? '⏳ Seeding...' : '⚡ Generate Signups Only'}
+              </button>
+              {seedSignupsLog.length > 0 && (
+                <div style={{ marginTop: 16, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '10px 14px' }}>
+                  {seedSignupsLog.map((line, i) => (
                     <div key={i} style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: line.startsWith('❌') ? 'var(--rust)' : line.startsWith('✓') ? 'var(--green-light)' : 'var(--text-dim)', lineHeight: 1.8 }}>
                       {line}
                     </div>
