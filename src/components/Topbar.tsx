@@ -67,7 +67,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
       height: '48px',
       background: 'var(--surface)',
       borderBottom: '1px solid var(--border)',
-      borderLeft: '3px solid var(--khaki-gold)',
+      borderLeft: '3px solid var(--khaki)',
       display: 'flex',
       alignItems: 'center',
       padding: '0',
@@ -121,7 +121,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
       transition: 'color 0.15s, background 0.15s',
     },
     navLinkActive: {
-      color: 'var(--khaki-gold)',
+      color: 'var(--khaki)',
       background: 'rgba(200,184,122,0.08)',
       cursor: 'default',
       pointerEvents: 'none' as const,
@@ -181,12 +181,12 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
       width: '28px',
       height: '28px',
       borderRadius: '50%',
-      border: '1.5px solid var(--khaki-gold)',
+      border: '1.5px solid var(--khaki)',
       background: 'rgba(200,184,122,0.12)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      color: 'var(--khaki-gold)',
+      color: 'var(--khaki)',
       fontSize: '11px',
       fontWeight: 'bold' as const,
       overflow: 'hidden',
@@ -218,11 +218,11 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
     .tb-hamburger span { display: block; width: 16px; height: 1.5px; background: var(--text-dim); border-radius: 1px; transition: all 0.2s; }
     .tb-mobile-drawer { display: none; position: fixed; top: 48px; left: 0; right: 0; background: var(--surface); border-bottom: 1px solid var(--border); flex-direction: column; z-index: 99; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
     .tb-mobile-drawer a, .tb-mobile-drawer span.drawer-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); text-decoration: none; }
-    .tb-mobile-drawer a.active-item { color: var(--khaki-gold); }
+    .tb-mobile-drawer a.active-item { color: var(--khaki); }
     .tb-mobile-drawer .drawer-arrow { color: var(--text-muted); font-size: 10px; }
     .tb-mobile-drawer .drawer-signout { color: var(--text-muted); cursor: pointer; background: none; border: none; font-family: var(--font-body); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; width: 100%; text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--border); }
     .tb-nav a[href]:not(.tb-active), .tb-nav a:not(.tb-active) { position: relative; }
-    .tb-nav a[href]:not(.tb-active)::after, .tb-nav a:not(.tb-active)::after { content: ''; position: absolute; bottom: 0; left: 16px; right: 16px; height: 2px; background: var(--khaki-gold); width: 0; transition: width 0.22s ease; }
+    .tb-nav a[href]:not(.tb-active)::after, .tb-nav a:not(.tb-active)::after { content: ''; position: absolute; bottom: 0; left: 16px; right: 16px; height: 2px; background: var(--khaki); width: 0; transition: width 0.22s ease; }
     .tb-nav a[href]:not(.tb-active):hover { color: var(--text-dim) !important; }
     .tb-nav a[href]:not(.tb-active):hover::after { width: calc(100% - 32px); }
   `;

@@ -29,8 +29,8 @@
 
 /* --- CSS Variables --- */
 :root {
-  --khaki: #7eb8d4;        /* steel blue accent — borders, secondary text, status dots */
-  --khaki-gold: #c8b87a;  /* warm gold — logo, headings, primary buttons, avatar ring */
+  --khaki: #c8b87a;       /* warm gold — logo, headings, primary buttons, avatar ring */
+  --blue: #7eb8d4;        /* steel blue — borders, dim text, progress bars */
   --cream: #c8dce8;
   --bg: #0d0f12;
   --surface: #111318;

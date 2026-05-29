@@ -88,7 +88,7 @@ export default function EventsPage() {
       `}</style>
 
       <main style={{ maxWidth: 760, margin: '0 auto', padding: '36px 24px 80px' }}>
-        <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 32, letterSpacing: '0.04em', color: 'var(--khaki-gold)', lineHeight: 1, marginBottom: 6 }}>
+        <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 32, letterSpacing: '0.04em', color: 'var(--khaki)', lineHeight: 1, marginBottom: 6 }}>
           Events
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 28 }}>
@@ -103,9 +103,9 @@ export default function EventsPage() {
           const isSignedUp = !!event.my_signup
           const inProgress = !!event.has_picks
           const typeLabel = event.type === 'draft' ? 'Draft' : 'Community Event'
-          const statusColor = inProgress ? 'var(--green-light)' : event.status === 'active' ? 'var(--green-light)' : 'var(--khaki-gold)'
+          const statusColor = inProgress ? 'var(--green-light)' : event.status === 'active' ? 'var(--green-light)' : 'var(--khaki)'
           const statusLabel = inProgress ? 'In Progress' : event.status === 'active' ? 'Active' : 'Scheduled'
-          const countColor = inProgress ? 'var(--green-light)' : (event.signup_count ?? 0) === 0 ? 'var(--text-dim)' : 'var(--khaki-gold)'
+          const countColor = inProgress ? 'var(--green-light)' : (event.signup_count ?? 0) === 0 ? 'var(--text-dim)' : 'var(--khaki)'
 
           return (
             <Link
@@ -116,7 +116,7 @@ export default function EventsPage() {
                 display: 'flex', alignItems: 'center', gap: 16,
                 background: 'var(--surface)',
                 border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(126,184,212,0.35)' : 'var(--border)'}`,
-                borderLeft: inProgress ? '3px solid var(--green-light)' : isSignedUp ? '3px solid var(--khaki-gold)' : undefined,
+                borderLeft: inProgress ? '3px solid var(--green-light)' : isSignedUp ? '3px solid var(--khaki)' : undefined,
                 borderRadius: 4, padding: '18px 20px', marginBottom: 8,
                 textDecoration: 'none', color: 'var(--text)',
               }}
@@ -153,7 +153,7 @@ export default function EventsPage() {
                   </div>
                 ) : isSignedUp ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-dim)', marginTop: 5 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--khaki-gold)', flexShrink: 0 }} />
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--khaki)', flexShrink: 0 }} />
                     Signed up as <span style={{ color: 'var(--text)', marginLeft: 3 }}>
                       {event.my_signup!.class.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' / ')}
                     </span>
@@ -162,7 +162,7 @@ export default function EventsPage() {
                   <div className="ev-signup-pill" style={{
                     fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
                     letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 16px',
-                    borderRadius: 3, border: '1px solid var(--khaki-gold)', color: 'var(--khaki-gold)',
+                    borderRadius: 3, border: '1px solid var(--khaki)', color: 'var(--khaki)',
                     background: 'rgba(200,184,122,0.08)', cursor: 'pointer', marginTop: 8,
                     display: 'inline-block'
                   }}>Sign Up</div>
