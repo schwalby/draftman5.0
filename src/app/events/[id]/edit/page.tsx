@@ -263,7 +263,7 @@ export default function EditEventPage() {
             <Field label="Map Pool">
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {MAPS.map(m => (
-                  <div key={m} onClick={() => toggleMap(m)} style={{ padding: '5px 11px', fontSize: 11, letterSpacing: '0.06em', border: form.maps.includes(m) ? '1px solid var(--khaki)' : '1px solid var(--border)', background: form.maps.includes(m) ? 'rgba(200,184,122,0.1)' : 'var(--surface)', color: form.maps.includes(m) ? 'var(--khaki)' : 'var(--text-dim)', cursor: 'pointer', borderRadius: 3, fontFamily: 'var(--font-body)', transition: 'all 0.12s' }}>
+                  <div key={m} onClick={() => toggleMap(m)} style={{ padding: '5px 11px', fontSize: 11, letterSpacing: '0.06em', border: form.maps.includes(m) ? '1px solid var(--khaki)' : '1px solid var(--border)', background: form.maps.includes(m) ? 'rgba(126,184,212,0.1)' : 'var(--surface)', color: form.maps.includes(m) ? 'var(--khaki)' : 'var(--text-dim)', cursor: 'pointer', borderRadius: 3, fontFamily: 'var(--font-body)', transition: 'all 0.12s' }}>
                     {m}
                   </div>
                 ))}
@@ -369,7 +369,7 @@ function PillGroup({ options, value, onChange }: { options: { val: string; label
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
       {options.map(o => (
-        <div key={o.val} onClick={() => onChange(o.val)} style={{ padding: '7px 14px', fontSize: 12, letterSpacing: '0.08em', border: value === o.val ? '1px solid var(--khaki)' : '1px solid var(--border)', background: value === o.val ? 'rgba(200,184,122,0.12)' : 'var(--surface)', color: value === o.val ? 'var(--khaki)' : 'var(--text-dim)', cursor: 'pointer', borderRadius: 3, fontFamily: 'var(--font-body)', transition: 'all 0.12s' }}>
+        <div key={o.val} onClick={() => onChange(o.val)} style={{ padding: '7px 14px', fontSize: 12, letterSpacing: '0.08em', border: value === o.val ? '1px solid var(--khaki)' : '1px solid var(--border)', background: value === o.val ? 'rgba(126,184,212,0.12)' : 'var(--surface)', color: value === o.val ? 'var(--khaki)' : 'var(--text-dim)', cursor: 'pointer', borderRadius: 3, fontFamily: 'var(--font-body)', transition: 'all 0.12s' }}>
           {o.label}
         </div>
       ))}
@@ -391,7 +391,7 @@ function BtnRow({ children }: { children: React.ReactNode }) {
 
 function Btn({ onClick, children, primary, publish, disabled }: { onClick?: () => void; children: React.ReactNode; primary?: boolean; publish?: boolean; disabled?: boolean }) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{ padding: '10px 22px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', border: publish ? '1px solid var(--green-light)' : '1px solid var(--border)', background: publish ? 'var(--green-light)' : primary ? 'rgba(200,184,122,0.1)' : 'transparent', color: publish ? '#1a1a14' : primary ? 'var(--khaki)' : 'var(--text-dim)', cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', borderRadius: 2, fontWeight: publish ? 700 : 400, opacity: disabled ? 0.6 : 1, transition: 'all 0.12s' }}>
+    <button onClick={onClick} disabled={disabled} style={{ padding: '10px 22px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', border: publish ? '1px solid var(--green-light)' : '1px solid var(--border)', background: publish ? 'var(--green-light)' : primary ? 'rgba(126,184,212,0.1)' : 'transparent', color: publish ? '#0d0f12' : primary ? 'var(--khaki)' : 'var(--text-dim)', cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', borderRadius: 2, fontWeight: publish ? 700 : 400, opacity: disabled ? 0.6 : 1, transition: 'all 0.12s' }}>
       {children}
     </button>
   );

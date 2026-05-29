@@ -265,7 +265,7 @@ export default function TeamSetupPage() {
           <div style={{
             marginBottom: 24,
             padding: '12px 16px',
-            background: 'rgba(200,184,122,0.08)',
+            background: 'rgba(126,184,212,0.08)',
             border: '1px solid var(--khaki)',
             borderRadius: 4,
             display: 'flex',
@@ -286,7 +286,7 @@ export default function TeamSetupPage() {
               style={{
                 background: 'var(--khaki)',
                 border: 'none',
-                color: '#1a1a14',
+                color: '#0d0f12',
                 fontFamily: 'var(--font-body)',
                 fontSize: 11,
                 letterSpacing: '0.08em',
@@ -407,8 +407,8 @@ export default function TeamSetupPage() {
         <div style={{
           fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)',
           marginBottom: 20, padding: '8px 10px',
-          background: 'rgba(200,184,122,0.04)',
-          borderLeft: '2px solid rgba(200,184,122,0.25)',
+          background: 'rgba(126,184,212,0.04)',
+          borderLeft: '2px solid rgba(126,184,212,0.25)',
           borderRadius: '0 3px 3px 0',
         }}>
           {getOrderNote()}
@@ -473,8 +473,8 @@ export default function TeamSetupPage() {
                 </div>
                 <div style={{
                   width: 28, height: 28, flexShrink: 0, borderRadius: '50%',
-                  background: rank === 1 ? 'rgba(200,184,122,0.18)' : 'rgba(200,184,122,0.08)',
-                  border: rank === 1 ? '1px solid var(--khaki)' : '1px solid rgba(200,184,122,0.22)',
+                  background: rank === 1 ? 'rgba(126,184,212,0.18)' : 'rgba(126,184,212,0.08)',
+                  border: rank === 1 ? '1px solid var(--khaki)' : '1px solid rgba(126,184,212,0.22)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-body)',
                   color: rank === 1 ? 'var(--cream)' : 'var(--khaki)',
@@ -516,7 +516,7 @@ export default function TeamSetupPage() {
             <button
               onClick={() => router.push(`/events/${eventId}/draft`)}
               style={{
-                background: 'var(--khaki)', border: 'none', color: '#1a1a14',
+                background: 'var(--khaki)', border: 'none', color: '#0d0f12',
                 fontFamily: 'var(--font-body)', fontSize: 11, letterSpacing: '0.08em',
                 textTransform: 'uppercase', fontWeight: 700,
                 padding: '0 20px', height: 34, borderRadius: 4, cursor: 'pointer',
@@ -527,9 +527,9 @@ export default function TeamSetupPage() {
               onClick={handleSave}
               disabled={saving}
               style={{
-                background: saving ? 'rgba(200,184,122,0.3)' : 'var(--khaki)',
+                background: saving ? 'rgba(126,184,212,0.3)' : 'var(--khaki)',
                 border: 'none',
-                color: saving ? 'rgba(26,26,20,0.5)' : '#1a1a14',
+                color: saving ? 'rgba(13,15,18,0.5)' : '#0d0f12',
                 fontFamily: 'var(--font-body)', fontSize: 11, letterSpacing: '0.08em',
                 textTransform: 'uppercase', fontWeight: 700,
                 padding: '0 20px', height: 34, borderRadius: 4,

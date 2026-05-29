@@ -265,7 +265,7 @@ function PortalContent() {
                 <span style={{
                   fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
                   padding: '2px 7px', borderRadius: 2, display: 'inline-block',
-                  border: '1px solid rgba(200,184,122,0.3)', color: 'var(--khaki)',
+                  border: '1px solid rgba(126,184,212,0.3)', color: 'var(--khaki)',
                 }}>
                   {roleLabel}
                 </span>
@@ -315,7 +315,7 @@ function PortalContent() {
                     >
                       {showManualSteam ? '▴ Hide manual entry' : '▾ Already know your Steam ID?'}
                     </button>
-                    <div style={{ marginTop: 10, padding: '7px 10px', background: 'rgba(200,184,122,0.04)', border: '1px solid var(--border)', borderRadius: 3, fontSize: 10, color: 'var(--text-muted, #5a5444)', lineHeight: 1.7 }}>
+                    <div style={{ marginTop: 10, padding: '7px 10px', background: 'rgba(126,184,212,0.04)', border: '1px solid var(--border)', borderRadius: 3, fontSize: 10, color: 'var(--text-muted, #5a5444)', lineHeight: 1.7 }}>
                       <span style={{ color: 'var(--text-dim)' }}>What we store:</span> your Steam display name, avatar, and ID only. No sensitive data is collected or shared.{' '}
                       <a href="/disclaimer" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>Learn more</a>
                     </div>
@@ -344,7 +344,7 @@ function PortalContent() {
                         style={{
                           fontSize: 11, fontFamily: 'var(--font-body)', letterSpacing: '0.08em',
                           padding: '7px 14px', borderRadius: 3, cursor: 'pointer',
-                          background: 'var(--khaki)', color: '#1a1a14', border: 'none',
+                          background: 'var(--khaki)', color: '#0d0f12', border: 'none',
                           opacity: steamSaving || !steamIdInput.trim() ? 0.5 : 1,
                         }}
                       >
@@ -374,9 +374,9 @@ function PortalContent() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {steamAvatar ? (
                   <img src={steamAvatar} alt={steamName || 'Steam avatar'}
-                    style={{ width: 44, height: 44, borderRadius: 2, border: '1px solid rgba(200,184,122,0.25)', flexShrink: 0, objectFit: 'cover' }} />
+                    style={{ width: 44, height: 44, borderRadius: 2, border: '1px solid rgba(126,184,212,0.25)', flexShrink: 0, objectFit: 'cover' }} />
                 ) : (
-                  <div style={{ width: 44, height: 44, borderRadius: 2, border: '1px dashed rgba(200,184,122,0.2)', background: 'var(--bg)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, opacity: 0.3 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 2, border: '1px dashed rgba(126,184,212,0.2)', background: 'var(--bg)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, opacity: 0.3 }}>
                     &#128100;
                   </div>
                 )}
@@ -430,7 +430,7 @@ function PortalContent() {
                 return (
                   <div key={event.id} style={{
                     background: 'var(--surface)',
-                    border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(200,184,122,0.35)' : 'var(--border)'}`,
+                    border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(126,184,212,0.35)' : 'var(--border)'}`,
                     borderLeft: `3px solid ${inProgress ? 'var(--green-light)' : isSignedUp ? 'var(--khaki)' : 'var(--border)'}`,
                     borderRadius: 4, padding: 18,
                     display: 'flex', flexDirection: 'column', gap: 10,
@@ -441,7 +441,7 @@ function PortalContent() {
                         fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8,
                         letterSpacing: '0.14em', textTransform: 'uppercase', padding: '2px 7px',
                         borderRadius: 2,
-                        border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : 'rgba(200,184,122,0.35)'}`,
+                        border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : 'rgba(126,184,212,0.35)'}`,
                         color: inProgress ? 'var(--green-light)' : 'var(--khaki)',
                         flexShrink: 0,
                       }}>
@@ -484,7 +484,7 @@ function PortalContent() {
                         : isSignedUp ? 'var(--text-dim)' : 'var(--khaki)',
                       background: inProgress
                         ? 'rgba(90,156,90,0.08)'
-                        : isSignedUp ? 'transparent' : 'rgba(200,184,122,0.08)',
+                        : isSignedUp ? 'transparent' : 'rgba(126,184,212,0.08)',
                       pointerEvents: (!canSignup && !isSignedUp && !inProgress) ? 'none' : 'auto',
                       opacity: (!canSignup && !isSignedUp && !inProgress) ? 0.4 : 1,
                     }}>

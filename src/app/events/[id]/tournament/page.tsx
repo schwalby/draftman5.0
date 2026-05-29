@@ -331,7 +331,7 @@ export default function TournamentPage() {
     btnPrimary: { background: 'var(--khaki)', color: 'var(--bg)' },
     btnGhost: { background: 'transparent', color: 'var(--text-dim)', border: '1px solid var(--border)' },
     btnDanger: { background: 'transparent', color: 'var(--rust)', border: '1px solid rgba(192,57,43,0.3)' },
-    btnChampion: { background: 'rgba(200,184,122,0.15)', color: 'var(--khaki)', border: '1px solid rgba(200,184,122,0.5)' },
+    btnChampion: { background: 'rgba(126,184,212,0.15)', color: 'var(--khaki)', border: '1px solid rgba(126,184,212,0.5)' },
     btnSmConfirm: { fontFamily: 'var(--font-heading)', fontSize: 9, letterSpacing: 1.5, padding: '3px 10px', borderRadius: 2, border: 'none', background: 'var(--khaki)', color: 'var(--bg)', cursor: 'pointer', fontWeight: 700 },
     btnSmReject: { fontFamily: 'var(--font-heading)', fontSize: 9, letterSpacing: 1.5, padding: '3px 10px', borderRadius: 2, border: '1px solid rgba(192,57,43,0.4)', background: 'transparent', color: 'var(--rust)', cursor: 'pointer', fontWeight: 600 },
     ctxMenu: { position: 'fixed' as const, zIndex: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 5, minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden' },
@@ -352,7 +352,7 @@ export default function TournamentPage() {
     bRoundLabel: { fontFamily: 'var(--font-body)', fontSize: 10, letterSpacing: 2, color: 'var(--text-dim)', textAlign: 'center' as const, padding: '0 16px 16px', borderBottom: '1px solid var(--border)' },
     bRoundMatches: { display: 'flex', flexDirection: 'column' as const, justifyContent: 'space-around', flex: 1, padding: '16px 0' },
     connectors: { width: 40, display: 'flex', flexDirection: 'column' as const, justifyContent: 'space-around', flex: 1, padding: '16px 0' },
-    championCard: { margin: '8px 16px', border: '1px solid var(--khaki)', borderRadius: 4, background: 'rgba(200,184,122,0.05)', padding: '20px 16px', textAlign: 'center' as const },
+    championCard: { margin: '8px 16px', border: '1px solid var(--khaki)', borderRadius: 4, background: 'rgba(126,184,212,0.05)', padding: '20px 16px', textAlign: 'center' as const },
     queueCard: { background: 'var(--surface)', border: '1px solid rgba(200,132,42,0.4)', borderRadius: 4, padding: '16px 20px', marginBottom: 12 },
     toast: { position: 'fixed' as const, bottom: 24, right: 24, zIndex: 600, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 4, padding: '12px 20px', fontFamily: 'var(--font-body)', fontSize: 12, letterSpacing: 1, color: 'var(--text)' },
   }
@@ -380,7 +380,7 @@ export default function TournamentPage() {
     const live = match.status === 'in_progress'
 
     const cardBorder = unconf ? '1px solid rgba(200,132,42,0.5)'
-      : complete ? '1px solid rgba(200,184,122,0.25)'
+      : complete ? '1px solid rgba(126,184,212,0.25)'
       : live ? '1px solid var(--amber)'
       : '1px solid var(--border)'
 
@@ -410,7 +410,7 @@ export default function TournamentPage() {
           return (
             <div key={i} style={{
               ...S.matchTeam,
-              background: isWinner ? 'rgba(200,184,122,0.06)' : undefined,
+              background: isWinner ? 'rgba(126,184,212,0.06)' : undefined,
               opacity: isLoser ? 0.5 : 1,
               borderBottom: i === 0 ? '1px solid var(--border)' : 'none',
             }}>
@@ -674,7 +674,7 @@ export default function TournamentPage() {
                     <div style={{
                       ...S.championCard,
                       border: declaredChampion ? '1px solid var(--khaki)' : '1px solid var(--border)',
-                      background: declaredChampion ? 'rgba(200,184,122,0.08)' : 'transparent',
+                      background: declaredChampion ? 'rgba(126,184,212,0.08)' : 'transparent',
                     }}>
                       <div style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 3, color: declaredChampion ? 'var(--khaki)' : 'var(--text-dim)', marginBottom: 10 }}>
                         {declaredChampion ? 'WINNER' : pendingChampion ? 'AWAITING DECLARATION' : 'AWAITING FINAL'}

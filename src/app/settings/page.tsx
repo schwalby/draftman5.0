@@ -20,7 +20,7 @@ interface User {
 type FilterType = 'all' | 'admin' | 'superuser'
 
 function roleBadge(u: User) {
-  if (u.is_superuser) return { label: '★ SuperUser', color: 'var(--khaki)', bg: 'rgba(200,184,122,0.08)', border: 'rgba(200,184,122,0.35)' }
+  if (u.is_superuser) return { label: '★ SuperUser', color: 'var(--khaki)', bg: 'rgba(126,184,212,0.08)', border: 'rgba(126,184,212,0.35)' }
   if (u.is_organizer) return { label: '⚙ Draft Admin', color: 'var(--light)', bg: 'rgba(74,156,106,0.08)', border: 'rgba(74,156,106,0.35)' }
   return { label: 'Player', color: 'var(--text-dim)', bg: 'transparent', border: 'var(--border)' }
 }
@@ -341,7 +341,7 @@ export default function SettingsPage() {
                 fontFamily: 'var(--font-heading)', fontSize: 10, letterSpacing: '0.1em',
                 padding: '7px 14px', borderRadius: 3, cursor: 'pointer', textTransform: 'uppercase',
                 border: filter === f ? '1px solid var(--khaki)' : '1px solid var(--border)',
-                background: filter === f ? 'rgba(200,184,122,0.07)' : 'transparent',
+                background: filter === f ? 'rgba(126,184,212,0.07)' : 'transparent',
                 color: filter === f ? 'var(--khaki)' : 'var(--text-dim)',
               }}
             >
@@ -688,7 +688,7 @@ export default function SettingsPage() {
                   fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.12em',
                   textTransform: 'uppercase', padding: '8px 18px', borderRadius: 3, cursor: 'pointer',
                   border: modal.newVal ? '1px solid var(--khaki)' : '1px solid var(--rust)',
-                  background: modal.newVal ? 'rgba(200,184,122,0.12)' : 'rgba(192,57,43,0.12)',
+                  background: modal.newVal ? 'rgba(126,184,212,0.12)' : 'rgba(192,57,43,0.12)',
                   color: modal.newVal ? 'var(--khaki)' : 'var(--rust)',
                   opacity: saving ? 0.6 : 1
                 }}
@@ -735,7 +735,7 @@ function Toggle({
   disabled?: boolean
 }) {
   const activeColor = color === 'green' ? '#4a9c6a' : 'var(--khaki)'
-  const activeBg = color === 'green' ? 'rgba(74,156,106,0.2)' : 'rgba(200,184,122,0.2)'
+  const activeBg = color === 'green' ? 'rgba(74,156,106,0.2)' : 'rgba(126,184,212,0.2)'
 
   return (
     <label style={{ position: 'relative', width: 36, height: 20, display: 'inline-block', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.35 : 1 }}>

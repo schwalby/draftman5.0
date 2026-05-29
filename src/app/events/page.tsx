@@ -105,7 +105,7 @@ export default function EventsPage() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 16,
                 background: 'var(--surface)',
-                border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(200,184,122,0.35)' : 'var(--border)'}`,
+                border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(126,184,212,0.35)' : 'var(--border)'}`,
                 borderLeft: inProgress ? '3px solid var(--green-light)' : isSignedUp ? '3px solid var(--khaki)' : undefined,
                 borderRadius: 4, padding: '18px 20px', marginBottom: 8,
                 textDecoration: 'none', color: 'var(--text)',
@@ -120,7 +120,7 @@ export default function EventsPage() {
                     fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8,
                     letterSpacing: '0.14em', textTransform: 'uppercase', padding: '2px 6px',
                     borderRadius: 2,
-                    border: `1px solid ${inProgress ? 'rgba(90,156,90,0.4)' : 'rgba(200,184,122,0.35)'}`,
+                    border: `1px solid ${inProgress ? 'rgba(90,156,90,0.4)' : 'rgba(126,184,212,0.35)'}`,
                     color: statusColor,
                   }}>{statusLabel}</span>
                 </div>
@@ -144,7 +144,7 @@ export default function EventsPage() {
                     fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9,
                     letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 16px',
                     borderRadius: 3, border: '1px solid var(--khaki)', color: 'var(--khaki)',
-                    background: 'rgba(200,184,122,0.08)', cursor: 'pointer', marginTop: 8,
+                    background: 'rgba(126,184,212,0.08)', cursor: 'pointer', marginTop: 8,
                     display: 'inline-block'
                   }}>Sign Up</div>
                 )}

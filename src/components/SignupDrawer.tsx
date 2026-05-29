@@ -365,7 +365,7 @@ function PlayerRow({
         <div style={{ fontSize: 13, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</span>
           {s.captain && (
-            <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', background: 'rgba(200,184,122,0.15)', color: '#c8b87a', border: '0.5px solid rgba(200,184,122,0.4)', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>
+            <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em', background: 'rgba(126,184,212,0.15)', color: '#7eb8d4', border: '0.5px solid rgba(126,184,212,0.4)', borderRadius: 3, padding: '1px 5px', flexShrink: 0 }}>
               ♛ captain
             </span>
           )}
@@ -386,16 +386,16 @@ function PlayerRow({
           <IconBtn
             onClick={onCaptain}
             active={s.captain}
-            activeColor="#c8b87a"
-            activeTextColor="#1a1a14"
+            activeColor="#7eb8d4"
+            activeTextColor="#0d0f12"
             title={s.captain ? 'Remove captain' : 'Assign as captain'}
             icon="♛"
           />
           <IconBtn
             onClick={onNoteOpen}
             active={hasNote}
-            activeColor="#c8b87a"
-            activeTextColor="#1a1a14"
+            activeColor="#7eb8d4"
+            activeTextColor="#0d0f12"
             title={hasNote ? 'Edit note' : 'Add note'}
             icon="✎"
           />
@@ -441,7 +441,7 @@ function PlayerRow({
             }}>Cancel</button>
             <button onClick={onNoteSave} style={{
               fontSize: 11, padding: '3px 10px', borderRadius: 3,
-              background: 'var(--khaki)', color: '#1a1a14',
+              background: 'var(--khaki)', color: '#0d0f12',
               border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500,
             }}>Save</button>
           </div>

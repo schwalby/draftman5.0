@@ -22,7 +22,7 @@ function RuleItem({ text }: { text: string }) {
     <div style={{ display: 'flex', gap: 10, marginBottom: 9, alignItems: 'flex-start' }}>
       <span style={{
         width: 4, height: 4, borderRadius: '50%',
-        background: 'rgba(200,184,122,0.4)',
+        background: 'rgba(126,184,212,0.4)',
         flexShrink: 0, marginTop: 7, display: 'inline-block',
       }} />
       <span

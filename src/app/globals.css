@@ -27,17 +27,18 @@
   font-display: swap;
 }
 
-/* --- CSS Variables (light / olive — default) --- */
+/* --- CSS Variables --- */
 :root {
-  --khaki: #c8b87a;
-  --cream: #f0ead8;
-  --bg: #1a1a14;
-  --surface: #222218;
-  --surface2: #2a2a1f;
-  --border: rgba(200,184,122,0.18);
-  --border-strong: rgba(200,184,122,0.35);
-  --text: #e8e0c8;
-  --text-dim: #a09880;
+  --khaki: #7eb8d4;
+  --cream: #c8dce8;
+  --bg: #0d0f12;
+  --surface: #111318;
+  --surface2: #171c22;
+  --border: rgba(126,184,212,0.18);
+  --border-strong: rgba(126,184,212,0.38);
+  --text: #c8dce8;
+  --text-dim: #6a8ca4;
+  --text-muted: #3c5268;
   --green-light: #5a9c5a;
   --rust: #c0392b;
 
@@ -53,13 +54,6 @@
   --font-accent: 'KH Interference', sans-serif;
 }
 
-/* --- Slate theme (dark) --- */
-[data-theme="slate"] {
-  --bg: #111218;
-  --surface: #1a1b22;
-  --surface2: #22232d;
-}
-
 /* --- Reset --- */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -70,10 +64,8 @@
 /* --- Grid background --- */
 html {
   background: var(--bg);
-  background-image:
-    linear-gradient(rgba(200,184,122,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(200,184,122,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
+  background-image: radial-gradient(circle, rgba(126,184,212,0.09) 1px, transparent 1px);
+  background-size: 28px 28px;
   background-attachment: fixed;
 }
 
@@ -101,6 +93,6 @@ h1, h2, h3, h4, h5, h6 {
 
 /* --- Selection --- */
 ::selection {
-  background: rgba(200,184,122,0.25);
-  color: var(--cream);
+  background: rgba(126,184,212,0.25);
+  color: var(--text);
 }

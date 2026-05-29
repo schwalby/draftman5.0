@@ -175,9 +175,9 @@ export default function TeamDetailPage() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <span style={{
               fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 2, padding: '4px 10px', borderRadius: 3, fontWeight: 700,
-              background: isChampion ? 'rgba(200,184,122,0.15)' : 'rgba(200,184,122,0.06)',
+              background: isChampion ? 'rgba(126,184,212,0.15)' : 'rgba(126,184,212,0.06)',
               color: isChampion ? 'var(--khaki)' : 'var(--text-dim)',
-              border: isChampion ? '1px solid rgba(200,184,122,0.4)' : '1px solid var(--border)',
+              border: isChampion ? '1px solid rgba(126,184,212,0.4)' : '1px solid var(--border)',
             }}>
               {resultLabel}
             </span>
@@ -227,7 +227,7 @@ export default function TeamDetailPage() {
                 <span style={{ fontSize: 12, color: CLS_COLOR['rifle'] }}>Rifle</span>
               </td>
               <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 1.5, padding: '2px 7px', borderRadius: 3, background: 'rgba(200,184,122,0.15)', color: 'var(--khaki)', border: '1px solid rgba(200,184,122,0.3)' }}>♛ CAPTAIN</span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 1.5, padding: '2px 7px', borderRadius: 3, background: 'rgba(126,184,212,0.15)', color: 'var(--khaki)', border: '1px solid rgba(126,184,212,0.3)' }}>♛ CAPTAIN</span>
               </td>
               <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)' }}>Pre-draft</td>
             </tr>
@@ -243,7 +243,7 @@ export default function TeamDetailPage() {
                   <span style={{ fontSize: 12, color: CLS_COLOR[p.class || 'flex'] }}>{CLS_LABEL[p.class || 'flex']}</span>
                 </td>
                 <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 1, padding: '2px 7px', borderRadius: 3, background: 'rgba(200,184,122,0.08)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>PICK {p.pick_number}</span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 1, padding: '2px 7px', borderRadius: 3, background: 'rgba(126,184,212,0.08)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>PICK {p.pick_number}</span>
                 </td>
                 <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text-dim)' }}>Draft</td>
               </tr>
@@ -269,7 +269,7 @@ export default function TeamDetailPage() {
                   <div key={m.id} style={{
                     background: 'var(--surface)', borderRadius: 4, padding: '10px 14px',
                     display: 'flex', alignItems: 'center', gap: 12,
-                    border: m.stage === 'final' ? '1px solid rgba(200,184,122,0.3)' : '1px solid var(--border)',
+                    border: m.stage === 'final' ? '1px solid rgba(126,184,212,0.3)' : '1px solid var(--border)',
                   }}>
                     <span style={{ fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: 2, color: isPlayoff ? 'var(--khaki)' : 'var(--text-dim)', width: 96, flexShrink: 0 }}>
                       {STAGE_LABEL[m.stage] ?? m.stage.toUpperCase()}

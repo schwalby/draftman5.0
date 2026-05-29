@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Login Page Mockup — DRAFTMAN 5.0</title>
+<style>
+  /* ── FONTS ── */
+  @font-face {
+    font-family: 'Fraktion Mono';
+    src: url('public/fonts/PP Fraktion Mono Regular.ttf') format('truetype');
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: 'KH Interference';
+    src: url('public/fonts/KH Interference Regular.ttf') format('truetype');
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: 'KH Interference';
+    src: url('public/fonts/KHInterference-Light.ttf') format('truetype');
+    font-weight: 300;
+  }
+
+  :root,
+  [data-theme="dark"] {
+    --khaki: #7eb8d4;
+    --bg: #0d0f12;
+    --surface: #111318;
+    --surface2: #171c22;
+    --border: rgba(126,184,212,0.18);
+    --border-strong: rgba(126,184,212,0.38);
+    --text: #c8dce8;
+    --text-dim: #6a8ca4;
+    --text-muted: #3c5268;
+    --dot-color: rgba(126,184,212,0.09);
+    --font-heading: 'KH Interference', sans-serif;
+    --font-body: 'Fraktion Mono', monospace;
+  }
+
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html {
+    background: var(--bg);
+    background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-attachment: fixed;
+    transition: background-color 0.4s ease;
+  }
+
+  #grid-canvas {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 0;
+  }
+
+  body {
+    background: transparent;
+    font-family: var(--font-body);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+    transition: color 0.4s ease;
+  }
+
+  /* ── MAIN CONTENT ── */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 24px 48px;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.45; transform: scale(0.65); }
+  }
+  .animate { opacity: 0; animation: fadeUp 0.55s ease forwards; }
+
+  /* ── PILL ── */
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--border-strong); border-radius: 20px;
+    padding: 4px 14px; margin-bottom: 32px; font-size: 11px;
+    color: var(--text-dim); letter-spacing: 0.08em;
+    transition: border-color 0.25s, color 0.25s;
+  }
+  .pill:hover { border-color: var(--khaki); color: var(--text); }
+  .pill-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--khaki); flex-shrink: 0;
+    animation: pulse-dot 2.4s ease-in-out infinite;
+  }
+
+  /* ── ICON ── */
+  .icon-wrap { margin-bottom: 24px; }
+  .icon-fallback {
+    width: 120px; height: 120px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, var(--surface2), var(--bg));
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 0 28px rgba(126,184,212,0.08);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-heading); font-size: 28px; color: var(--khaki);
+    letter-spacing: 0.06em;
+    transition: box-shadow 0.3s, transform 0.3s, border-color 0.3s;
+  }
+  .icon-fallback:hover {
+    transform: scale(1.04); border-color: var(--khaki);
+    box-shadow: 0 0 40px rgba(126,184,212,0.18);
+  }
+
+  /* ── TITLE ── */
+  .title {
+    font-family: var(--font-heading); font-weight: 400;
+    font-size: 64px; letter-spacing: 0.06em; line-height: 1;
+    margin-bottom: 10px; text-align: center;
+    background: linear-gradient(135deg, #a08848 0%, #c8b87a 35%, #ede0a8 55%, #c8b87a 75%, #a08848 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    animation: fadeUp 0.55s ease 0.15s forwards; opacity: 0;
+    filter: drop-shadow(0 0 3px rgba(200,184,122,0.55)) drop-shadow(0 0 8px rgba(200,184,122,0.20));
+  }
+
+  /* ── SUBTITLE ── */
+  .subtitle {
+    font-size: 11px; letter-spacing: 0.2em; color: var(--text-dim);
+    margin-bottom: 28px; text-transform: uppercase; transition: color 0.3s;
+  }
+
+  /* ── DESC ── */
+  .desc {
+    font-size: 13px; color: var(--text-dim); line-height: 1.8;
+    text-align: center; max-width: 420px; margin-bottom: 32px;
+    transition: color 0.3s;
+  }
+  .desc span { color: var(--text); text-decoration: underline; }
+
+  /* ── DISCORD BUTTON ── */
+  .discord-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: #5865F2; color: #fff; border: none; border-radius: 6px;
+    padding: 12px 28px; font-size: 14px; font-family: var(--font-body);
+    cursor: pointer; letter-spacing: 0.04em; margin-bottom: 12px;
+    transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.2s ease;
+    box-shadow: 0 4px 24px rgba(88,101,242,0.25);
+    position: relative; overflow: hidden;
+  }
+  .discord-btn::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .discord-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(88,101,242,0.45); background: #6875f5; }
+  .discord-btn:active { transform: translateY(1px); box-shadow: none; }
+
+  /* ── PRIVACY ── */
+  .privacy {
+    font-size: 11px; color: var(--text-muted);
+    margin-bottom: 48px; transition: color 0.3s;
+  }
+
+  /* ── FEATURE CARDS ── */
+  .cards { display: flex; gap: 12px; margin-bottom: 48px; width: 100%; max-width: 560px; }
+  .card {
+    flex: 1;
+    background: linear-gradient(145deg, var(--surface2) 0%, var(--surface) 100%);
+    border: 1px solid var(--border); border-radius: 6px; padding: 16px 14px;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .card::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(126,184,212,0.05) 0%, transparent 55%);
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  .card:hover { border-color: var(--border-strong); transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,0.45); }
+  .card:hover::before { opacity: 1; }
+  .card-icon { color: var(--khaki); margin-bottom: 10px; opacity: 0.65; transition: opacity 0.2s; }
+  .card:hover .card-icon { opacity: 1; }
+  .card-title { font-size: 12px; color: var(--text); margin-bottom: 6px; font-weight: 600; }
+  .card-desc { font-size: 11px; color: var(--text-dim); line-height: 1.6; }
+
+
+  /* ── SITE FOOTER ── */
+  .site-footer {
+    align-self: stretch;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 14px 40px 10px;
+    transition: background 0.4s, border-color 0.4s;
+    position: relative;
+    min-height: 60px;
+    overflow: visible;
+  }
+
+  /* resize handle */
+  #footer-resize {
+    position: absolute;
+    top: -4px; left: 0; right: 0; height: 10px;
+    cursor: ns-resize;
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #footer-resize::before {
+    content: '';
+    display: block;
+    width: 40px; height: 3px;
+    border-radius: 2px;
+    background: var(--border-strong);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  #footer-resize:hover::before { opacity: 1; }
+  .footer-resizing #footer-resize::before { opacity: 1; background: var(--khaki); }
+
+  /* ── CENTER GUIDES ── */
+  .guide-line {
+    position: fixed; pointer-events: none; z-index: 400; display: none;
+  }
+  #guide-v {
+    top: 0; bottom: 0; left: 50%;
+    width: 1px; transform: translateX(-0.5px);
+    background: rgba(126,184,212,0.28);
+    border-left: 1px dashed rgba(126,184,212,0.28);
+  }
+  #guide-h {
+    left: 0; right: 0; top: 50%;
+    height: 1px; transform: translateY(-0.5px);
+    background: rgba(126,184,212,0.18);
+    border-top: 1px dashed rgba(126,184,212,0.18);
+  }
+  #guide-v.snapped { background: rgba(126,184,212,0.75); border-color: rgba(126,184,212,0.75); }
+  #guide-h.snapped { background: rgba(126,184,212,0.5);  border-color: rgba(126,184,212,0.5); }
+  /* label showing "CENTER" when snapped */
+  #guide-v.snapped::after {
+    content: 'CENTER';
+    position: absolute; top: 12px; left: 6px;
+    font-family: var(--font-body); font-size: 9px;
+    letter-spacing: 0.14em; color: var(--khaki);
+    background: var(--bg); padding: 1px 5px; border-radius: 2px;
+  }
+  .site-footer-inner {
+    max-width: 860px; margin: 0 auto 12px;
+    display: grid; grid-template-columns: 1.4fr 1.2fr 1fr; gap: 40px;
+  }
+
+  /* brand column */
+  .footer-logo {
+    font-family: var(--font-heading); font-size: 20px;
+    letter-spacing: 0.06em; color: var(--khaki); margin-bottom: 8px;
+  }
+  .footer-tagline {
+    font-size: 11px; color: var(--text-muted); line-height: 1.7; max-width: 210px;
+  }
+  .footer-status {
+    display: inline-flex; align-items: center; gap: 7px;
+    margin-top: 16px; font-size: 10px; color: var(--text-dim); letter-spacing: 0.08em;
+  }
+  .footer-status-dot {
+    width: 5px; height: 5px; border-radius: 50%; background: #5a9c5a; flex-shrink: 0;
+    animation: pulse-dot 3s ease-in-out infinite;
+  }
+
+  /* link columns */
+  .footer-col-label {
+    font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 14px;
+  }
+  .footer-links { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+  .footer-links a {
+    font-size: 12px; color: var(--text-dim); text-decoration: none;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--khaki); }
+  .footer-links a::before {
+    content: '→ '; color: var(--text-muted); font-size: 10px;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover::before { color: var(--khaki); }
+
+  /* discord server widget */
+  .server-card {
+    display: flex; align-items: center; gap: 14px; margin-top: 4px;
+  }
+  .server-icon {
+    width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--surface2), var(--bg));
+    border: 1px solid var(--border-strong);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-heading); font-size: 15px; color: var(--khaki);
+    letter-spacing: 0.04em;
+  }
+  .server-name {
+    font-size: 12px; color: var(--text); letter-spacing: 0.04em;
+    margin-bottom: 5px; font-weight: 600;
+  }
+  .server-stats {
+    font-size: 11px; color: var(--text-dim);
+    display: flex; align-items: center; gap: 7px; margin-bottom: 9px;
+  }
+  .online-dot-sm {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #5a9c5a; display: inline-block; flex-shrink: 0;
+  }
+  .server-join-btn {
+    display: inline-block; font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-dim);
+    border: 1px solid var(--border-strong); border-radius: 3px;
+    padding: 3px 10px; text-decoration: none; font-family: var(--font-body);
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .server-join-btn:hover { color: var(--khaki); border-color: var(--khaki); }
+
+  /* bottom bar */
+  .footer-bottom {
+    max-width: 860px; margin: 0 auto;
+    padding-top: 12px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  }
+  .footer-copy {
+    font-size: 10px; color: var(--text-muted); letter-spacing: 0.05em; line-height: 1.8;
+  }
+  .footer-right {
+    display: flex; align-items: center; gap: 20px;
+  }
+  .footer-right a {
+    font-size: 10px; color: var(--text-muted); text-decoration: none;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .footer-right a:hover { color: var(--khaki); }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+  /* ── EDIT MODE ── */
+  .draggable-el {
+    outline: 1px dashed rgba(126,184,212,0.45);
+    outline-offset: 5px;
+    cursor: grab;
+    user-select: none;
+  }
+  .draggable-el:hover { outline-color: rgba(126,184,212,0.85); }
+  .dragging-active {
+    cursor: grabbing !important;
+    outline-color: var(--khaki) !important;
+    z-index: 200 !important;
+    opacity: 0.88;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+
+  #edit-btn {
+    position: fixed; bottom: 20px; right: 20px; z-index: 500;
+    padding: 6px 16px; font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; border: 1px solid var(--border-strong);
+    border-radius: 3px; cursor: pointer; background: var(--surface);
+    color: var(--text-dim); font-family: var(--font-body);
+    transition: color 0.2s, border-color 0.2s;
+  }
+  #edit-btn:hover { color: var(--khaki); border-color: var(--khaki); }
+
+  #edit-panel {
+    position: fixed; top: 16px; right: 16px; z-index: 500;
+    background: var(--surface); border: 1px solid var(--border-strong);
+    border-radius: 6px; padding: 14px 16px; min-width: 200px;
+    display: none;
+  }
+  #edit-panel .ep-title {
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--khaki); margin-bottom: 4px; font-family: var(--font-body);
+  }
+  #edit-panel .ep-hint {
+    font-size: 10px; color: var(--text-muted); margin-bottom: 14px;
+    font-family: var(--font-body); line-height: 1.5;
+  }
+  #edit-panel .ep-btns { display: flex; gap: 6px; }
+  #edit-panel button {
+    flex: 1; padding: 5px 10px; font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; border: 1px solid var(--border-strong);
+    border-radius: 3px; cursor: pointer; background: transparent;
+    color: var(--text-dim); font-family: var(--font-body);
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+  }
+  #edit-panel button:hover { border-color: var(--khaki); color: var(--text); }
+  #edit-panel .ep-done { background: var(--khaki); color: var(--bg); border-color: var(--khaki); }
+  #edit-panel .ep-done:hover { background: #d4c48a; }
+</style>
+</head>
+<body>
+
+<canvas id="grid-canvas"></canvas>
+
+<main id="main-content">
+  <div class="pill animate" id="el-pill" style="animation-delay:0.05s">
+    <span class="pill-dot"></span>
+    Day of Defeat 1.3 · Community Platform
+  </div>
+
+  <div class="icon-wrap animate" id="el-icon" style="animation-delay:0.10s">
+    <img src="public/icon.png" alt="DRAFT MAN"
+         style="width:120px;height:120px;border-radius:50%;object-fit:cover;border:1px solid var(--border-strong);box-shadow:0 0 28px rgba(126,184,212,0.10);"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div class="icon-fallback" style="display:none">DM</div>
+  </div>
+
+  <div class="title" id="el-title">DRAFTMAN5.0</div>
+
+  <div class="subtitle animate" id="el-subtitle" style="animation-delay:0.20s">Community Event Platform</div>
+
+  <p class="desc animate" id="el-desc" style="animation-delay:0.25s">
+    Sign up for drafts and community events, check in before matches,
+    and join the draft board — all connected to your
+    <span>Discord account.</span>
+  </p>
+
+  <button class="discord-btn animate" id="el-btn" style="animation-delay:0.30s">
+    <svg width="20" height="15" viewBox="0 0 71 55" fill="white">
+      <path d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.44077 45.4204 0.52529C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.52529C25.5141 0.44359 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309 -0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.305 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.5041 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3935 44.2785 53.4831 44.2898 53.5502 44.3433C53.9057 44.6363 54.2779 44.9293 54.6530 45.2082C54.7817 45.304 54.7733 45.5041 54.6306 45.5858C52.8646 46.6197 51.0259 47.4931 49.0921 48.2228C48.9662 48.2707 48.9102 48.4172 48.9718 48.5383C50.038 50.6034 51.2554 52.5699 52.5959 54.435C52.6519 54.5139 52.7526 54.5477 52.845 54.5195C58.6464 52.7249 64.529 50.0174 70.6019 45.5576C70.6551 45.5182 70.6887 45.459 70.6943 45.3942C72.1747 30.0791 68.2147 16.7757 60.1968 4.9823C60.1772 4.9429 60.1437 4.9147 60.1045 4.8978ZM23.7259 37.3253C20.2276 37.3253 17.3451 34.1136 17.3451 30.1693C17.3451 26.225 20.1717 23.0133 23.7259 23.0133C27.308 23.0133 30.1626 26.2532 30.1066 30.1693C30.1066 34.1136 27.28 37.3253 23.7259 37.3253ZM47.3178 37.3253C43.8196 37.3253 40.9371 34.1136 40.9371 30.1693C40.9371 26.225 43.7636 23.0133 47.3178 23.0133C50.9 23.0133 53.7545 26.2532 53.6986 30.1693C53.6986 34.1136 50.9 37.3253 47.3178 37.3253Z"/>
+    </svg>
+    Login with Discord
+  </button>
+
+  <div class="privacy animate" id="el-privacy" style="animation-delay:0.35s">We only request your username and avatar. No passwords stored.</div>
+
+  <div class="cards animate" id="el-cards" style="animation-delay:0.40s">
+    <div class="card">
+      <div class="card-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+      </div>
+      <div class="card-title">Draft Signups</div>
+      <div class="card-desc">Sign up by class, check in before the draft, get picked by captains.</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+      </div>
+      <div class="card-title">Auto Reminders</div>
+      <div class="card-desc">Discord DMs before every event. Never miss a check-in window.</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </div>
+      <div class="card-title">Live Board</div>
+      <div class="card-desc">Watch the signup sheet and draft board update in real time.</div>
+    </div>
+  </div>
+
+</main>
+
+
+<div class="guide-line" id="guide-v"></div>
+<div class="guide-line" id="guide-h"></div>
+
+<button id="edit-btn" onclick="enterEditMode()">⊹ Edit Layout</button>
+
+<div id="edit-panel">
+  <div class="ep-title">Layout Editor</div>
+  <div class="ep-hint">Drag any element to reposition it. Screenshot when ready.</div>
+  <div class="ep-btns">
+    <button onclick="resetLayout()">Reset</button>
+    <button class="ep-done" onclick="exitEditMode()">Done</button>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('grid-canvas');
+  const ctx    = canvas.getContext('2d');
+  const GRID   = 28, REACH = 110;
+  const OFF    = GRID / 2; // CSS centers dots in each tile, so offset by 14px
+  const DOT_R  = 126, DOT_G = 170, DOT_B = 200;
+  let mx = -9999, my = -9999;
+
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (mx >= 0) {
+      const x0 = Math.floor((mx - REACH - OFF) / GRID) * GRID + OFF;
+      const y0 = Math.floor((my - REACH - OFF) / GRID) * GRID + OFF;
+      const x1 = Math.ceil( (mx + REACH - OFF) / GRID) * GRID + OFF;
+      const y1 = Math.ceil( (my + REACH - OFF) / GRID) * GRID + OFF;
+      for (let dx = x0; dx <= x1; dx += GRID) {
+        for (let dy = y0; dy <= y1; dy += GRID) {
+          const dist = Math.hypot(dx - mx, dy - my);
+          if (dist > REACH) continue;
+          const t    = 1 - dist / REACH;
+          const ease = t * t * (3 - 2 * t);
+          const alpha   = ease * 0.65;
+          const dotSize = 0.8 + ease * 1.1;
+          const halo = ctx.createRadialGradient(dx, dy, 0, dx, dy, dotSize * 6);
+          halo.addColorStop(0, `rgba(${DOT_R},${DOT_G},${DOT_B},${(ease * 0.22).toFixed(3)})`);
+          halo.addColorStop(1, `rgba(${DOT_R},${DOT_G},${DOT_B},0)`);
+          ctx.beginPath(); ctx.arc(dx, dy, dotSize * 6, 0, Math.PI * 2);
+          ctx.fillStyle = halo; ctx.fill();
+          ctx.beginPath(); ctx.arc(dx, dy, dotSize, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${DOT_R},${DOT_G},${DOT_B},${Math.min(alpha, 1).toFixed(3)})`;
+          ctx.fill();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+  document.addEventListener('mouseleave', () => { mx = -9999; my = -9999; });
+  window.addEventListener('resize', resize);
+  resize(); draw();
+
+  /* ── LAYOUT EDITOR ── */
+  const DRAGGABLE_IDS = ['el-pill','el-icon','el-title','el-subtitle','el-desc','el-btn','el-privacy','el-cards'];
+  let dragging = null, dragOffX = 0, dragOffY = 0;
+  let savedStyles = {};
+
+  function enterEditMode() {
+    document.getElementById('edit-btn').style.display = 'none';
+    document.getElementById('edit-panel').style.display = 'block';
+    DRAGGABLE_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      savedStyles[id] = el.getAttribute('style') || '';
+      el.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;margin:0;z-index:10;`;
+      el.classList.add('draggable-el');
+      el.addEventListener('mousedown', onDragStart);
+    });
+  }
+
+  function exitEditMode() {
+    document.getElementById('edit-btn').style.display = '';
+    document.getElementById('edit-panel').style.display = 'none';
+    hideGuides();
+    DRAGGABLE_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('draggable-el');
+      el.removeEventListener('mousedown', onDragStart);
+    });
+  }
+
+  function resetLayout() {
+    DRAGGABLE_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.setAttribute('style', savedStyles[id]);
+    });
+    exitEditMode();
+  }
+
+  const guideV = document.getElementById('guide-v');
+  const guideH = document.getElementById('guide-h');
+  const SNAP = 14; // px threshold
+
+  function onDragStart(e) {
+    if (e.button !== 0) return;
+    dragging = e.currentTarget;
+    const r = dragging.getBoundingClientRect();
+    dragOffX = e.clientX - r.left;
+    dragOffY = e.clientY - r.top;
+    dragging.classList.add('dragging-active');
+    guideV.style.display = 'block';
+    guideH.style.display = 'block';
+    e.preventDefault();
+  }
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    let x = e.clientX - dragOffX;
+    let y = e.clientY - dragOffY;
+
+    // snap to horizontal center
+    const elCX = x + dragging.offsetWidth  / 2;
+    const vpCX = window.innerWidth  / 2;
+    if (Math.abs(elCX - vpCX) < SNAP) {
+      x = vpCX - dragging.offsetWidth / 2;
+      guideV.classList.add('snapped');
+    } else {
+      guideV.classList.remove('snapped');
+    }
+
+    // snap to vertical center
+    const elCY = y + dragging.offsetHeight / 2;
+    const vpCY = window.innerHeight / 2;
+    if (Math.abs(elCY - vpCY) < SNAP) {
+      y = vpCY - dragging.offsetHeight / 2;
+      guideH.classList.add('snapped');
+    } else {
+      guideH.classList.remove('snapped');
+    }
+
+    dragging.style.left = x + 'px';
+    dragging.style.top  = y + 'px';
+  });
+
+  function hideGuides() {
+    guideV.style.display = 'none'; guideV.classList.remove('snapped');
+    guideH.style.display = 'none'; guideH.classList.remove('snapped');
+  }
+
+  document.addEventListener('mouseup', () => {
+    if (dragging) { dragging.classList.remove('dragging-active'); dragging = null; hideGuides(); }
+    if (resizing) { resizing = false; document.body.classList.remove('footer-resizing'); }
+  });
+
+
+</script>
+</body>
+</html>

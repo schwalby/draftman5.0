@@ -317,7 +317,7 @@ export default function NewEventPage() {
                     style={{
                       padding: '5px 11px', fontSize: 11, letterSpacing: '0.06em',
                       border: form.maps.includes(m) ? '1px solid var(--khaki)' : '1px solid var(--border)',
-                      background: form.maps.includes(m) ? 'rgba(200,184,122,0.1)' : 'var(--surface)',
+                      background: form.maps.includes(m) ? 'rgba(126,184,212,0.1)' : 'var(--surface)',
                       color: form.maps.includes(m) ? 'var(--khaki)' : 'var(--text-dim)',
                       cursor: 'pointer', borderRadius: 3, fontFamily: 'var(--font-body)',
                       transition: 'all 0.12s',
@@ -344,7 +344,7 @@ export default function NewEventPage() {
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 Check-in Opens
                 {form.draftDate && (
-                  <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--khaki)', border: '1px solid rgba(200,184,122,0.3)', padding: '1px 6px', borderRadius: 2 }}>
+                  <span style={{ fontSize: 9, letterSpacing: '0.1em', color: 'var(--khaki)', border: '1px solid rgba(126,184,212,0.3)', padding: '1px 6px', borderRadius: 2 }}>
                     DATE FROM BASICS
                   </span>
                 )}
@@ -421,7 +421,7 @@ export default function NewEventPage() {
                 { key: 'Format',         val: form.format,                                          color: '#8a9acc' },
                 { key: 'Half Length',    val: `${form.halfLength} min`,                             color: '#4abcaa' },
                 { key: 'Player Cap',     val: `${form.playerCap} players`,                          color: '#c8a050' },
-                { key: 'Draft Date',     val: form.draftDate ? fmtDateOnly(form.draftDate) : '—',   color: '#c8b87a' },
+                { key: 'Draft Date',     val: form.draftDate ? fmtDateOnly(form.draftDate) : '—',   color: '#7eb8d4' },
                 { key: 'Maps Selected',  val: form.maps.length ? `${form.maps.length} maps` : 'None', color: '#7aba7a' },
                 { key: 'Sign-up Opens',  val: fmtDatetime(form.signupOpens),                        color: '#d97060' },
                 { key: 'Check-in Opens', val: form.draftDate && form.checkinTime ? `${fmtDateOnly(form.draftDate)} · ${form.checkinTime}` : '—', color: '#8a9acc' },
@@ -491,7 +491,7 @@ function PillGroup({ options, value, onChange }: { options: { val: string; label
           style={{
             padding: '7px 14px', fontSize: 12, letterSpacing: '0.08em',
             border: value === o.val ? '1px solid var(--khaki)' : '1px solid var(--border)',
-            background: value === o.val ? 'rgba(200,184,122,0.12)' : 'var(--surface)',
+            background: value === o.val ? 'rgba(126,184,212,0.12)' : 'var(--surface)',
             color: value === o.val ? 'var(--khaki)' : 'var(--text-dim)',
             cursor: 'pointer', borderRadius: 3, fontFamily: 'var(--font-body)',
             transition: 'all 0.12s',
@@ -531,8 +531,8 @@ function Btn({ onClick, children, primary, publish, disabled }: { onClick?: () =
       style={{
         padding: '10px 22px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase',
         border: publish ? '1px solid var(--green-light)' : '1px solid var(--border)',
-        background: publish ? 'var(--green-light)' : primary ? 'rgba(200,184,122,0.1)' : 'transparent',
-        color: publish ? '#1a1a14' : primary ? 'var(--khaki)' : 'var(--text-dim)',
+        background: publish ? 'var(--green-light)' : primary ? 'rgba(126,184,212,0.1)' : 'transparent',
+        color: publish ? '#0d0f12' : primary ? 'var(--khaki)' : 'var(--text-dim)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontFamily: 'var(--font-body)', borderRadius: 2,
         fontWeight: publish ? 700 : 400,

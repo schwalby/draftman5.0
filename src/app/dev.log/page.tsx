@@ -208,7 +208,7 @@ export default function DevLog() {
             top: 8,
             bottom: 0,
             width: 1,
-            background: 'linear-gradient(to bottom, var(--khaki), rgba(200,184,122,0.04))',
+            background: 'linear-gradient(to bottom, var(--khaki), rgba(126,184,212,0.04))',
           }} />
 
           {entries.map((entry) => (
@@ -306,9 +306,9 @@ export default function DevLog() {
                       textTransform: 'uppercase' as const,
                       padding: '2px 8px',
                       borderRadius: 2,
-                      background: 'rgba(200,184,122,0.07)',
+                      background: 'rgba(126,184,212,0.07)',
                       color: 'var(--khaki)',
-                      border: '1px solid rgba(200,184,122,0.18)',
+                      border: '1px solid rgba(126,184,212,0.18)',
                     }}
                   >
                     {tag}

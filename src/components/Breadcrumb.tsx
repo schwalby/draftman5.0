@@ -22,7 +22,7 @@ export function Breadcrumb({ items }: { items?: BreadcrumbItem[] }) {
       </Link>
       {items?.map((item, i) => (
         <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ color: 'rgba(200,184,122,0.4)', fontSize: 14 }}>›</span>
+          <span style={{ color: 'rgba(126,184,212,0.4)', fontSize: 14 }}>›</span>
           <Link
             href={item.href}
             style={{

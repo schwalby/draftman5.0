@@ -150,7 +150,7 @@ export default function DraftSummaryPage() {
     const footer = match.map ? `${match.map} · ${complete ? 'CONFIRMED' : match.status.toUpperCase()}` : complete ? 'CONFIRMED' : match.status === 'pending' ? 'PENDING' : match.status.toUpperCase()
 
     return (
-      <div style={{ border: `1px solid ${complete ? 'rgba(200,184,122,0.2)' : 'var(--border)'}`, borderRadius: 4, overflow: 'hidden', background: 'var(--surface)' }}>
+      <div style={{ border: `1px solid ${complete ? 'rgba(126,184,212,0.2)' : 'var(--border)'}`, borderRadius: 4, overflow: 'hidden', background: 'var(--surface)' }}>
         {[t1, t2].map((team, i) => {
           const score = i === 0 ? match.score_team1 : match.score_team2
           const won = complete && team?.id === match.winner_id
@@ -158,7 +158,7 @@ export default function DraftSummaryPage() {
           const seed = showSeeds ? QF_SEEDS[`${match.match_number}-${i}`] : null
           const seedIsA = seed?.startsWith('A')
           return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 10px', borderBottom: i === 0 ? '1px solid var(--border)' : 'none', background: won ? 'rgba(200,184,122,0.05)' : 'transparent', opacity: lost ? 0.45 : 1 }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 10px', borderBottom: i === 0 ? '1px solid var(--border)' : 'none', background: won ? 'rgba(126,184,212,0.05)' : 'transparent', opacity: lost ? 0.45 : 1 }}>
               <div style={{ width: 3, height: 22, borderRadius: 1, background: team?.color ?? 'var(--border)', flexShrink: 0 }} />
               {seed && (
                 <span style={{ fontSize: 7, padding: '1px 4px', borderRadius: 2, fontWeight: 700, flexShrink: 0, background: seedIsA ? 'rgba(74,122,191,0.18)' : 'rgba(184,92,56,0.18)', color: seedIsA ? '#4a7abf' : '#b85c38' }}>
@@ -227,7 +227,7 @@ export default function DraftSummaryPage() {
                     <div style={{ fontFamily: 'var(--font-body)', fontSize: 9, color: 'var(--text-dim)', letterSpacing: 1, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>♛ {capName(team)}</div>
                   </div>
                   <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 4px', borderRadius: 2, background: 'rgba(200,184,122,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 4px', borderRadius: 2, background: 'rgba(126,184,212,0.05)' }}>
                       <div style={{ width: 5, height: 5, borderRadius: '50%', background: CLS_COLOR['rifle'], flexShrink: 0 }} />
                       <span style={{ flex: 1, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{capName(team)}</span>
                       <span style={{ fontSize: 8, color: 'var(--khaki)' }}>♛</span>
@@ -295,7 +295,7 @@ export default function DraftSummaryPage() {
                     CHAMPION
                   </div>
                   <div style={{ width: 200, display: 'flex', flexDirection: 'column', justifyContent: 'space-around', flex: 1, padding: '20px 0' }}>
-                    <div style={{ border: '1px solid var(--khaki)', borderRadius: 4, padding: '8px 14px', textAlign: 'center', background: 'rgba(200,184,122,0.04)' }}>
+                    <div style={{ border: '1px solid var(--khaki)', borderRadius: 4, padding: '8px 14px', textAlign: 'center', background: 'rgba(126,184,212,0.04)' }}>
                       <div style={{ fontFamily: 'var(--font-body)', fontSize: 8, letterSpacing: 3, color: 'var(--khaki)', marginBottom: 5 }}>WINNER</div>
                       {champion && <div style={{ width: 9, height: 9, borderRadius: '50%', background: champion.color, margin: '0 auto 4px' }} />}
                       <div style={{ fontFamily: 'var(--font-heading)', fontSize: 17, fontWeight: 700, letterSpacing: 2, color: 'var(--khaki)' }}>

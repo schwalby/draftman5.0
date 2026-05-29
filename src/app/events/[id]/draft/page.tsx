@@ -473,7 +473,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       <div key={team.id} style={{
         flex: 1, minWidth: 90, background: 'var(--surface)',
         border: `1px solid ${isActive ? 'var(--khaki)' : 'var(--border)'}`,
-        boxShadow: isActive ? '0 0 0 1px rgba(200,184,122,0.12)' : 'none',
+        boxShadow: isActive ? '0 0 0 1px rgba(126,184,212,0.12)' : 'none',
         borderRadius: 4, overflow: 'hidden', transition: 'border-color 0.2s',
       }}>
         <div
@@ -542,7 +542,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               )
             }
             return (
-              <div key={si} style={{ height: 26, borderRadius: 3, display: 'flex', alignItems: 'center', padding: '0 8px', border: '1px dashed rgba(200,184,122,0.08)' }}>
+              <div key={si} style={{ height: 26, borderRadius: 3, display: 'flex', alignItems: 'center', padding: '0 8px', border: '1px dashed rgba(126,184,212,0.08)' }}>
                 <span style={{ fontSize: 11, color: 'rgba(160,152,128,0.25)' }}>empty</span>
               </div>
             )
@@ -589,7 +589,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
                   }
                 }}
                 onContextMenu={e => handleContextMenu(e, s.user_id, playerDisplayName(s), false, undefined, undefined, undefined, s.ringer)}
-                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 3, fontSize: 14, background: isSel ? 'rgba(200,184,122,0.1)' : 'var(--surface2)', border: `1px solid ${isSel ? 'var(--khaki)' : 'var(--border)'}`, cursor: canPick ? 'pointer' : 'default', transition: 'all 0.15s' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px', borderRadius: 3, fontSize: 14, background: isSel ? 'rgba(126,184,212,0.1)' : 'var(--surface2)', border: `1px solid ${isSel ? 'var(--khaki)' : 'var(--border)'}`, cursor: canPick ? 'pointer' : 'default', transition: 'all 0.15s' }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: CLS_COLOR[cls], flexShrink: 0 }} />
                 <span style={{ color: 'var(--text)' }}>{playerDisplayName(s)}</span>
               </div>
@@ -769,14 +769,14 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           <span style={{ color: 'var(--text)', padding: '0 4px' }}>Draft Board</span>
         </nav>
         {!isDraftDone && sortedTeams.length > 0 && (
-          <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: 2, border: '1px solid var(--khaki)', color: 'var(--khaki)', background: 'rgba(200,184,122,0.08)', marginLeft: 4, whiteSpace: 'nowrap' }}>
+          <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: 2, border: '1px solid var(--khaki)', color: 'var(--khaki)', background: 'rgba(126,184,212,0.08)', marginLeft: 4, whiteSpace: 'nowrap' }}>
             Round {round} — Pick {currentPickNum}
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Link href="/portal" style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', textDecoration: 'none' }}>Portal</Link>
           <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-          <div onClick={toggleTheme} style={{ width: 32, height: 18, borderRadius: 18, position: 'relative', cursor: 'pointer', background: 'rgba(200,184,122,0.2)', border: '1px solid var(--border-strong)', flexShrink: 0 }}>
+          <div onClick={toggleTheme} style={{ width: 32, height: 18, borderRadius: 18, position: 'relative', cursor: 'pointer', background: 'rgba(126,184,212,0.2)', border: '1px solid var(--border-strong)', flexShrink: 0 }}>
             <div style={{ position: 'absolute', top: 2, left: darkMode ? 14 : 2, width: 12, height: 12, borderRadius: '50%', background: 'var(--khaki)', transition: 'left 0.2s' }} />
           </div>
           {session?.user?.discordId && session?.user?.discordAvatar
@@ -813,7 +813,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
         {/* MAIN */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-          <div style={{ height: 44, flexShrink: 0, background: 'rgba(200,184,122,0.04)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 8 }}>
+          <div style={{ height: 44, flexShrink: 0, background: 'rgba(126,184,212,0.04)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 8 }}>
             {!isDraftDone && activeTeam && (
               <>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: activeTeam.color, animation: 'blink 1.4s infinite', flexShrink: 0 }} />
@@ -868,7 +868,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '4px 10px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text)', outline: 'none', width: 150 }} />
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
                 {['all', 'rifle', 'third', 'heavy', 'sniper', 'flex'].filter(cls => !isClassFull(cls)).map(cls => (
-                  <button key={cls} onClick={() => setClassFilter(cls)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 2, cursor: 'pointer', transition: 'all 0.15s', border: classFilter === cls ? '1px solid var(--khaki)' : '1px solid var(--border)', color: classFilter === cls ? 'var(--khaki)' : cls === 'all' ? 'var(--text-dim)' : CLS_COLOR[cls], background: classFilter === cls ? 'rgba(200,184,122,0.07)' : 'transparent' }}>{cls === 'all' ? 'All' : CLS_LABEL[cls]}</button>
+                  <button key={cls} onClick={() => setClassFilter(cls)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 2, cursor: 'pointer', transition: 'all 0.15s', border: classFilter === cls ? '1px solid var(--khaki)' : '1px solid var(--border)', color: classFilter === cls ? 'var(--khaki)' : cls === 'all' ? 'var(--text-dim)' : CLS_COLOR[cls], background: classFilter === cls ? 'rgba(126,184,212,0.07)' : 'transparent' }}>{cls === 'all' ? 'All' : CLS_LABEL[cls]}</button>
                 ))}
               </div>
             </div>
@@ -1014,7 +1014,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
                 }}
                 disabled={pickerSelected.length === 0}
                 style={{
-                  fontSize: 11, color: pickerSelected.length === 0 ? 'var(--text-dim)' : '#1a1a14',
+                  fontSize: 11, color: pickerSelected.length === 0 ? 'var(--text-dim)' : '#0d0f12',
                   background: pickerSelected.length === 0 ? 'transparent' : 'var(--khaki)',
                   border: '1px solid var(--khaki)', borderRadius: 3,
                   padding: '5px 14px', cursor: pickerSelected.length === 0 ? 'not-allowed' : 'pointer',

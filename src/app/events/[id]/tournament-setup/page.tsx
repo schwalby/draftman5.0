@@ -195,8 +195,8 @@ export default function TournamentSetupPage() {
           {/* TOURNAMENT ALREADY EXISTS BANNER */}
           {tournamentExists && (
             <div style={{
-              background: 'rgba(200,184,122,0.06)',
-              border: '1px solid rgba(200,184,122,0.35)',
+              background: 'rgba(126,184,212,0.06)',
+              border: '1px solid rgba(126,184,212,0.35)',
               borderLeft: '3px solid var(--khaki)',
               borderRadius: 4,
               padding: '16px 20px',
@@ -216,7 +216,7 @@ export default function TournamentSetupPage() {
               </div>
               <button
                 onClick={() => router.push(`/events/${eventId}/tournament`)}
-                style={{ fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: 2, padding: '8px 16px', background: 'rgba(200,184,122,0.1)', border: '1px solid var(--khaki)', color: 'var(--khaki)', cursor: 'pointer', borderRadius: 3, whiteSpace: 'nowrap' }}
+                style={{ fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: 2, padding: '8px 16px', background: 'rgba(126,184,212,0.1)', border: '1px solid var(--khaki)', color: 'var(--khaki)', cursor: 'pointer', borderRadius: 3, whiteSpace: 'nowrap' }}
               >
                 GO TO TOURNAMENT →
               </button>
@@ -407,7 +407,7 @@ function TeamCard({ team, onDragStart }: { team: Team; onDragStart: () => void }
 
 const primaryBtn: React.CSSProperties = {
   fontFamily: 'var(--font-body)', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase',
-  padding: '10px 22px', background: 'rgba(200,184,122,0.1)', border: '1px solid var(--khaki)',
+  padding: '10px 22px', background: 'rgba(126,184,212,0.1)', border: '1px solid var(--khaki)',
   color: 'var(--khaki)', cursor: 'pointer', borderRadius: 3,
 }
 
@@ -420,5 +420,5 @@ const ghostBtn: React.CSSProperties = {
 const greenBtn: React.CSSProperties = {
   fontFamily: 'var(--font-body)', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase',
   padding: '10px 22px', background: 'var(--green-light)', border: '1px solid var(--green-light)',
-  color: '#1a1a14', cursor: 'pointer', borderRadius: 3, fontWeight: 700,
+  color: '#0d0f12', cursor: 'pointer', borderRadius: 3, fontWeight: 700,
 }

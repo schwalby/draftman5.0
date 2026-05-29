@@ -30,7 +30,7 @@ export function ThemeToggle() {
       cursor: 'pointer',
       border: 'none',
       background: theme === value ? 'var(--khaki)' : 'transparent',
-      color: theme === value ? '#1a1a14' : 'var(--text-dim)',
+      color: theme === value ? '#0d0f12' : 'var(--text-dim)',
     }
   })
 

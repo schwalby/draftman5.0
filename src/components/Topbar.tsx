@@ -118,7 +118,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
     },
     navLinkActive: {
       color: 'var(--khaki)',
-      background: 'rgba(200,184,122,0.1)',
+      background: 'rgba(126,184,212,0.1)',
       cursor: 'default',
       pointerEvents: 'none' as const,
     },
@@ -178,7 +178,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
       height: '28px',
       borderRadius: '50%',
       border: '1px solid var(--border)',
-      background: 'rgba(200,184,122,0.15)',
+      background: 'rgba(126,184,212,0.15)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',

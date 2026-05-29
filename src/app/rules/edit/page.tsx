@@ -42,7 +42,7 @@ function RuleEditor({ content, onChange }: { content: string; onChange: (html: s
   if (!editor) return null
 
   const btnStyle = (active: boolean): React.CSSProperties => ({
-    background: active ? 'rgba(200,184,122,0.2)' : 'transparent',
+    background: active ? 'rgba(126,184,212,0.2)' : 'transparent',
     border: `1px solid ${active ? 'var(--khaki)' : 'var(--border)'}`,
     color: active ? 'var(--khaki)' : 'var(--text-dim)',
     borderRadius: 2, padding: '2px 7px', cursor: 'pointer',
@@ -233,7 +233,7 @@ export default function RulesEditPage() {
           <div style={{ display: 'flex', gap: 8 }}>
             <a href="/rules" style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', textDecoration: 'none' }}>View Rules</a>
             <button onClick={saveAll} disabled={saving}
-              style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, cursor: 'pointer', border: '1px solid var(--khaki)', color: 'var(--khaki)', background: 'rgba(200,184,122,0.08)', opacity: saving ? 0.6 : 1 }}
+              style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, cursor: 'pointer', border: '1px solid var(--khaki)', color: 'var(--khaki)', background: 'rgba(126,184,212,0.08)', opacity: saving ? 0.6 : 1 }}
             >{saving ? 'Saving…' : 'Save Changes'}</button>
           </div>
         </div>

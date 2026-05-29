@@ -430,7 +430,7 @@ export default function EventPage() {
                       padding: '7px 18px', borderRadius: 4,
                       cursor: selectedClasses.length === 0 ? 'not-allowed' : 'pointer',
                       fontSize: 12, fontFamily: 'var(--font-body)', fontWeight: 500,
-                      background: 'var(--khaki)', color: '#1a1a14', border: 'none',
+                      background: 'var(--khaki)', color: '#0d0f12', border: 'none',
                       opacity: submitting || selectedClasses.length === 0 ? 0.5 : 1,
                     }}
                   >

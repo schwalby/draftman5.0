@@ -62,7 +62,7 @@ const sharedStyles = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 8,
-    border: '1px solid rgba(200,184,122,0.35)',
+    border: '1px solid rgba(126,184,212,0.35)',
     borderRadius: 20,
     padding: '4px 14px',
     marginBottom: 32,
@@ -336,7 +336,7 @@ function VerifyContent() {
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: 'rgba(200,184,122,0.03)', borderTop: '1px solid var(--border)', fontSize: 10, color: 'var(--text-muted, #5a5444)', fontFamily: 'var(--font-body)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: 'rgba(126,184,212,0.03)', borderTop: '1px solid var(--border)', fontSize: 10, color: 'var(--text-muted, #5a5444)', fontFamily: 'var(--font-body)' }}>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           No passwords, emails, payment info, or personal data.{' '}
           <a href="/disclaimer" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>Full disclaimer</a>

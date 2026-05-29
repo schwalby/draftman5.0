@@ -35,7 +35,7 @@ const ACTION_CATEGORIES: Record<string, string> = {
 }
 
 const CATEGORY_COLORS: Record<string, { bg: string; color: string; label: string }> = {
-  match:      { bg: 'rgba(200,184,122,0.15)', color: '#c8b87a',  label: 'Match' },
+  match:      { bg: 'rgba(126,184,212,0.15)', color: '#7eb8d4',  label: 'Match' },
   role:       { bg: 'rgba(138,101,199,0.15)', color: '#a07ad0',  label: 'Role' },
   signup:     { bg: 'rgba(200,132,42,0.15)',  color: '#c8842a',  label: 'Signup' },
   user:       { bg: 'rgba(192,57,43,0.15)',   color: '#c0392b',  label: 'User' },
