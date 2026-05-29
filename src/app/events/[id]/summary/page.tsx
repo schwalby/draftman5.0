@@ -216,7 +216,7 @@ export default function DraftSummaryPage() {
             const s = standingFor(team.id)
             const result = playoffResult(team.id, playoffMatches, tournament)
             return (
-              <Link key={team.id} href={`/events/${eventId}/teams/${team.id}`} style={{ textDecoration: 'none', flex: 1, minWidth: 0 }}>
+              <Link key={team.id} href={`/events/${eventId}/teams/${team.id}`} style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0 }}>
                 <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden', height: '100%' }}
                   onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-strong)'}
                   onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'}
