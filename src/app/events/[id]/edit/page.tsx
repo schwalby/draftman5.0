@@ -33,6 +33,7 @@ interface FormState {
   slots: { rifle: number; third: number; heavy: number; sniper: number };
   playerCap: number;
   maps: string[];
+  startsAt: string;
   signupOpens: string;
   checkinOpens: string;
   notes: string;
@@ -81,6 +82,7 @@ export default function EditEventPage() {
           },
           playerCap: ev.capacity === 60 ? 60 : 48,
           maps: ev.maps || [],
+          startsAt: toLocalDatetime(ev.starts_at),
           signupOpens: toLocalDatetime(ev.signup_opens_at),
           checkinOpens: toLocalDatetime(ev.checkin_opens_at),
           notes: ev.notes || '',
@@ -103,6 +105,7 @@ export default function EditEventPage() {
     slots_sniper: f.slots.sniper,
     capacity: f.playerCap,
     maps: f.maps,
+    starts_at: f.startsAt || null,
     signup_opens_at: f.signupOpens || null,
     checkin_opens_at: f.checkinOpens || null,
     notes: f.notes || null,
@@ -267,6 +270,10 @@ export default function EditEventPage() {
 
             <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '24px 0' }} />
 
+            <Field label="Draft Date">
+              <input style={{ ...inputStyle, colorScheme: 'dark' }} type="datetime-local" value={form.startsAt} onChange={e => updateForm({ startsAt: e.target.value })} />
+            </Field>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Field label="Sign-up Opens">
                 <input style={{ ...inputStyle, colorScheme: 'dark' }} type="datetime-local" value={form.signupOpens} onChange={e => updateForm({ signupOpens: e.target.value })} />
@@ -316,6 +323,7 @@ export default function EditEventPage() {
                 { key: 'Format',         val: form.format,                                          color: '#8a9acc' },
                 { key: 'Half Length',    val: `${form.halfLength} min`,                             color: '#4abcaa' },
                 { key: 'Maps Selected',  val: form.maps.length ? `${form.maps.length} maps` : 'None', color: '#7aba7a' },
+                { key: 'Draft Date',     val: fmtDate(form.startsAt),                               color: '#d97060' },
                 { key: 'Sign-up Opens',  val: fmtDate(form.signupOpens),                            color: '#d97060' },
                 { key: 'Check-in Opens', val: fmtDate(form.checkinOpens),                           color: '#8a9acc' },
               ].map(row => (
