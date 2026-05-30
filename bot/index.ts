@@ -1,13 +1,10 @@
 import 'dotenv/config'
 import { Events, Interaction, ButtonInteraction } from 'discord.js'
 import { client } from './core/client'
-import { CLASS_EMOJI_NAMES, classEmojis, resolveEmoji } from './core/emojis'
+import { classEmojis, resolveEmojis } from './core/emojis'
 import {
-  handleSignup,
-  handleSignupEventBtn,
-  handleSignupClass1Btn,
-  handleSignupClass2Btn,
-  handleSignupConfirm,
+  handleSignup, handleSignupEventBtn, handleSignupClass1Btn,
+  handleSignupClass2Btn, handleSignupConfirm,
 } from './commands/signup'
 import { handleWithdraw, handleWithdrawSelect, handleWithdrawConfirm } from './commands/withdraw'
 import { handleCheckin } from './commands/checkin'
@@ -20,20 +17,10 @@ const GUILD_ID = process.env.GUILD_ID!
 
 client.once(Events.ClientReady, async () => {
   console.log(`[DRAFTMAN5.0] Online as ${client.user?.tag}`)
-
-  // Resolve custom class emojis from the guild
   try {
     const guild = await client.guilds.fetch(GUILD_ID)
     const emojis = await guild.emojis.fetch()
-    for (const [cls, name] of Object.entries(CLASS_EMOJI_NAMES)) {
-      const resolved = resolveEmoji(name, emojis)
-      if (resolved) {
-        classEmojis[cls] = resolved.id
-        console.log(`[emojis] ${cls} → <:${resolved.name}:${resolved.id}>`)
-      } else {
-        console.warn(`[emojis] Could not find emoji "${name}" for class ${cls}`)
-      }
-    }
+    resolveEmojis(emojis)
   } catch (err) {
     console.warn('[emojis] Failed to fetch guild emojis:', err)
   }
@@ -51,12 +38,10 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
       }
       return
     }
-
     if (interaction.isStringSelectMenu()) {
       if (interaction.customId === 'withdraw:select') { await handleWithdrawSelect(interaction); return }
       return
     }
-
     if (interaction.isButton()) {
       const btn = interaction as ButtonInteraction
       const id = btn.customId
@@ -69,7 +54,6 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
       if (id === 'withdraw:cancel')           { await btn.update({ content: 'Withdrawal cancelled.', components: [] }); return }
       return
     }
-
   } catch (err) {
     console.error('[InteractionCreate]', err)
     try {

@@ -1,16 +1,27 @@
-// Populated at startup from the guild's emoji list
 export const CLASS_EMOJI_NAMES: Record<string, string> = {
   rifle:  'k98',
   third:  'stoss',
   heavy:  'bar',
   sniper: 'axissniper',
-  flex:   'shovel~1',
+  flex:   'shovel',  // will try shovel variants
 }
 
-// Resolved emoji strings ready to use in buttons — set by index.ts on ClientReady
 export const classEmojis: Record<string, string> = {}
 
-export function resolveEmoji(name: string, guildEmojis: Map<string, { id: string; name: string | null }>) {
-  const found = [...guildEmojis.values()].find(e => e.name === name)
-  return found ? { id: found.id, name: found.name ?? name } : null
+export function resolveEmojis(guildEmojis: Map<string, { id: string; name: string | null }>) {
+  // Log all available emoji names for debugging
+  const allNames = [...guildEmojis.values()].map(e => e.name).filter(Boolean)
+  console.log('[emojis] Available:', allNames.join(', '))
+
+  for (const [cls, name] of Object.entries(CLASS_EMOJI_NAMES)) {
+    // Exact match first, then startsWith for shovel~1 type cases
+    const found = [...guildEmojis.values()].find(e => e.name === name)
+      ?? [...guildEmojis.values()].find(e => e.name?.startsWith(name))
+    if (found) {
+      classEmojis[cls] = found.id
+      console.log(`[emojis] ${cls} → :${found.name}:${found.id}`)
+    } else {
+      console.warn(`[emojis] ❌ No emoji found for ${cls} (tried "${name}")`)
+    }
+  }
 }
