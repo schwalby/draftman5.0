@@ -4,7 +4,7 @@ import { getUserByDiscordId, getUserSignups, getSignupCount, checkIn } from '../
 export async function handleCheckin(interaction: ChatInputCommandInteraction) {
   const user = await getUserByDiscordId(interaction.user.id)
   if (!user) {
-    await interaction.reply({ content: 'No DRAFTMAN account found.', ephemeral: true })
+    await interaction.reply({ content: 'No DRAFTMAN account found.',  })
     return
   }
 
@@ -38,10 +38,10 @@ export async function handleCheckin(interaction: ChatInputCommandInteraction) {
       })
       await interaction.reply({
         content: `Check-in for **${event.name}** opens at **${opensAt}**.`,
-        ephemeral: true,
+        
       })
     } else {
-      await interaction.reply({ content: 'No check-in windows are open for your signups right now.', ephemeral: true })
+      await interaction.reply({ content: 'No check-in windows are open for your signups right now.',  })
     }
     return
   }
