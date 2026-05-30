@@ -256,15 +256,6 @@ export default function DevLog() {
     return () => observer.disconnect();
   }, []);
 
-  // Spotlight follow
-  const onSpotlight = (e: React.MouseEvent<HTMLDivElement>, idx: number) => {
-    const el = entryRefs.current[idx];
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    el.style.setProperty('--mx', `${e.clientX - r.left}px`);
-    el.style.setProperty('--my', `${e.clientY - r.top}px`);
-  };
-
   return (
     <>
       {/* Reactive canvas — fixed, viewport only */}
@@ -359,7 +350,6 @@ export default function DevLog() {
                 ref={el => { entryRefs.current[i] = el; }}
                 data-idx={String(i)}
                 className={`${styles.entry} ${revealed.has(i) ? styles.revealed : ''}`}
-                onMouseMove={e => onSpotlight(e, i)}
               >
                 {/* Animated top bar */}
                 <div className={styles.topBar} />
