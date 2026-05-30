@@ -5,14 +5,15 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
-  PermissionFlagsBits,
+  GuildMember,
 } from 'discord.js'
 import { getOpenEvents, getTeamsForEvent, getTeamPlayers } from '../core/db'
 
 export async function handleDraftDay(interaction: ChatInputCommandInteraction) {
-  // Organizer-only
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
-    await interaction.reply({ content: '❌ You need Manage Channels permission to use this command.', ephemeral: true })
+  const member = interaction.member as GuildMember | null
+  const isDraftAdmin = member?.roles.cache.some(r => r.name === 'Draft Admin') ?? false
+  if (!isDraftAdmin) {
+    await interaction.reply({ content: '❌ You need the **Draft Admin** role to use this command.', ephemeral: true })
     return
   }
 
