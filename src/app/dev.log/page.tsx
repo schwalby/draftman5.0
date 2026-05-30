@@ -217,7 +217,9 @@ export default function DevLog() {
         const alpha = inRange ? 0.045 + (1 - dist / INFLUENCE) * 0.2 : 0.045;
         cx.beginPath();
         cx.arc(d.x, d.y, DOT_R, 0, Math.PI * 2);
-        cx.fillStyle = `rgba(200,184,122,${alpha})`;
+        cx.fillStyle = inRange
+          ? `rgba(67,206,162,${alpha})`
+          : `rgba(67,206,162,${alpha * 0.6})`;
         cx.fill();
       }
       animId = requestAnimationFrame(draw);
@@ -240,17 +242,22 @@ export default function DevLog() {
 
   // Scroll reveal + dot glow
   useEffect(() => {
+    let batchCount = 0;
     const observer = new IntersectionObserver(
       (obs) => {
-        obs.forEach((o) => {
-          if (!o.isIntersecting) return;
+        // Entries that fire in the same callback batch get staggered
+        const intersecting = obs.filter(o => o.isIntersecting);
+        intersecting.forEach((o, batchIdx) => {
           const idx = parseInt(o.target.getAttribute('data-idx') || '0');
+          const el = o.target as HTMLElement;
+          el.style.setProperty('--stagger', `${(batchCount + batchIdx) * 0.07}s`);
           setRevealed(prev => new Set(prev).add(idx));
-          setTimeout(() => setGlowing(prev => new Set(prev).add(idx)), 320);
+          setTimeout(() => setGlowing(prev => new Set(prev).add(idx)), 400 + batchIdx * 70);
           observer.unobserve(o.target);
         });
+        if (intersecting.length > 0) batchCount = 0;
       },
-      { threshold: 0.12 }
+      { threshold: 0.1 }
     );
     entryRefs.current.forEach(el => { if (el) observer.observe(el); });
     return () => observer.disconnect();
@@ -299,7 +306,7 @@ export default function DevLog() {
             letterSpacing: '0.04em',
             lineHeight: 1,
             marginBottom: '0.75rem',
-            background: 'linear-gradient(90deg, #e53935 0%, #c8842a 45%, #c8b87a 100%)',
+            background: 'linear-gradient(to right, #185a9d, #43cea2)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
@@ -316,10 +323,10 @@ export default function DevLog() {
             flexWrap: 'wrap' as const,
             alignItems: 'center',
           }}>
-            <span style={{ color: 'var(--khaki)' }}>{entries.length} sessions</span>
-            <span style={{ color: 'rgba(200,184,122,0.18)' }}>·</span>
+            <span style={{ color: '#43cea2' }}>{entries.length} sessions</span>
+            <span style={{ color: 'rgba(67,206,162,0.2)' }}>·</span>
             <span>April – May 2026</span>
-            <span style={{ color: 'rgba(200,184,122,0.18)' }}>·</span>
+            <span style={{ color: 'rgba(67,206,162,0.2)' }}>·</span>
             <span>Next.js + Supabase + Discord bot</span>
           </div>
         </div>
@@ -327,14 +334,14 @@ export default function DevLog() {
         {/* Timeline */}
         <div style={{ position: 'relative', paddingLeft: '2.4rem' }}>
 
-          {/* Fire gradient vertical line */}
+          {/* Teal → blue gradient vertical line */}
           <div style={{
             position: 'absolute',
             left: 0,
             top: 12,
             bottom: 40,
             width: 1,
-            background: 'linear-gradient(to bottom, #e53935 0%, #c8842a 25%, #c8b87a 55%, rgba(200,184,122,0.03) 100%)',
+            background: 'linear-gradient(to bottom, #43cea2 0%, #185a9d 50%, rgba(24,90,157,0.03) 100%)',
           }} />
 
           {entries.map((entry, i) => (
@@ -384,7 +391,7 @@ export default function DevLog() {
                   fontWeight: 500,
                   letterSpacing: '0.03em',
                   marginBottom: '0.55rem',
-                  background: 'linear-gradient(90deg, #c8b87a, #c8a050)',
+                  background: 'linear-gradient(to right, #43cea2, #185a9d)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
