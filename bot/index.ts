@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { Events, Interaction, ButtonInteraction } from 'discord.js'
 import { client } from './core/client'
+import { CLASS_EMOJI_NAMES, classEmojis, resolveEmoji } from './core/emojis'
 import {
   handleSignup,
   handleSignupEventBtn,
@@ -15,9 +16,27 @@ import { handleVerify } from './commands/verify'
 import { handleKTPMessage } from './bridge/KTPBridge'
 
 const RESULTS_CHANNEL_ID = process.env.RESULTS_CHANNEL_ID!
+const GUILD_ID = process.env.GUILD_ID!
 
-client.once(Events.ClientReady, () => {
+client.once(Events.ClientReady, async () => {
   console.log(`[DRAFTMAN5.0] Online as ${client.user?.tag}`)
+
+  // Resolve custom class emojis from the guild
+  try {
+    const guild = await client.guilds.fetch(GUILD_ID)
+    const emojis = await guild.emojis.fetch()
+    for (const [cls, name] of Object.entries(CLASS_EMOJI_NAMES)) {
+      const resolved = resolveEmoji(name, emojis)
+      if (resolved) {
+        classEmojis[cls] = resolved.id
+        console.log(`[emojis] ${cls} → <:${resolved.name}:${resolved.id}>`)
+      } else {
+        console.warn(`[emojis] Could not find emoji "${name}" for class ${cls}`)
+      }
+    }
+  } catch (err) {
+    console.warn('[emojis] Failed to fetch guild emojis:', err)
+  }
 })
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
@@ -41,11 +60,11 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     if (interaction.isButton()) {
       const btn = interaction as ButtonInteraction
       const id = btn.customId
-      if (id.startsWith('signup:event:'))   { await handleSignupEventBtn(btn);  return }
-      if (id.startsWith('signup:class1:'))  { await handleSignupClass1Btn(btn); return }
-      if (id.startsWith('signup:class2:'))  { await handleSignupClass2Btn(btn); return }
-      if (id.startsWith('signup:confirm:')) { await handleSignupConfirm(btn);   return }
-      if (id === 'signup:cancel')           { await btn.update({ content: 'Signup cancelled.', components: [] }); return }
+      if (id.startsWith('signup:event:'))     { await handleSignupEventBtn(btn);  return }
+      if (id.startsWith('signup:class1:'))    { await handleSignupClass1Btn(btn); return }
+      if (id.startsWith('signup:class2:'))    { await handleSignupClass2Btn(btn); return }
+      if (id.startsWith('signup:confirm:'))   { await handleSignupConfirm(btn);   return }
+      if (id === 'signup:cancel')             { await btn.update({ content: 'Signup cancelled.', components: [] }); return }
       if (id.startsWith('withdraw:confirm:')) { await handleWithdrawConfirm(btn); return }
       if (id === 'withdraw:cancel')           { await btn.update({ content: 'Withdrawal cancelled.', components: [] }); return }
       return
@@ -54,7 +73,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   } catch (err) {
     console.error('[InteractionCreate]', err)
     try {
-      const msg = { content: 'Something went wrong. Try again.' }
+      const msg = { content: '❌ Something went wrong. Try again.' }
       if ('replied' in interaction && ((interaction as any).replied || (interaction as any).deferred)) {
         await (interaction as any).followUp(msg)
       } else if ('reply' in interaction) {
