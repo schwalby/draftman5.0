@@ -9,6 +9,7 @@ import {
   handleUpdateRoleClass2Btn, handleUpdateRoleConfirm,
 } from './commands/signup'
 import { handleWithdraw, handleWithdrawSelect, handleWithdrawConfirm } from './commands/withdraw'
+import { handleDraftDay } from './commands/draftday'
 import { handleCheckin } from './commands/checkin'
 import { handleStatus } from './commands/status'
 import { handleVerify } from './commands/verify'
@@ -40,6 +41,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
       switch (interaction.commandName) {
+        case 'draftday':   await handleDraftDay(interaction);   break
         case 'signup':     await handleSignup(interaction);     break
         case 'withdraw':   await handleWithdraw(interaction);   break
         case 'updaterole': await handleUpdateRole(interaction); break

@@ -87,6 +87,23 @@ export async function checkIn(signupId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+export async function getTeamsForEvent(eventId: string): Promise<{ id: string; name: string; color: string; captain_id: string | null }[]> {
+  const { data } = await supabase
+    .from('teams')
+    .select('id, name, color, captain_id')
+    .eq('event_id', eventId)
+    .order('pick_order', { ascending: true })
+  return data ?? []
+}
+
+export async function getTeamPlayers(teamId: string): Promise<{ discord_id: string; discord_username: string }[]> {
+  const { data } = await supabase
+    .from('draft_picks')
+    .select('user:users(discord_id, discord_username)')
+    .eq('team_id', teamId)
+  return (data ?? []).map((r: any) => r.user).filter(Boolean)
+}
+
 export async function getVerifyToken(userId: string): Promise<string> {
   const token = Math.random().toString(36).slice(2) + Date.now().toString(36)
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
