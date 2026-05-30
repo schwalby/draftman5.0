@@ -189,17 +189,21 @@ export default function DevLog() {
     let dots: Dot[] = [];
     let mx = -999, my = -999, animId = 0;
 
+    // Alias to non-nullable — TypeScript narrowing doesn't persist into nested functions
+    const cv: HTMLCanvasElement = canvas;
+    const cx: CanvasRenderingContext2D = ctx;
+
     function build() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      cv.width = window.innerWidth;
+      cv.height = window.innerHeight;
       dots = [];
-      for (let x = SPACING / 2; x < canvas.width; x += SPACING)
-        for (let y = SPACING / 2; y < canvas.height; y += SPACING)
+      for (let x = SPACING / 2; x < cv.width; x += SPACING)
+        for (let y = SPACING / 2; y < cv.height; y += SPACING)
           dots.push({ ox: x, oy: y, x, y });
     }
 
     function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      cx.clearRect(0, 0, cv.width, cv.height);
       for (const d of dots) {
         const dx = d.ox - mx, dy = d.oy - my;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -213,10 +217,10 @@ export default function DevLog() {
         }
         const inRange = dist < INFLUENCE;
         const alpha = inRange ? 0.045 + (1 - dist / INFLUENCE) * 0.2 : 0.045;
-        ctx.beginPath();
-        ctx.arc(d.x, d.y, DOT_R, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200,184,122,${alpha})`;
-        ctx.fill();
+        cx.beginPath();
+        cx.arc(d.x, d.y, DOT_R, 0, Math.PI * 2);
+        cx.fillStyle = `rgba(200,184,122,${alpha})`;
+        cx.fill();
       }
       animId = requestAnimationFrame(draw);
     }
