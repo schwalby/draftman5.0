@@ -1,6 +1,8 @@
 'use client';
 
 import { Topbar } from '@/components/Topbar';
+import { useEffect, useRef, useState } from 'react';
+import styles from './devlog.module.css';
 
 interface Entry {
   session: string;
@@ -168,166 +170,292 @@ const entries: Entry[] = [
 ];
 
 export default function DevLog() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const cursorDotRef = useRef<HTMLDivElement>(null);
+  const cursorRingRef = useRef<HTMLDivElement>(null);
+  const entryRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [revealed, setRevealed] = useState<Set<number>>(new Set());
+  const [glowing, setGlowing] = useState<Set<number>>(new Set());
+
+  // Reactive dot grid canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const SPACING = 32, DOT_R = 1.1, INFLUENCE = 100, PUSH = 26;
+    type Dot = { ox: number; oy: number; x: number; y: number };
+    let dots: Dot[] = [];
+    let mx = -999, my = -999, animId = 0;
+
+    function build() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      dots = [];
+      for (let x = SPACING / 2; x < canvas.width; x += SPACING)
+        for (let y = SPACING / 2; y < canvas.height; y += SPACING)
+          dots.push({ ox: x, oy: y, x, y });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const d of dots) {
+        const dx = d.ox - mx, dy = d.oy - my;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < INFLUENCE && dist > 0) {
+          const f = (INFLUENCE - dist) / INFLUENCE;
+          d.x += ((d.ox + (dx / dist) * f * PUSH) - d.x) * 0.22;
+          d.y += ((d.oy + (dy / dist) * f * PUSH) - d.y) * 0.22;
+        } else {
+          d.x += (d.ox - d.x) * 0.07;
+          d.y += (d.oy - d.y) * 0.07;
+        }
+        const inRange = dist < INFLUENCE;
+        const alpha = inRange ? 0.045 + (1 - dist / INFLUENCE) * 0.2 : 0.045;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, DOT_R, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,184,122,${alpha})`;
+        ctx.fill();
+      }
+      animId = requestAnimationFrame(draw);
+    }
+
+    build();
+    draw();
+
+    const onMove = (e: MouseEvent) => { mx = e.clientX; my = e.clientY; };
+    const onResize = () => build();
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
+  // Custom cursor
+  useEffect(() => {
+    const dot = cursorDotRef.current;
+    const ring = cursorRingRef.current;
+    if (!dot || !ring) return;
+    document.body.style.cursor = 'none';
+
+    let mx = 0, my = 0, rx = 0, ry = 0, animId = 0;
+    const onMove = (e: MouseEvent) => {
+      mx = e.clientX; my = e.clientY;
+      dot.style.left = mx + 'px';
+      dot.style.top = my + 'px';
+    };
+    function loop() {
+      rx += (mx - rx) * 0.11;
+      ry += (my - ry) * 0.11;
+      ring.style.left = rx + 'px';
+      ring.style.top = ry + 'px';
+      animId = requestAnimationFrame(loop);
+    }
+    window.addEventListener('mousemove', onMove);
+    loop();
+    return () => {
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', onMove);
+      cancelAnimationFrame(animId);
+    };
+  }, []);
+
+  // Scroll reveal + dot glow
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (obs) => {
+        obs.forEach((o) => {
+          if (!o.isIntersecting) return;
+          const idx = parseInt(o.target.getAttribute('data-idx') || '0');
+          setRevealed(prev => new Set([...prev, idx]));
+          setTimeout(() => setGlowing(prev => new Set([...prev, idx])), 320);
+          observer.unobserve(o.target);
+        });
+      },
+      { threshold: 0.12 }
+    );
+    entryRefs.current.forEach(el => { if (el) observer.observe(el); });
+    return () => observer.disconnect();
+  }, []);
+
+  // Spotlight follow
+  const onSpotlight = (e: React.MouseEvent<HTMLDivElement>, idx: number) => {
+    const el = entryRefs.current[idx];
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+    el.style.setProperty('--my', `${e.clientY - r.top}px`);
+  };
+
   return (
     <>
+      {/* Cursor */}
+      <div ref={cursorDotRef} className={styles.cursor} />
+      <div ref={cursorRingRef} className={styles.ring} />
+
+      {/* Reactive canvas — fixed, viewport only */}
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'fixed',
+          top: 0, left: 0,
+          width: '100%', height: '100%',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
       <Topbar />
+
       <div style={{
-        maxWidth: 1000,
+        position: 'relative',
+        zIndex: 1,
+        maxWidth: 860,
         margin: '0 auto',
         padding: '3rem 1.5rem 6rem',
       }}>
 
         {/* Header */}
-        <div style={{
-          marginBottom: '3rem',
-        }}>
+        <div style={{ marginBottom: '3.5rem' }}>
           <div style={{
             fontFamily: 'var(--font-body)',
-            fontSize: 11,
-            letterSpacing: '0.2em',
+            fontSize: 10,
+            letterSpacing: '0.25em',
             textTransform: 'uppercase' as const,
             color: 'var(--text-dim)',
-            marginBottom: '0.4rem',
+            marginBottom: '0.5rem',
           }}>
-            Build history
+            Build history — DRAFTMAN5.0
           </div>
           <div style={{
             fontFamily: 'var(--font-heading)',
-            fontSize: 38,
+            fontSize: 56,
             fontWeight: 500,
-            color: 'var(--khaki)',
             letterSpacing: '0.04em',
             lineHeight: 1,
-            marginBottom: '0.4rem',
+            marginBottom: '0.75rem',
+            background: 'linear-gradient(90deg, #e53935 0%, #c8842a 45%, #c8b87a 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
           }}>
             dev.log
           </div>
           <div style={{
+            display: 'flex',
+            gap: '1.25rem',
             fontFamily: 'var(--font-body)',
-            fontSize: 12,
+            fontSize: 11,
             color: 'var(--text-dim)',
-            letterSpacing: '0.06em',
+            letterSpacing: '0.08em',
+            flexWrap: 'wrap' as const,
+            alignItems: 'center',
           }}>
-            {entries.length} sessions · April–May 2026 · Next.js + Supabase + Discord bot
+            <span style={{ color: 'var(--khaki)' }}>{entries.length} sessions</span>
+            <span style={{ color: 'rgba(200,184,122,0.18)' }}>·</span>
+            <span>April – May 2026</span>
+            <span style={{ color: 'rgba(200,184,122,0.18)' }}>·</span>
+            <span>Next.js + Supabase + Discord bot</span>
           </div>
         </div>
 
         {/* Timeline */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', paddingLeft: '2.4rem' }}>
 
-          {/* Vertical line */}
+          {/* Fire gradient vertical line */}
           <div style={{
             position: 'absolute',
             left: 0,
-            top: 8,
-            bottom: 0,
+            top: 12,
+            bottom: 40,
             width: 1,
-            background: 'linear-gradient(to bottom, var(--khaki), rgba(126,184,212,0.04))',
+            background: 'linear-gradient(to bottom, #e53935 0%, #c8842a 25%, #c8b87a 55%, rgba(200,184,122,0.03) 100%)',
           }} />
 
-          {entries.map((entry) => (
+          {entries.map((entry, i) => (
             <div
               key={entry.session}
-              style={{
-                position: 'relative',
-                paddingLeft: '2rem',
-                paddingBottom: '2.25rem',
-              }}
+              style={{ position: 'relative', paddingBottom: '1.5rem' }}
             >
-              {/* Dot */}
-              <div style={{
-                position: 'absolute',
-                left: -4,
-                top: 7,
-                width: 9,
-                height: 9,
-                borderRadius: '50%',
-                background: 'var(--khaki)',
-                border: '2px solid var(--bg)',
-                boxShadow: '0 0 0 1px var(--khaki)',
-              }} />
+              {/* Timeline dot */}
+              <div className={`${styles.dot} ${glowing.has(i) ? styles.glowing : ''}`} />
 
-              {/* Meta row */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: '0.75rem',
-                marginBottom: '0.4rem',
-                flexWrap: 'wrap' as const,
-              }}>
-                <span style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 11,
-                  color: 'var(--khaki)',
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase' as const,
+              {/* Entry card */}
+              <div
+                ref={el => { entryRefs.current[i] = el; }}
+                data-idx={String(i)}
+                className={`${styles.entry} ${revealed.has(i) ? styles.revealed : ''}`}
+                onMouseMove={e => onSpotlight(e, i)}
+              >
+                {/* Animated top bar */}
+                <div className={styles.topBar} />
+
+                {/* Meta row */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  marginBottom: '0.55rem',
+                  flexWrap: 'wrap' as const,
                 }}>
-                  {entry.date}
-                </span>
-                <span style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 10,
-                  color: 'var(--text-dim)',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase' as const,
-                  background: 'var(--surface2)',
-                  border: '1px solid var(--border)',
-                  padding: '1px 7px',
-                  borderRadius: 2,
-                }}>
-                  Session {entry.session}
-                </span>
-              </div>
-
-              {/* Heading */}
-              <div style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: 20,
-                fontWeight: 500,
-                color: 'var(--text)',
-                letterSpacing: '0.03em',
-                marginBottom: '0.5rem',
-              }}>
-                {entry.heading}
-              </div>
-
-              {/* Body */}
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 13,
-                color: 'var(--text-dim)',
-                lineHeight: 1.8,
-                margin: 0,
-                maxWidth: '100%',
-              }}>
-                {entry.body}
-              </p>
-
-              {/* Tags */}
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap' as const,
-                gap: 5,
-                marginTop: '0.75rem',
-              }}>
-                {entry.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: 10,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase' as const,
-                      padding: '2px 8px',
-                      borderRadius: 2,
-                      background: 'rgba(126,184,212,0.07)',
-                      color: 'var(--khaki)',
-                      border: '1px solid rgba(126,184,212,0.18)',
-                    }}
-                  >
-                    {tag}
+                  <span className={styles.badge}>
+                    <span className={styles.badgeInner}>Session {entry.session}</span>
                   </span>
-                ))}
+                  <span style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 11,
+                    color: 'var(--khaki)',
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase' as const,
+                    opacity: 0.75,
+                  }}>
+                    {entry.date}
+                  </span>
+                </div>
+
+                {/* Heading */}
+                <div style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: 20,
+                  fontWeight: 500,
+                  letterSpacing: '0.03em',
+                  marginBottom: '0.55rem',
+                  background: 'linear-gradient(90deg, #c8b87a, #c8a050)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}>
+                  {entry.heading}
+                </div>
+
+                {/* Body */}
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 12,
+                  color: 'var(--text-dim)',
+                  lineHeight: 1.9,
+                  margin: '0 0 0.9rem',
+                  maxWidth: '100%',
+                }}>
+                  {entry.body}
+                </p>
+
+                {/* Tags */}
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap' as const,
+                  gap: 5,
+                }}>
+                  {entry.tags.map(tag => (
+                    <span key={tag} className={styles.tagWrap}>
+                      <span className={styles.tagInner}>{tag}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           ))}
@@ -339,14 +467,13 @@ export default function DevLog() {
           marginTop: '1rem',
           paddingTop: '1.5rem',
           fontFamily: 'var(--font-body)',
-          fontSize: 11,
+          fontSize: 10,
           color: 'var(--text-dim)',
           letterSpacing: '0.1em',
           textTransform: 'uppercase' as const,
         }}>
           DRAFTMAN5.0 · future: 1911.gg
         </div>
-
       </div>
     </>
   );
