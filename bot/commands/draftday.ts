@@ -10,9 +10,11 @@ import {
 import { getOpenEvents, getTeamsForEvent, getTeamPlayers } from '../core/db'
 
 export async function handleDraftDay(interaction: ChatInputCommandInteraction) {
+  const ALLOWED_ROLES = ['Administrator', 'Mod', 'Community Manager', 'Draft Admin']
   const member = interaction.member as GuildMember | null
-  const isDraftAdmin = member?.roles.cache.some(r => r.name === 'Draft Admin') ?? false
-  if (!isDraftAdmin) {
+  const hasRole = member?.roles.cache.some(r => ALLOWED_ROLES.includes(r.name)) ?? false
+  const isServerAdmin = interaction.memberPermissions?.has(8n) ?? false // Administrator permission bit
+  if (!hasRole && !isServerAdmin) {
     await interaction.reply({ content: '❌ You need the **Draft Admin** role to use this command.', ephemeral: true })
     return
   }
