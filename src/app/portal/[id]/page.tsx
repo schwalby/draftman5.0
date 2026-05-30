@@ -280,6 +280,15 @@ export default function PlayerProfilePage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span
+                      className={signup.checked_in ? 'checkin-dot-active' : undefined}
+                      title={signup.checked_in ? 'Checked in' : 'Not checked in'}
+                      style={{
+                        width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                        background: signup.checked_in ? 'var(--green)' : 'var(--dim)',
+                        border: 'none',
+                      }}
+                    />
                     <div style={{ display: 'flex', gap: 4 }}>
                       {(signup.class || []).map((cls, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -290,7 +299,6 @@ export default function PlayerProfilePage() {
                     </div>
                     {signup.ringer && <span style={{ fontSize: 10, color: '#5a6a9c', border: '1px solid #5a6a9c44', borderRadius: 2, padding: '1px 5px' }}>Ringer</span>}
                     {signup.captain && <span style={{ fontSize: 10, color: 'var(--khaki)', border: '1px solid var(--border-strong)', borderRadius: 2, padding: '1px 5px' }}>♛ Captain</span>}
-                    {signup.checked_in && <span style={{ fontSize: 10, color: 'var(--green-light)', border: '1px solid rgba(90,156,90,0.4)', borderRadius: 2, padding: '1px 5px' }}>✓ Checked in</span>}
                   </div>
                 </div>
               ))}

@@ -14,6 +14,14 @@ interface TopbarProps {
   breadcrumbs?: BreadcrumbItem[];
 }
 
+function getGradientColor(index: number, total: number): string {
+  const t = total <= 1 ? 0.5 : index / (total - 1);
+  const r = Math.round(67  + (24  - 67)  * t);
+  const g = Math.round(206 + (90  - 206) * t);
+  const b = Math.round(162 + (157 - 162) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
 export function Topbar({ breadcrumbs }: TopbarProps) {
   const { data: session } = useSession();
   const pathname = usePathname();
@@ -67,7 +75,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
       height: '48px',
       background: 'var(--surface)',
       borderBottom: '1px solid var(--border)',
-      borderLeft: '3px solid var(--khaki)',
+      borderLeft: '3px solid #43cea2',
       display: 'flex',
       alignItems: 'center',
       padding: '0',
@@ -86,11 +94,11 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
       height: '48px',
       borderRight: '1px solid var(--border)',
       flexShrink: 0,
-      background: 'linear-gradient(135deg, #a08848 0%, #c8b87a 35%, #ede0a8 55%, #c8b87a 75%, #a08848 100%)',
+      background: 'linear-gradient(135deg, #2ea888 0%, #43cea2 40%, #7de8c8 60%, #43cea2 80%, #2ea888 100%)',
       WebkitBackgroundClip: 'text',
       WebkitTextFillColor: 'transparent',
       backgroundClip: 'text',
-      filter: 'drop-shadow(0 0 4px rgba(200,184,122,0.35))',
+      filter: 'drop-shadow(0 0 5px rgba(67,206,162,0.4))',
     },
     logoIcon: {
       width: '28px',
@@ -118,11 +126,9 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
       textTransform: 'uppercase' as const,
       borderRight: '1px solid var(--border)',
       whiteSpace: 'nowrap' as const,
-      transition: 'color 0.15s, background 0.15s',
+      transition: 'filter 0.18s ease',
     },
     navLinkActive: {
-      color: 'var(--khaki)',
-      background: 'rgba(200,184,122,0.08)',
       cursor: 'default',
       pointerEvents: 'none' as const,
     },
@@ -222,8 +228,8 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
     .tb-mobile-drawer .drawer-arrow { color: var(--text-muted); font-size: 10px; }
     .tb-mobile-drawer .drawer-signout { color: var(--text-muted); cursor: pointer; background: none; border: none; font-family: var(--font-body); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; width: 100%; text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--border); }
     .tb-nav a[href]:not(.tb-active), .tb-nav a:not(.tb-active) { position: relative; }
-    .tb-nav a[href]:not(.tb-active)::after, .tb-nav a:not(.tb-active)::after { content: ''; position: absolute; bottom: 0; left: 16px; right: 16px; height: 2px; background: var(--khaki); width: 0; transition: width 0.22s ease; }
-    .tb-nav a[href]:not(.tb-active):hover { color: var(--text-dim) !important; }
+    .tb-nav a[href]:not(.tb-active)::after, .tb-nav a:not(.tb-active)::after { content: ''; position: absolute; bottom: 0; left: 16px; right: 16px; height: 2px; background: currentColor; width: 0; transition: width 0.22s ease; }
+    .tb-nav a[href]:not(.tb-active):hover { filter: drop-shadow(0 0 6px rgba(67,206,162,0.55)) brightness(1.15); }
     .tb-nav a[href]:not(.tb-active):hover::after { width: calc(100% - 32px); }
   `;
 
@@ -248,12 +254,14 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
 
       {/* Nav links */}
       <nav style={styles.nav} className="tb-nav">
-        {navLinks.map(link => {
+        {navLinks.map((link, idx) => {
           const isActive = link.key === activeSection;
+          const color = getGradientColor(idx, navLinks.length);
           return isActive ? (
             <span
               key={link.key}
-              style={{ ...styles.navLink, ...styles.navLinkActive }}
+              className="tb-active"
+              style={{ ...styles.navLink, ...styles.navLinkActive, color, boxShadow: `inset 0 -2px 0 ${color}` }}
             >
               {link.label}
             </span>
@@ -261,7 +269,7 @@ export function Topbar({ breadcrumbs }: TopbarProps) {
             <Link
               key={link.key}
               href={link.href}
-              style={styles.navLink}
+              style={{ ...styles.navLink, color }}
             >
               {link.label}
             </Link>
