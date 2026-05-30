@@ -246,17 +246,20 @@ export default function DevLog() {
     if (!dot || !ring) return;
     document.body.style.cursor = 'none';
 
+    const dotEl: HTMLDivElement = dot;
+    const ringEl: HTMLDivElement = ring;
+
     let mx = 0, my = 0, rx = 0, ry = 0, animId = 0;
     const onMove = (e: MouseEvent) => {
       mx = e.clientX; my = e.clientY;
-      dot.style.left = mx + 'px';
-      dot.style.top = my + 'px';
+      dotEl.style.left = mx + 'px';
+      dotEl.style.top = my + 'px';
     };
     function loop() {
       rx += (mx - rx) * 0.11;
       ry += (my - ry) * 0.11;
-      ring.style.left = rx + 'px';
-      ring.style.top = ry + 'px';
+      ringEl.style.left = rx + 'px';
+      ringEl.style.top = ry + 'px';
       animId = requestAnimationFrame(loop);
     }
     window.addEventListener('mousemove', onMove);
