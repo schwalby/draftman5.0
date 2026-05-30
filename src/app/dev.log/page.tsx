@@ -278,8 +278,8 @@ export default function DevLog() {
         obs.forEach((o) => {
           if (!o.isIntersecting) return;
           const idx = parseInt(o.target.getAttribute('data-idx') || '0');
-          setRevealed(prev => new Set([...prev, idx]));
-          setTimeout(() => setGlowing(prev => new Set([...prev, idx])), 320);
+          setRevealed(prev => new Set(prev).add(idx));
+          setTimeout(() => setGlowing(prev => new Set(prev).add(idx)), 320);
           observer.unobserve(o.target);
         });
       },
