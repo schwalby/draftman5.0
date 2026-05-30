@@ -92,7 +92,11 @@ export async function handleSignupClass1Btn(interaction: ButtonInteraction) {
   const events = await getOpenEvents()
   const event = events.find(e => e.id === eventId)
   if (!event) { await interaction.update({ content: '❌ Event not found.', components: [] }); return }
-  const remaining = CLASSES.filter(c => c !== class1)
+  if (class1 === 'flex') {
+    await doSignup(interaction, eventId, ['flex'])
+    return
+  }
+  const remaining = CLASSES.filter(c => c !== class1 && c !== 'flex')
   const btns = remaining.map(c => classBtn(`signup:class2:${eventId}:${class1}:${c}`, c))
   btns.push(
     new ButtonBuilder()

@@ -18,9 +18,17 @@ const GUILD_ID = process.env.GUILD_ID!
 client.once(Events.ClientReady, async () => {
   console.log(`[DRAFTMAN5.0] Online as ${client.user?.tag}`)
   try {
-    const guild = await client.guilds.fetch(GUILD_ID)
-    const emojis = await guild.emojis.fetch()
-    resolveEmojis(emojis)
+    if (!GUILD_ID) {
+      console.warn('[emojis] GUILD_ID env var not set — skipping emoji fetch')
+    } else {
+      const guild = await client.guilds.fetch(GUILD_ID)
+      if (!guild.emojis) {
+        console.warn('[emojis] Guild fetched but emojis manager unavailable (partial guild object?)')
+      } else {
+        const emojis = await guild.emojis.fetch()
+        resolveEmojis(emojis)
+      }
+    }
   } catch (err) {
     console.warn('[emojis] Failed to fetch guild emojis:', err)
   }
