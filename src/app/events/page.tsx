@@ -44,7 +44,7 @@ export default function EventsPage() {
     const res = await fetch('/api/events')
     if (res.ok) {
       const data = await res.json()
-      const open = data.filter((e: Event) => e.status === 'scheduled' || e.status === 'active')
+      const open = data.filter((e: Event) => e.status === 'scheduled' || e.status === 'active' || e.status === 'published')
       const enriched = await Promise.all(open.map(async (ev: Event) => {
         try {
           const picksRes = await fetch(`/api/draft/${ev.id}/picks`)
