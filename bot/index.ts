@@ -1,7 +1,13 @@
 import 'dotenv/config'
-import { Events, Interaction, StringSelectMenuInteraction, ButtonInteraction } from 'discord.js'
+import { Events, Interaction, ButtonInteraction } from 'discord.js'
 import { client } from './core/client'
-import { handleSignup, handleSignupEventSelect, handleSignupClassSelect, handleSignupConfirm } from './commands/signup'
+import {
+  handleSignup,
+  handleSignupEventBtn,
+  handleSignupClass1Btn,
+  handleSignupClass2Btn,
+  handleSignupConfirm,
+} from './commands/signup'
 import { handleWithdraw, handleWithdrawSelect, handleWithdrawConfirm } from './commands/withdraw'
 import { handleCheckin } from './commands/checkin'
 import { handleStatus } from './commands/status'
@@ -16,7 +22,6 @@ client.once(Events.ClientReady, () => {
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   try {
-    // Slash commands
     if (interaction.isChatInputCommand()) {
       switch (interaction.commandName) {
         case 'signup':   await handleSignup(interaction);   break
@@ -28,22 +33,21 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
       return
     }
 
-    // Select menus
     if (interaction.isStringSelectMenu()) {
-      const sel = interaction as StringSelectMenuInteraction
-      if (sel.customId === 'signup:event') { await handleSignupEventSelect(sel); return }
-      if (sel.customId.startsWith('signup:class:')) { await handleSignupClassSelect(sel); return }
-      if (sel.customId === 'withdraw:select') { await handleWithdrawSelect(sel); return }
+      if (interaction.customId === 'withdraw:select') { await handleWithdrawSelect(interaction); return }
       return
     }
 
-    // Buttons
     if (interaction.isButton()) {
       const btn = interaction as ButtonInteraction
-      if (btn.customId.startsWith('signup:confirm:')) { await handleSignupConfirm(btn); return }
-      if (btn.customId === 'signup:cancel') { await btn.update({ content: 'Signup cancelled.', components: [] }); return }
-      if (btn.customId.startsWith('withdraw:confirm:')) { await handleWithdrawConfirm(btn); return }
-      if (btn.customId === 'withdraw:cancel') { await btn.update({ content: 'Withdrawal cancelled.', components: [] }); return }
+      const id = btn.customId
+      if (id.startsWith('signup:event:'))   { await handleSignupEventBtn(btn);  return }
+      if (id.startsWith('signup:class1:'))  { await handleSignupClass1Btn(btn); return }
+      if (id.startsWith('signup:class2:'))  { await handleSignupClass2Btn(btn); return }
+      if (id.startsWith('signup:confirm:')) { await handleSignupConfirm(btn);   return }
+      if (id === 'signup:cancel')           { await btn.update({ content: 'Signup cancelled.', components: [] }); return }
+      if (id.startsWith('withdraw:confirm:')) { await handleWithdrawConfirm(btn); return }
+      if (id === 'withdraw:cancel')           { await btn.update({ content: 'Withdrawal cancelled.', components: [] }); return }
       return
     }
 
@@ -51,7 +55,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     console.error('[InteractionCreate]', err)
     try {
       const msg = { content: 'Something went wrong. Try again.' }
-      if ('replied' in interaction && (interaction.replied || interaction.deferred)) {
+      if ('replied' in interaction && ((interaction as any).replied || (interaction as any).deferred)) {
         await (interaction as any).followUp(msg)
       } else if ('reply' in interaction) {
         await (interaction as any).reply(msg)

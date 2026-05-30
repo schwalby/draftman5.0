@@ -1,19 +1,15 @@
 import {
   ChatInputCommandInteraction,
-  StringSelectMenuBuilder,
-  StringSelectMenuOptionBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  StringSelectMenuInteraction,
   ButtonInteraction,
   TextChannel,
 } from 'discord.js'
 import {
   getUserByDiscordId,
   getOpenEvents,
-  getClassCounts,
   getSignupCount,
   createSignup,
   getUserSignups,
@@ -27,6 +23,16 @@ function formatDate(iso: string | null): string {
   })
 }
 
+// Chunk array into rows of N
+function rows<T extends ButtonBuilder>(btns: T[], size = 5): ActionRowBuilder<T>[] {
+  const result: ActionRowBuilder<T>[] = []
+  for (let i = 0; i < btns.length; i += size) {
+    result.push(new ActionRowBuilder<T>().addComponents(...btns.slice(i, i + size)))
+  }
+  return result
+}
+
+// Step 1 — /signup
 export async function handleSignup(interaction: ChatInputCommandInteraction) {
   const user = await getUserByDiscordId(interaction.user.id)
   if (!user) {
@@ -35,76 +41,109 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
       components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setLabel('Log in to DRAFTMAN5.0').setStyle(ButtonStyle.Link).setURL(process.env.API_BASE_URL!)
       )],
-      
     })
     return
   }
   if (!user.steam_id) {
-    await interaction.reply({ content: 'Verify your Steam account first — run /verify.',  })
+    await interaction.reply({ content: 'Verify your Steam account first — run /verify.' })
     return
   }
+
   const events = await getOpenEvents()
   const mySignups = await getUserSignups(user.id)
   const signedUpIds = new Set(mySignups.map((s: any) => s.event_id))
   const available = events.filter(e => ['published', 'scheduled'].includes(e.status) && !signedUpIds.has(e.id))
+
   if (available.length === 0) {
-    await interaction.reply({ content: 'No events are open for signup right now.',  })
+    await interaction.reply({ content: 'No events are open for signup right now.' })
     return
   }
-  const select = new StringSelectMenuBuilder()
-    .setCustomId('signup:event')
-    .setPlaceholder('Choose an event…')
-    .addOptions(available.map(e =>
-      new StringSelectMenuOptionBuilder().setLabel(e.name).setDescription(formatDate(e.starts_at)).setValue(e.id)
-    ))
+
+  const btns = available.map(e =>
+    new ButtonBuilder()
+      .setCustomId(`signup:event:${e.id}`)
+      .setLabel(e.name.length > 80 ? e.name.slice(0, 77) + '…' : e.name)
+      .setStyle(ButtonStyle.Primary)
+  )
+
   await interaction.reply({
-    content: 'Choose an event to sign up for:',
-    components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)],
-    
+    content: '**Sign up — choose an event:**',
+    components: rows(btns),
   })
 }
 
-export async function handleSignupEventSelect(interaction: StringSelectMenuInteraction) {
-  const eventId = interaction.values[0]
+// Step 2 — event chosen, pick primary class
+export async function handleSignupEventBtn(interaction: ButtonInteraction) {
+  const eventId = interaction.customId.replace('signup:event:', '')
   const events = await getOpenEvents()
   const event = events.find(e => e.id === eventId)
   if (!event) { await interaction.update({ content: 'Event not found.', components: [] }); return }
-  const counts = await getClassCounts(eventId)
+
   const signupCount = await getSignupCount(eventId)
-  const select = new StringSelectMenuBuilder()
-    .setCustomId(`signup:class:${eventId}`)
-    .setPlaceholder('Pick your class(es) — max 2')
-    .setMinValues(1).setMaxValues(2)
-    .addOptions(CLASSES.map(c =>
-      new StringSelectMenuOptionBuilder().setLabel(CLASS_LABELS[c]).setDescription(`${counts[c] ?? 0} signed`).setValue(c)
-    ))
-  const classLines = CLASSES.map(c => `${CLASS_LABELS[c]}: ${counts[c] ?? 0}`).join('  ·  ')
+
+  const btns = CLASSES.map(c =>
+    new ButtonBuilder()
+      .setCustomId(`signup:class1:${eventId}:${c}`)
+      .setLabel(CLASS_LABELS[c])
+      .setStyle(ButtonStyle.Secondary)
+  )
+  btns.push(
+    new ButtonBuilder().setCustomId('signup:cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
+  )
+
   await interaction.update({
-    content: `**${event.name}** — pick your class(es). Max 2.\n\`${classLines}\`\n${signupCount} / ${event.capacity} signed up`,
-    components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)],
+    content: `**${event.name}** · ${signupCount}/${event.capacity} signed up\nPick your **primary class:**`,
+    components: rows(btns),
   })
 }
 
-export async function handleSignupClassSelect(interaction: StringSelectMenuInteraction) {
-  const eventId = interaction.customId.replace('signup:class:', '')
-  const classes = interaction.values
+// Step 3 — primary class chosen, pick secondary or skip
+export async function handleSignupClass1Btn(interaction: ButtonInteraction) {
+  const parts = interaction.customId.split(':') // signup:class1:eventId:class
+  const eventId = parts[2]
+  const class1 = parts[3]
   const events = await getOpenEvents()
   const event = events.find(e => e.id === eventId)
   if (!event) { await interaction.update({ content: 'Event not found.', components: [] }); return }
-  const classLabel = classes.map(c => CLASS_LABELS[c]).join(' / ')
+
+  const remaining = CLASSES.filter(c => c !== class1)
+  const btns = remaining.map(c =>
+    new ButtonBuilder()
+      .setCustomId(`signup:class2:${eventId}:${class1}:${c}`)
+      .setLabel(CLASS_LABELS[c])
+      .setStyle(ButtonStyle.Secondary)
+  )
+  btns.push(
+    new ButtonBuilder()
+      .setCustomId(`signup:confirm:${eventId}:${class1}`)
+      .setLabel(`Just ${CLASS_LABELS[class1]}`)
+      .setStyle(ButtonStyle.Success)
+  )
+
   await interaction.update({
-    content: `**${event.name}**\nClass: **${classLabel}**\n\nReady to sign up?`,
-    components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId(`signup:confirm:${eventId}:${classes.join(',')}`).setLabel('Confirm Sign Up').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('signup:cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
-    )],
+    content: `**${event.name}**\nPrimary: **${CLASS_LABELS[class1]}**\nAdd a second class, or confirm:`,
+    components: rows(btns),
   })
 }
 
-export async function handleSignupConfirm(interaction: ButtonInteraction) {
-  const parts = interaction.customId.split(':')
+// Step 4a — second class chosen
+export async function handleSignupClass2Btn(interaction: ButtonInteraction) {
+  const parts = interaction.customId.split(':') // signup:class2:eventId:class1:class2
   const eventId = parts[2]
-  const classes = parts[3].split(',')
+  const class1 = parts[3]
+  const class2 = parts[4]
+  await doSignup(interaction, eventId, [class1, class2])
+}
+
+// Step 4b — confirm single class
+export async function handleSignupConfirm(interaction: ButtonInteraction) {
+  const parts = interaction.customId.split(':') // signup:confirm:eventId:class1
+  const eventId = parts[2]
+  const class1 = parts[3]
+  await doSignup(interaction, eventId, [class1])
+}
+
+async function doSignup(interaction: ButtonInteraction, eventId: string, classes: string[]) {
   const user = await getUserByDiscordId(interaction.user.id)
   if (!user) { await interaction.update({ content: 'Account not found.', components: [] }); return }
   try {
@@ -113,11 +152,14 @@ export async function handleSignupConfirm(interaction: ButtonInteraction) {
     const event = events.find(e => e.id === eventId)!
     const classLabel = classes.map(c => CLASS_LABELS[c]).join(' / ')
     const newCount = await getSignupCount(eventId)
-    await interaction.update({ content: `You're in! ✓ Run /checkin when the check-in window opens.`, components: [] })
+
+    await interaction.update({ content: `✓ Signed up as **${classLabel}** for **${event.name}**!`, components: [] })
+
     const embed = new EmbedBuilder()
       .setColor(0x23a55a)
       .setTitle(`✓ ${interaction.user.displayName} signed up`)
       .setDescription(`**${event.name}**\nClass: ${classLabel}\n${newCount} / ${event.capacity} signed up`)
+
     if (interaction.channel instanceof TextChannel) await interaction.channel.send({ embeds: [embed] })
   } catch (err: any) {
     await interaction.update({ content: `Failed: ${err.message}`, components: [] })
