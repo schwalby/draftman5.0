@@ -12,9 +12,9 @@ const commands = [
 const rest = new REST().setToken(process.env.DISCORD_BOT_TOKEN!)
 
 ;(async () => {
-  console.log('Registering slash commands…')
+  console.log('Registering guild slash commands…')
   await rest.put(
-    Routes.applicationCommands(process.env.DISCORD_CLIENT_ID!),
+    Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID!, process.env.GUILD_ID!),
     { body: commands }
   )
   console.log('Done.')
