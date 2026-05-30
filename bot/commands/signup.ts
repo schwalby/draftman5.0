@@ -135,13 +135,15 @@ async function doSignup(interaction: ButtonInteraction, eventId: string, classes
     const event = events.find(e => e.id === eventId)!
     const classLabel = classes.map(c => CLASS_LABELS[c]).join(' / ')
     const newCount = await getSignupCount(eventId)
+    const eventUrl = `${process.env.API_BASE_URL}/events/${eventId}`
     await interaction.update({
-      content: `✅ You're signed up as **${classLabel}** for **${event.name}**!\nRun **/checkin** when the check-in window opens.`,
+      content: `✅ You're signed up as **${classLabel}** for [${event.name}](${eventUrl})!\nRun **/checkin** when the check-in window opens.`,
       components: [],
     })
     const embed = new EmbedBuilder()
       .setColor(0x23a55a)
       .setTitle(`✅  ${interaction.user.displayName} signed up`)
+      .setURL(eventUrl)
       .setDescription(`**${event.name}**\n🎯 Class: ${classLabel}\n👥 ${newCount} / ${event.capacity} signed up`)
     try { if (interaction.channel && 'send' in interaction.channel) await (interaction.channel as any).send({ embeds: [embed] }) } catch {}
   } catch (err: any) {

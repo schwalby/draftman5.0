@@ -54,11 +54,13 @@ export async function handleCheckin(interaction: ChatInputCommandInteraction) {
   const event = eligible[0].event as any
   const checkinCount = await getSignupCount(event.id) // approximate
 
+  const eventUrl = `${process.env.API_BASE_URL}/events/${event.id}`
   const embed = new EmbedBuilder()
     .setColor(0x23a55a)
     .setTitle(`✓ ${interaction.user.displayName} checked in`)
+    .setURL(eventUrl)
     .setDescription(`**${event.name}**\n${checkinCount} / ${event.capacity} checked in`)
 
-  await interaction.reply({ content: `✅ You're checked in for **${event.name}**!`, ephemeral: true })
+  await interaction.reply({ content: `✅ You're checked in for [${event.name}](${eventUrl})!`, ephemeral: true })
   try { if (interaction.channel && 'send' in interaction.channel) await (interaction.channel as any).send({ embeds: [embed] }) } catch {}
 }
