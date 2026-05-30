@@ -74,6 +74,11 @@ export async function deleteSignup(signupId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+export async function updateSignupClass(signupId: string, classes: string[]): Promise<void> {
+  const { error } = await supabase.from('signups').update({ class: classes }).eq('id', signupId)
+  if (error) throw new Error(error.message)
+}
+
 export async function checkIn(signupId: string): Promise<void> {
   const { error } = await supabase
     .from('signups')

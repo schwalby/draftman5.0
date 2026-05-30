@@ -5,6 +5,9 @@ import {
   ButtonStyle,
   EmbedBuilder,
   ButtonInteraction,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  StringSelectMenuInteraction,
 } from 'discord.js'
 import {
   getUserByDiscordId,
@@ -12,6 +15,7 @@ import {
   getSignupCount,
   createSignup,
   getUserSignups,
+  updateSignupClass,
 } from '../core/db'
 import { CLASS_LABELS, CLASSES } from '../core/types'
 import { classEmojis } from '../core/emojis'
@@ -140,5 +144,96 @@ async function doSignup(interaction: ButtonInteraction, eventId: string, classes
     try { if (interaction.channel && 'send' in interaction.channel) await (interaction.channel as any).send({ embeds: [embed] }) } catch {}
   } catch (err: any) {
     await interaction.update({ content: `❌ Signup failed: ${err.message}`, components: [] })
+  }
+}
+
+// --- /updaterole ---
+
+export async function handleUpdateRole(interaction: ChatInputCommandInteraction) {
+  const user = await getUserByDiscordId(interaction.user.id)
+  if (!user) { await interaction.reply({ content: '❌ No DRAFTMAN account found.' }); return }
+
+  const signups = await getUserSignups(user.id)
+  const active = signups.filter((s: any) => ['published', 'scheduled', 'active'].includes(s.event?.status))
+  if (active.length === 0) {
+    await interaction.reply({ content: '📭 You have no active signups to update.' })
+    return
+  }
+
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('updaterole:select')
+    .setPlaceholder('Choose a signup to update…')
+    .addOptions(active.map((s: any) =>
+      new StringSelectMenuOptionBuilder()
+        .setLabel(s.event.name)
+        .setDescription(`Current: ${(s.class as string[]).map((c: string) => CLASS_LABELS[c] ?? c).join(' / ')}`)
+        .setValue(s.id)
+    ))
+
+  await interaction.reply({
+    content: 'Which signup do you want to update?',
+    components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)],
+  })
+}
+
+export async function handleUpdateRoleSelect(interaction: StringSelectMenuInteraction) {
+  const signupId = interaction.values[0]
+  const user = await getUserByDiscordId(interaction.user.id)
+  if (!user) { await interaction.update({ content: '❌ Account not found.', components: [] }); return }
+
+  const signups = await getUserSignups(user.id)
+  const signup = signups.find((s: any) => s.id === signupId) as any
+  if (!signup) { await interaction.update({ content: '❌ Signup not found.', components: [] }); return }
+
+  const btns = CLASSES.map(c => classBtn(`updaterole:class1:${signupId}:${c}`, c))
+  btns.push(new ButtonBuilder().setCustomId('updaterole:cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger))
+
+  await interaction.update({
+    content: `**${signup.event.name}**\nCurrent role: **${(signup.class as string[]).map((c: string) => CLASS_LABELS[c] ?? c).join(' / ')}**\n\nPick your new primary class:`,
+    components: rows(btns),
+  })
+}
+
+export async function handleUpdateRoleClass1Btn(interaction: ButtonInteraction) {
+  const parts = interaction.customId.split(':')
+  const signupId = parts[2]
+  const class1 = parts[3]
+
+  if (class1 === 'flex') {
+    await doUpdateRole(interaction, signupId, ['flex'])
+    return
+  }
+
+  const remaining = CLASSES.filter(c => c !== class1 && c !== 'flex')
+  const btns = remaining.map(c => classBtn(`updaterole:class2:${signupId}:${class1}:${c}`, c))
+  btns.push(
+    new ButtonBuilder()
+      .setCustomId(`updaterole:confirm:${signupId}:${class1}`)
+      .setLabel(`Just ${CLASS_LABELS[class1]}`)
+      .setStyle(ButtonStyle.Success)
+  )
+  await interaction.update({
+    content: `Primary: **${CLASS_LABELS[class1]}**\n\nAdd a second class, or go with just ${CLASS_LABELS[class1]}:`,
+    components: rows(btns),
+  })
+}
+
+export async function handleUpdateRoleClass2Btn(interaction: ButtonInteraction) {
+  const parts = interaction.customId.split(':')
+  await doUpdateRole(interaction, parts[2], [parts[3], parts[4]])
+}
+
+export async function handleUpdateRoleConfirm(interaction: ButtonInteraction) {
+  const parts = interaction.customId.split(':')
+  await doUpdateRole(interaction, parts[2], [parts[3]])
+}
+
+async function doUpdateRole(interaction: ButtonInteraction, signupId: string, classes: string[]) {
+  try {
+    await updateSignupClass(signupId, classes)
+    const classLabel = classes.map(c => CLASS_LABELS[c]).join(' / ')
+    await interaction.update({ content: `✅ Role updated to **${classLabel}**.`, components: [] })
+  } catch (err: any) {
+    await interaction.update({ content: `❌ Update failed: ${err.message}`, components: [] })
   }
 }

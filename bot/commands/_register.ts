@@ -4,6 +4,7 @@ import { REST, Routes, SlashCommandBuilder } from 'discord.js'
 const commands = [
   new SlashCommandBuilder().setName('signup').setDescription('Sign up for an open draft event'),
   new SlashCommandBuilder().setName('withdraw').setDescription('Withdraw from an event signup'),
+  new SlashCommandBuilder().setName('updaterole').setDescription('Update your class for an existing signup'),
   new SlashCommandBuilder().setName('checkin').setDescription('Check in for your draft'),
   new SlashCommandBuilder().setName('status').setDescription('View your signups and check-in status'),
   new SlashCommandBuilder().setName('verify').setDescription('Link your Steam account'),

@@ -5,6 +5,8 @@ import { classEmojis, resolveEmojis } from './core/emojis'
 import {
   handleSignup, handleSignupEventBtn, handleSignupClass1Btn,
   handleSignupClass2Btn, handleSignupConfirm,
+  handleUpdateRole, handleUpdateRoleSelect, handleUpdateRoleClass1Btn,
+  handleUpdateRoleClass2Btn, handleUpdateRoleConfirm,
 } from './commands/signup'
 import { handleWithdraw, handleWithdrawSelect, handleWithdrawConfirm } from './commands/withdraw'
 import { handleCheckin } from './commands/checkin'
@@ -38,28 +40,34 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
       switch (interaction.commandName) {
-        case 'signup':   await handleSignup(interaction);   break
-        case 'withdraw': await handleWithdraw(interaction); break
-        case 'checkin':  await handleCheckin(interaction);  break
-        case 'status':   await handleStatus(interaction);   break
-        case 'verify':   await handleVerify(interaction);   break
+        case 'signup':     await handleSignup(interaction);     break
+        case 'withdraw':   await handleWithdraw(interaction);   break
+        case 'updaterole': await handleUpdateRole(interaction); break
+        case 'checkin':    await handleCheckin(interaction);    break
+        case 'status':     await handleStatus(interaction);     break
+        case 'verify':     await handleVerify(interaction);     break
       }
       return
     }
     if (interaction.isStringSelectMenu()) {
-      if (interaction.customId === 'withdraw:select') { await handleWithdrawSelect(interaction); return }
+      if (interaction.customId === 'withdraw:select')   { await handleWithdrawSelect(interaction);   return }
+      if (interaction.customId === 'updaterole:select') { await handleUpdateRoleSelect(interaction); return }
       return
     }
     if (interaction.isButton()) {
       const btn = interaction as ButtonInteraction
       const id = btn.customId
-      if (id.startsWith('signup:event:'))     { await handleSignupEventBtn(btn);  return }
-      if (id.startsWith('signup:class1:'))    { await handleSignupClass1Btn(btn); return }
-      if (id.startsWith('signup:class2:'))    { await handleSignupClass2Btn(btn); return }
-      if (id.startsWith('signup:confirm:'))   { await handleSignupConfirm(btn);   return }
-      if (id === 'signup:cancel')             { await btn.update({ content: 'Signup cancelled.', components: [] }); return }
-      if (id.startsWith('withdraw:confirm:')) { await handleWithdrawConfirm(btn); return }
-      if (id === 'withdraw:cancel')           { await btn.update({ content: 'Withdrawal cancelled.', components: [] }); return }
+      if (id.startsWith('signup:event:'))          { await handleSignupEventBtn(btn);       return }
+      if (id.startsWith('signup:class1:'))         { await handleSignupClass1Btn(btn);      return }
+      if (id.startsWith('signup:class2:'))         { await handleSignupClass2Btn(btn);      return }
+      if (id.startsWith('signup:confirm:'))        { await handleSignupConfirm(btn);        return }
+      if (id === 'signup:cancel')                  { await btn.update({ content: 'Signup cancelled.', components: [] }); return }
+      if (id.startsWith('withdraw:confirm:'))      { await handleWithdrawConfirm(btn);      return }
+      if (id === 'withdraw:cancel')                { await btn.update({ content: 'Withdrawal cancelled.', components: [] }); return }
+      if (id.startsWith('updaterole:class1:'))     { await handleUpdateRoleClass1Btn(btn);  return }
+      if (id.startsWith('updaterole:class2:'))     { await handleUpdateRoleClass2Btn(btn);  return }
+      if (id.startsWith('updaterole:confirm:'))    { await handleUpdateRoleConfirm(btn);    return }
+      if (id === 'updaterole:cancel')              { await btn.update({ content: 'Update cancelled.', components: [] }); return }
       return
     }
   } catch (err) {
