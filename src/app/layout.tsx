@@ -3,11 +3,25 @@ import './globals.css'
 import { Providers } from '@/components/Providers'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://draftman50-production.up.railway.app'),
   title: 'DRAFT MAN 5.0',
   description: 'Draft management for the Day of Defeat community.',
   icons: {
     icon: '/favicon.ico',
     apple: '/icon.png',
+  },
+  openGraph: {
+    title: 'DRAFT MAN 5.0',
+    description: 'Draft management for the Day of Defeat community.',
+    siteName: 'DRAFT MAN 5.0',
+    images: [{ url: '/icon.png', width: 512, height: 512 }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'DRAFT MAN 5.0',
+    description: 'Draft management for the Day of Defeat community.',
+    images: ['/icon.png'],
   },
 }
 
