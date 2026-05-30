@@ -71,12 +71,8 @@
   padding: 0;
 }
 
-/* --- Grid background --- */
 html {
   background: var(--bg);
-  background-image: radial-gradient(circle, rgba(126,184,212,0.09) 1px, transparent 1px);
-  background-size: 28px 28px;
-  background-attachment: fixed;
 }
 
 body {

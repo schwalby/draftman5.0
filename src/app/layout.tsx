@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from '@/components/Providers'
+import { ReactiveCanvas } from '@/components/ReactiveCanvas'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://draftman50-production.up.railway.app'),
@@ -47,6 +48,7 @@ export default function RootLayout({
         }} />
       </head>
       <body>
+        <ReactiveCanvas />
         <Providers>{children}</Providers>
       </body>
     </html>
