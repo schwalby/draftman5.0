@@ -19,30 +19,6 @@
   to   { transform: scaleX(1); }
 }
 
-/* ── Cursor ── */
-.cursor {
-  position: fixed;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #c8b87a;
-  pointer-events: none;
-  z-index: 9999;
-  transform: translate(-50%, -50%);
-  transition: width 0.15s, height 0.15s, background 0.2s;
-}
-
-.ring {
-  position: fixed;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(200,184,122,0.35);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 9998;
-  transform: translate(-50%, -50%);
-}
-
 /* ── Entry card ── */
 .entry {
   position: relative;

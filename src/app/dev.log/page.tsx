@@ -171,8 +171,6 @@ const entries: Entry[] = [
 
 export default function DevLog() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const cursorDotRef = useRef<HTMLDivElement>(null);
-  const cursorRingRef = useRef<HTMLDivElement>(null);
   const entryRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const [glowing, setGlowing] = useState<Set<number>>(new Set());
@@ -239,37 +237,6 @@ export default function DevLog() {
     };
   }, []);
 
-  // Custom cursor
-  useEffect(() => {
-    const dot = cursorDotRef.current;
-    const ring = cursorRingRef.current;
-    if (!dot || !ring) return;
-    document.body.style.cursor = 'none';
-
-    const dotEl: HTMLDivElement = dot;
-    const ringEl: HTMLDivElement = ring;
-
-    let mx = 0, my = 0, rx = 0, ry = 0, animId = 0;
-    const onMove = (e: MouseEvent) => {
-      mx = e.clientX; my = e.clientY;
-      dotEl.style.left = mx + 'px';
-      dotEl.style.top = my + 'px';
-    };
-    function loop() {
-      rx += (mx - rx) * 0.11;
-      ry += (my - ry) * 0.11;
-      ringEl.style.left = rx + 'px';
-      ringEl.style.top = ry + 'px';
-      animId = requestAnimationFrame(loop);
-    }
-    window.addEventListener('mousemove', onMove);
-    loop();
-    return () => {
-      document.body.style.cursor = '';
-      window.removeEventListener('mousemove', onMove);
-      cancelAnimationFrame(animId);
-    };
-  }, []);
 
   // Scroll reveal + dot glow
   useEffect(() => {
@@ -300,10 +267,6 @@ export default function DevLog() {
 
   return (
     <>
-      {/* Cursor */}
-      <div ref={cursorDotRef} className={styles.cursor} />
-      <div ref={cursorRingRef} className={styles.ring} />
-
       {/* Reactive canvas — fixed, viewport only */}
       <canvas
         ref={canvasRef}
