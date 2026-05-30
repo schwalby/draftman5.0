@@ -199,7 +199,7 @@ async function showConfirmStep(
         .setTitle(`✓ ${interaction.user.displayName} signed up`)
         .setDescription(`**${event.name}**\nClass: ${classLabel}\n${newCount} / ${event.capacity} signed up`)
 
-      await btn.channel?.send({ embeds: [embed] })
+      if (btn.channel && 'send' in btn.channel) await btn.channel.send({ embeds: [embed] })
 
     } catch (err: any) {
       await btn.update({ content: `Failed to sign up: ${err.message}`, components: [] })
