@@ -10,7 +10,7 @@ import {
 } from './commands/signup'
 import { handleWithdraw, handleWithdrawSelect, handleWithdrawConfirm } from './commands/withdraw'
 import { handleDraftDay } from './commands/draftday'
-import { handleCheckin } from './commands/checkin'
+import { handleCheckin, handleCheckinButton } from './commands/checkin'
 import { handleStatus } from './commands/status'
 import { handleVerify } from './commands/verify'
 import { handleKTPMessage } from './bridge/KTPBridge'
@@ -63,6 +63,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
       if (id.startsWith('signup:class1:'))         { await handleSignupClass1Btn(btn);      return }
       if (id.startsWith('signup:class2:'))         { await handleSignupClass2Btn(btn);      return }
       if (id.startsWith('signup:confirm:'))        { await handleSignupConfirm(btn);        return }
+      if (id === 'draftday:checkin')               { await handleCheckinButton(btn);                return }
       if (id === 'signup:cancel')                  { await btn.update({ content: 'Signup cancelled.', components: [] }); return }
       if (id.startsWith('withdraw:confirm:'))      { await handleWithdrawConfirm(btn);      return }
       if (id === 'withdraw:cancel')                { await btn.update({ content: 'Withdrawal cancelled.', components: [] }); return }

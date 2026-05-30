@@ -48,14 +48,14 @@ async function handleCheckinAnnounce(interaction: ChatInputCommandInteraction) {
   const embed = new EmbedBuilder()
     .setColor(0x23a55a)
     .setTitle(`✅  Check-in is open — ${event.name}`)
-    .setDescription(`Draft day is here. Check in to confirm your spot in the draft.\n\nRun **/checkin** in Discord or click the button below.`)
+    .setDescription(`Draft day is here. Click the button below to confirm your spot.`)
     .setURL(eventUrl)
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel('Check In')
-      .setStyle(ButtonStyle.Link)
-      .setURL(eventUrl)
+      .setCustomId('draftday:checkin')
+      .setLabel('✅  Check In')
+      .setStyle(ButtonStyle.Success)
   )
 
   try {
