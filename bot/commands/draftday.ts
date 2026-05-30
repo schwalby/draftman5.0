@@ -88,12 +88,14 @@ async function handleCreateChannels(interaction: ChatInputCommandInteraction) {
     return
   }
 
-  // Create a category for this draft day to keep channels organised
-  const category = await guild.channels.create({
-    name: event.name.toUpperCase(),
-    type: ChannelType.GuildCategory,
-    reason: `Draft day — ${event.name}`,
-  })
+  // Find the existing draft category (e.g. "NEXT DRAFT - ??/??/2026")
+  const category = guild.channels.cache.find(
+    c => c.type === ChannelType.GuildCategory && c.name.toUpperCase().includes('DRAFT')
+  )
+  if (!category) {
+    await interaction.editReply({ content: '❌ No category containing "DRAFT" found in this server. Create the draft category first.' })
+    return
+  }
 
   const lines: string[] = []
 
