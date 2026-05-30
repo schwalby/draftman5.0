@@ -174,6 +174,14 @@ export default function DevLog() {
   const entryRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const [glowing, setGlowing] = useState<Set<number>>(new Set());
+  const [copiedSession, setCopiedSession] = useState<string | null>(null);
+
+  const copyAnchor = (session: string) => {
+    const url = `${window.location.origin}/dev.log#session-${session}`;
+    navigator.clipboard.writeText(url).catch(() => {});
+    setCopiedSession(session);
+    setTimeout(() => setCopiedSession(null), 1800);
+  };
 
   // Reactive dot grid canvas
   useEffect(() => {
@@ -282,9 +290,9 @@ export default function DevLog() {
       <div style={{
         position: 'relative',
         zIndex: 1,
-        maxWidth: 860,
+        maxWidth: 600,
         margin: '0 auto',
-        padding: '3rem 1.5rem 6rem',
+        padding: '4rem 2rem 8rem',
       }}>
 
         {/* Header */}
@@ -347,7 +355,8 @@ export default function DevLog() {
           {entries.map((entry, i) => (
             <div
               key={entry.session}
-              style={{ position: 'relative', paddingBottom: '1.5rem' }}
+              id={`session-${entry.session}`}
+              style={{ position: 'relative', paddingBottom: '2rem' }}
             >
               {/* Timeline dot */}
               <div className={`${styles.dot} ${glowing.has(i) ? styles.glowing : ''}`} />
@@ -357,18 +366,13 @@ export default function DevLog() {
                 ref={el => { entryRefs.current[i] = el; }}
                 data-idx={String(i)}
                 className={`${styles.entry} ${revealed.has(i) ? styles.revealed : ''}`}
+                style={{ animationDelay: i < 6 ? `${i * 0.1}s` : '0s' }}
               >
                 {/* Animated top bar */}
                 <div className={styles.topBar} />
 
                 {/* Meta row */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.6rem',
-                  marginBottom: '0.55rem',
-                  flexWrap: 'wrap' as const,
-                }}>
+                <div className={styles.metaRow}>
                   <span className={styles.badge}>
                     <span className={styles.badgeInner}>Session {entry.session}</span>
                   </span>
@@ -382,6 +386,13 @@ export default function DevLog() {
                   }}>
                     {entry.date}
                   </span>
+                  <button
+                    className={styles.anchorBtn}
+                    onClick={() => copyAnchor(entry.session)}
+                    title={`Copy link to session ${entry.session}`}
+                  >
+                    {copiedSession === entry.session ? '✓' : '#'}
+                  </button>
                 </div>
 
                 {/* Heading */}

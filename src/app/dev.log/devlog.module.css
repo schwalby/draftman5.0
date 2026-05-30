@@ -1,6 +1,6 @@
 @keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-44px) translateY(8px); }
-  to   { opacity: 1; transform: translateX(0) translateY(0); }
+  from { opacity: 0; transform: translateX(-28px) translateY(22px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0) translateY(0) scale(1); }
 }
 
 @keyframes dotPulse {
@@ -24,13 +24,42 @@
   overflow: hidden;
   transition: border-color 0.25s, transform 0.2s;
   opacity: 0;
-  transform: translateX(-44px) translateY(8px);
+  transform: translateX(-28px) translateY(22px) scale(0.97);
   backdrop-filter: blur(2px);
 }
 
 .entry.revealed {
-  animation: slideInLeft 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  animation-delay: var(--stagger, 0s);
+  animation: slideInLeft 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Meta row + anchor ── */
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.anchorBtn {
+  opacity: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(67,206,162,0.5);
+  font-family: var(--font-body, monospace);
+  font-size: 12px;
+  padding: 0 4px;
+  transition: opacity 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.metaRow:hover .anchorBtn {
+  opacity: 1;
+}
+
+.anchorBtn:hover {
+  color: #43cea2;
 }
 
 .entry:hover {
