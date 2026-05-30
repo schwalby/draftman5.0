@@ -6,7 +6,7 @@ export async function handleStatus(interaction: ChatInputCommandInteraction) {
   if (!user) {
     await interaction.reply({
       content: `No DRAFTMAN account found. Log in at ${process.env.API_BASE_URL}`,
-      
+      ephemeral: true,
     })
     return
   }
@@ -40,5 +40,5 @@ export async function handleStatus(interaction: ChatInputCommandInteraction) {
 
   embed.setFooter({ text: `Steam: ${steamStatus}` })
 
-  await interaction.reply({ embeds: [embed],  })
+  await interaction.reply({ embeds: [embed], ephemeral: true })
 }

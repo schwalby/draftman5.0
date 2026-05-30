@@ -13,7 +13,7 @@ export async function handleVerify(interaction: ChatInputCommandInteraction) {
           .setStyle(ButtonStyle.Link)
           .setURL(process.env.API_BASE_URL!)
       )],
-      
+      ephemeral: true,
     })
     return
   }
@@ -21,7 +21,7 @@ export async function handleVerify(interaction: ChatInputCommandInteraction) {
   if (user.steam_verified) {
     await interaction.reply({
       content: `✓ Already verified — your Steam account **${user.steam_name ?? user.steam_id}** is linked. You're good to sign up for drafts.`,
-      
+      ephemeral: true,
     })
     return
   }
@@ -37,6 +37,6 @@ export async function handleVerify(interaction: ChatInputCommandInteraction) {
         .setStyle(ButtonStyle.Link)
         .setURL(verifyUrl)
     )],
-    
+    ephemeral: true,
   })
 }

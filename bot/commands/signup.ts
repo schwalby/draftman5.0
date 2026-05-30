@@ -48,11 +48,12 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
       components: [new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setLabel('Log in to DRAFTMAN5.0').setStyle(ButtonStyle.Link).setURL(process.env.API_BASE_URL!)
       )],
+      ephemeral: true,
     })
     return
   }
   if (!user.steam_id) {
-    await interaction.reply({ content: '⚠️ You need to verify your Steam account before signing up. Run **/verify** first.' })
+    await interaction.reply({ content: '⚠️ You need to verify your Steam account before signing up. Run **/verify** first.', ephemeral: true })
     return
   }
   const events = await getOpenEvents()
@@ -60,7 +61,7 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
   const signedUpIds = new Set(mySignups.map((s: any) => s.event_id))
   const available = events.filter(e => ['published', 'scheduled'].includes(e.status) && !signedUpIds.has(e.id))
   if (available.length === 0) {
-    await interaction.reply({ content: '📭 No events are open for signup right now. Check back soon!' })
+    await interaction.reply({ content: '📭 No events are open for signup right now. Check back soon!', ephemeral: true })
     return
   }
   const btns = available.map(e =>
@@ -72,6 +73,7 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
   await interaction.reply({
     content: '🎮 **Sign up for a draft — choose an event:**',
     components: rows(btns),
+    ephemeral: true,
   })
 }
 
@@ -151,12 +153,12 @@ async function doSignup(interaction: ButtonInteraction, eventId: string, classes
 
 export async function handleUpdateRole(interaction: ChatInputCommandInteraction) {
   const user = await getUserByDiscordId(interaction.user.id)
-  if (!user) { await interaction.reply({ content: '❌ No DRAFTMAN account found.' }); return }
+  if (!user) { await interaction.reply({ content: '❌ No DRAFTMAN account found.', ephemeral: true }); return }
 
   const signups = await getUserSignups(user.id)
   const active = signups.filter((s: any) => ['published', 'scheduled', 'active'].includes(s.event?.status))
   if (active.length === 0) {
-    await interaction.reply({ content: '📭 You have no active signups to update.' })
+    await interaction.reply({ content: '📭 You have no active signups to update.', ephemeral: true })
     return
   }
 
@@ -173,6 +175,7 @@ export async function handleUpdateRole(interaction: ChatInputCommandInteraction)
   await interaction.reply({
     content: 'Which signup do you want to update?',
     components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)],
+    ephemeral: true,
   })
 }
 

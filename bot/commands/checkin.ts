@@ -4,7 +4,7 @@ import { getUserByDiscordId, getUserSignups, getSignupCount, checkIn } from '../
 export async function handleCheckin(interaction: ChatInputCommandInteraction) {
   const user = await getUserByDiscordId(interaction.user.id)
   if (!user) {
-    await interaction.reply({ content: 'No DRAFTMAN account found.',  })
+    await interaction.reply({ content: 'No DRAFTMAN account found.', ephemeral: true })
     return
   }
 
@@ -38,10 +38,10 @@ export async function handleCheckin(interaction: ChatInputCommandInteraction) {
       })
       await interaction.reply({
         content: `Check-in for **${event.name}** opens at **${opensAt}**.`,
-        
+        ephemeral: true,
       })
     } else {
-      await interaction.reply({ content: 'No check-in windows are open for your signups right now.',  })
+      await interaction.reply({ content: 'No check-in windows are open for your signups right now.', ephemeral: true })
     }
     return
   }
@@ -59,5 +59,6 @@ export async function handleCheckin(interaction: ChatInputCommandInteraction) {
     .setTitle(`✓ ${interaction.user.displayName} checked in`)
     .setDescription(`**${event.name}**\n${checkinCount} / ${event.capacity} checked in`)
 
-  await interaction.reply({ embeds: [embed] })
+  await interaction.reply({ content: `✅ You're checked in for **${event.name}**!`, ephemeral: true })
+  try { if (interaction.channel && 'send' in interaction.channel) await (interaction.channel as any).send({ embeds: [embed] }) } catch {}
 }

@@ -12,12 +12,12 @@ import { getUserByDiscordId, getUserSignups, deleteSignup } from '../core/db'
 
 export async function handleWithdraw(interaction: ChatInputCommandInteraction) {
   const user = await getUserByDiscordId(interaction.user.id)
-  if (!user) { await interaction.reply({ content: 'No DRAFTMAN account found.' }); return }
+  if (!user) { await interaction.reply({ content: 'No DRAFTMAN account found.', ephemeral: true }); return }
 
   const signups = await getUserSignups(user.id)
   const active = signups.filter((s: any) => ['published', 'scheduled', 'active'].includes(s.event?.status))
 
-  if (active.length === 0) { await interaction.reply({ content: 'You have no active signups to withdraw from.' }); return }
+  if (active.length === 0) { await interaction.reply({ content: 'You have no active signups to withdraw from.', ephemeral: true }); return }
 
   const select = new StringSelectMenuBuilder()
     .setCustomId('withdraw:select')
@@ -32,6 +32,7 @@ export async function handleWithdraw(interaction: ChatInputCommandInteraction) {
   await interaction.reply({
     content: 'Your current signups:',
     components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)],
+    ephemeral: true,
   })
 }
 
