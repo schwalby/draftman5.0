@@ -42,6 +42,7 @@ interface Signup {
   priority: number;
   flagged: boolean;
   ringer: boolean;
+  checked_in: boolean;
   users: {
     ingame_name: string | null;
     discord_username: string;
@@ -85,6 +86,7 @@ export default function EventPage() {
   const adminRingers = signups.filter(s => s.ringer);
   const confirmed = nonRingers.slice(0, confirmedCap);
   const ringers = [...nonRingers.slice(confirmedCap), ...adminRingers];
+  const checkedInCount = confirmed.filter(s => s.checked_in).length;
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -444,13 +446,29 @@ export default function EventPage() {
 
         {/* Player list */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
             <span style={{ fontFamily: 'var(--font-heading)', fontSize: 20, color: 'var(--text)' }}>
               Players Signed Up
             </span>
-            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-              {confirmed.length} confirmed{ringers.length > 0 ? ` · ${ringers.length} ringer${ringers.length > 1 ? 's' : ''}` : ''}
+            <span style={{
+              fontSize: 12, fontFamily: 'var(--font-heading)', fontWeight: 700,
+              color: 'var(--green)', background: 'rgba(35,165,90,0.1)',
+              border: '1px solid rgba(35,165,90,0.25)', padding: '1px 8px', borderRadius: 2,
+            }}>
+              {checkedInCount} checked in
             </span>
+            <span style={{
+              fontSize: 12, fontFamily: 'var(--font-heading)', fontWeight: 700,
+              color: 'var(--khaki)', background: 'rgba(200,184,122,0.08)',
+              border: '1px solid rgba(200,184,122,0.2)', padding: '1px 8px', borderRadius: 2,
+            }}>
+              {confirmed.length - checkedInCount} pending
+            </span>
+            {ringers.length > 0 && (
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                · {ringers.length} ringer{ringers.length > 1 ? 's' : ''}
+              </span>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -468,6 +486,14 @@ export default function EventPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '2px 12px', marginBottom: 24 }} className="ev-signup-grid">
               {confirmed.map((s, idx) => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0' }}>
+                  <span
+                    className={s.checked_in ? 'checkin-dot-active' : undefined}
+                    style={{
+                      width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                      background: s.checked_in ? 'var(--green)' : 'var(--dim)',
+                      border: 'none',
+                    }}
+                  />
                   <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 18, flexShrink: 0, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                     {idx + 1}
                   </span>
@@ -476,7 +502,7 @@ export default function EventPage() {
                       <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: CLASS_COLORS[cls] || '#888', display: 'inline-block', flexShrink: 0 }} />
                     ))}
                   </div>
-                  <span style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
                     {displayName(s)}
                   </span>
                 </div>

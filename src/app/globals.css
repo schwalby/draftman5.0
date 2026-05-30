@@ -55,6 +55,15 @@
   --font-accent: 'KH Interference', sans-serif;
 }
 
+/* --- Check-in presence dot animations --- */
+@keyframes checkinGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(35,165,90,0.6), 0 0 6px rgba(35,165,90,0.4); }
+  50%       { box-shadow: 0 0 0 3px rgba(35,165,90,0), 0 0 10px rgba(35,165,90,0.6); }
+}
+.checkin-dot-active {
+  animation: checkinGlow 2.4s ease-in-out infinite;
+}
+
 /* --- Reset --- */
 *, *::before, *::after {
   box-sizing: border-box;
