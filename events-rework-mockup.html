@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Events Rework — DRAFTMAN5.0</title>
+<style>
+  @font-face { font-family:'Fraktion Mono'; src:url('public/fonts/PP Fraktion Mono Regular.ttf') format('truetype'); }
+  @font-face { font-family:'KH Interference'; src:url('public/fonts/KH Interference Regular.ttf') format('truetype'); font-weight:400; }
+  @font-face { font-family:'KH Interference'; src:url('public/fonts/KHInterference-Light.ttf') format('truetype'); font-weight:300; }
+
+  :root {
+    --khaki:#c8b87a; --teal:#43cea2; --blue:#185a9d;
+    --bg:#0d0f12; --surface:#111318; --surface2:#171c22;
+    --border:rgba(126,184,212,0.18);
+    --text:#c8dce8; --text-dim:#6a8ca4; --text-muted:#3c5268;
+    --green-light:#5a9c5a; --rust:#c0392b;
+    --font-heading:'KH Interference',sans-serif;
+    --font-body:'Fraktion Mono',monospace;
+  }
+
+  *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); font-family:var(--font-body); color:var(--text); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; min-height:100vh; }
+  canvas { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+
+  .reveal { opacity:0; transform:translateY(14px); transition:opacity 0.45s ease, transform 0.45s ease; }
+  .reveal.in { opacity:1; transform:translateY(0); }
+
+  /* TOPBAR */
+  .topbar { position:sticky; top:0; z-index:100; height:48px; background:var(--surface); border-bottom:1px solid var(--border); border-left:3px solid var(--khaki); display:flex; align-items:center; overflow:hidden; }
+  .logo { display:flex; align-items:center; gap:8px; padding:0 20px; height:48px; border-right:1px solid var(--border); flex-shrink:0; font-family:var(--font-heading); font-size:14px; letter-spacing:.05em; background:linear-gradient(135deg,#a08848 0%,#c8b87a 35%,#ede0a8 55%,#c8b87a 75%,#a08848 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; filter:drop-shadow(0 0 4px rgba(200,184,122,.35)); }
+  .nav { display:flex; align-items:center; height:48px; }
+  .nav-link { display:flex; align-items:center; height:48px; padding:0 16px; color:var(--text-muted); text-decoration:none; font-size:11px; letter-spacing:.09em; text-transform:uppercase; border-right:1px solid var(--border); white-space:nowrap; position:relative; transition:color 0.15s; }
+  .nav-link::after { content:''; position:absolute; bottom:0; left:16px; right:16px; height:2px; background:var(--khaki); width:0; transition:width 0.22s ease; }
+  .nav-link:hover { color:var(--text-dim); }
+  .nav-link:hover::after { width:calc(100% - 32px); }
+  .nav-link.active { color:var(--khaki); background:rgba(200,184,122,0.08); pointer-events:none; }
+  .nav-link.active::after { width:calc(100% - 32px); }
+  .topbar-right { display:flex; align-items:center; gap:12px; margin-left:auto; padding:0 16px; flex-shrink:0; }
+  .avatar { width:28px; height:28px; border-radius:50%; border:1.5px solid var(--khaki); background:rgba(200,184,122,0.12); display:flex; align-items:center; justify-content:center; color:var(--khaki); font-size:11px; font-weight:bold; box-shadow:0 0 6px rgba(200,184,122,0.25); }
+
+  /* MAIN */
+  main { max-width:760px; margin:0 auto; padding:36px 24px 80px; position:relative; z-index:1; }
+
+  .page-heading { font-family:var(--font-heading); font-size:32px; letter-spacing:.04em; color:var(--khaki); line-height:1; margin-bottom:6px; }
+  .page-sub { font-size:12px; color:var(--text-dim); margin-bottom:32px; }
+
+  /* ── IN PROGRESS STRIP ── */
+  .inprogress-strip {
+    background:linear-gradient(135deg, rgba(67,206,162,0.06) 0%, rgba(24,90,157,0.08) 100%);
+    border:1px solid rgba(67,206,162,0.15);
+    border-radius:8px;
+    padding:10px 16px;
+    margin-bottom:10px;
+    display:flex; align-items:center; gap:12px;
+    cursor:pointer;
+    transition:border-color 0.15s, background 0.15s, transform 0.12s;
+  }
+  .inprogress-strip:hover {
+    background:linear-gradient(135deg, rgba(67,206,162,0.1) 0%, rgba(24,90,157,0.12) 100%);
+    border-color:rgba(67,206,162,0.3);
+    transform:translateY(-1px);
+  }
+  .inprogress-dot { width:7px; height:7px; border-radius:50%; background:var(--teal); flex-shrink:0; animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .inprogress-label { font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); font-family:var(--font-body); }
+  .inprogress-name { font-family:var(--font-heading); font-size:13px; color:var(--text); }
+  .inprogress-meta { font-size:10px; color:var(--text-muted); }
+  .inprogress-badge { margin-left:auto; font-size:9px; letter-spacing:.1em; text-transform:uppercase; padding:2px 8px; border-radius:2px; border:1px solid rgba(67,206,162,0.3); color:var(--teal); flex-shrink:0; }
+
+  /* ── HERO — NEXT UP ── */
+  .hero {
+    cursor:pointer;
+    background:linear-gradient(135deg, rgba(200,184,122,0.1) 0%, rgba(24,90,157,0.12) 100%);
+    border:1px solid rgba(200,184,122,0.25);
+    border-radius:10px;
+    padding:28px 32px;
+    margin-bottom:10px;
+    box-shadow:0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+    position:relative; overflow:hidden;
+    transition:transform 0.2s, box-shadow 0.2s;
+  }
+  .hero:hover { transform:translateY(-2px); box-shadow:0 12px 48px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.14); }
+
+  /* signed-up hero variant */
+  .hero.signedup {
+    background:linear-gradient(135deg, rgba(200,184,122,0.18) 0%, rgba(24,90,157,0.14) 100%);
+    border-color:rgba(200,184,122,0.45);
+    box-shadow:0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15), 0 0 28px rgba(200,184,122,0.08);
+  }
+
+  /* YOU'RE IN badge — top right corner of hero */
+  .hero-in-badge {
+    position:absolute; top:16px; right:20px;
+    display:flex; align-items:center; gap:5px;
+    background:rgba(200,184,122,0.15);
+    border:1px solid rgba(200,184,122,0.4);
+    border-radius:3px; padding:4px 10px;
+    font-size:9px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--khaki); font-family:var(--font-body);
+  }
+  .hero-eyebrow {
+    font-size:9px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--khaki); opacity:0.7; margin-bottom:10px;
+    font-family:var(--font-body);
+  }
+  .hero-name {
+    font-family:var(--font-heading); font-size:32px;
+    letter-spacing:.03em; color:var(--text); line-height:1.1;
+    margin-bottom:14px;
+  }
+  .hero-meta {
+    display:flex; align-items:center; gap:16px;
+    font-size:11px; color:var(--text-dim); margin-bottom:20px; flex-wrap:wrap;
+  }
+  .hero-meta-item { display:flex; align-items:center; gap:5px; }
+  .hero-divider { width:1px; height:12px; background:rgba(255,255,255,0.1); }
+  .hero-bottom { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .hero-bar-wrap { flex:1; min-width:160px; }
+  .hero-bar-label { display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted); margin-bottom:5px; }
+  .hero-bar-track { height:4px; background:rgba(255,255,255,0.07); border-radius:2px; overflow:hidden; }
+  .hero-bar-fill { height:100%; background:linear-gradient(to right, #c8b87a, #43cea2, #185a9d); border-radius:2px; }
+
+  /* signup state variants */
+  .hero-signup-btn {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:9px 22px; border-radius:3px; cursor:pointer;
+    font-family:var(--font-body); font-size:11px; letter-spacing:.09em;
+    text-transform:uppercase; border:none; flex-shrink:0;
+    transition:transform 0.12s, box-shadow 0.15s, background 0.15s;
+  }
+  .hero-signup-btn.signup { background:var(--khaki); color:#0e0e0e; font-weight:bold; }
+  .hero-signup-btn.signup:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(200,184,122,0.35); background:#d4c688; }
+  .hero-signup-btn.signedup { background:rgba(200,184,122,0.12); color:var(--khaki); border:1px solid rgba(200,184,122,0.35); }
+
+  /* ── COMPACT EVENT ROWS ── */
+  .ev-list { display:flex; flex-direction:column; gap:6px; }
+  .ev-row {
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.13);
+    border-radius:8px;
+    padding:14px 18px;
+    box-shadow:0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.13);
+    display:flex; align-items:center; gap:14px;
+    text-decoration:none; color:var(--text);
+    transition:border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+    cursor:pointer;
+  }
+  .ev-row:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.18); border-color:rgba(255,255,255,0.22); }
+  .ev-row.signedup {
+    background:rgba(200,184,122,0.07);
+    border-color:rgba(200,184,122,0.35);
+    border-left:3px solid var(--khaki);
+    box-shadow:0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(200,184,122,0.15);
+  }
+
+  /* YOU'RE IN pill for compact rows */
+  .ev-in-pill {
+    font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+    padding:3px 9px; border-radius:3px;
+    border:1px solid rgba(200,184,122,0.4);
+    color:var(--khaki); background:rgba(200,184,122,0.12);
+    display:inline-flex; align-items:center; gap:4px; flex-shrink:0;
+  }
+  .ev-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .ev-info { flex:1; min-width:0; }
+  .ev-name { font-family:var(--font-heading); font-size:15px; color:var(--text); letter-spacing:.02em; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ev-meta { font-size:11px; color:var(--text-dim); }
+  .ev-right { text-align:right; flex-shrink:0; }
+  .ev-count { font-family:var(--font-heading); font-size:20px; line-height:1; color:var(--khaki); }
+  .ev-count-label { font-size:8px; color:var(--text-muted); letter-spacing:.1em; text-transform:uppercase; }
+  .ev-pill {
+    font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+    padding:3px 10px; border-radius:3px; border:1px solid rgba(200,184,122,0.35);
+    color:var(--khaki); background:rgba(200,184,122,0.08);
+    display:inline-block; flex-shrink:0;
+    transition:transform 0.12s, box-shadow 0.12s;
+  }
+  .ev-pill:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(200,184,122,0.2); }
+
+  .section-label {
+    font-size:9px; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--text-muted); margin-bottom:8px; font-family:var(--font-body);
+  }
+
+  /* ── PAST DRAFTS ── */
+  .past-card {
+    background:rgba(255,255,255,0.025);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:8px; padding:12px 16px;
+    box-shadow:0 2px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+    display:flex; align-items:center; gap:14px;
+    opacity:0.65;
+    transition:opacity 0.15s, transform 0.12s, box-shadow 0.15s;
+  }
+  .past-card:hover { opacity:1; transform:translateY(-1px); box-shadow:0 6px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.1); }
+  .past-champ-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .past-info { flex:1; min-width:0; }
+  .past-name { font-family:var(--font-heading); font-size:14px; color:var(--text); letter-spacing:.02em; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .past-meta { font-size:10px; color:var(--text-dim); margin-bottom:4px; }
+  .past-winner { font-size:10px; color:var(--khaki); letter-spacing:.04em; }
+  .past-view-btn {
+    flex-shrink:0; padding:8px 20px; font-size:10px; letter-spacing:.1em;
+    text-transform:uppercase; border:1px solid rgba(200,184,122,0.45);
+    border-radius:3px; background:rgba(200,184,122,0.08); color:var(--khaki);
+    text-decoration:none; font-family:var(--font-body);
+    transition:border-color 0.15s, background 0.15s, transform 0.12s, box-shadow 0.15s;
+  }
+  .past-view-btn:hover { background:rgba(200,184,122,0.15); border-color:var(--khaki); transform:translateY(-1px); box-shadow:0 4px 14px rgba(200,184,122,0.2); }
+</style>
+</head>
+<body>
+
+<canvas id="cv"></canvas>
+
+<div class="topbar">
+  <div class="logo">⬡ DRAFTMAN5.0</div>
+  <nav class="nav">
+    <a class="nav-link" href="#">Dashboard</a>
+    <a class="nav-link" href="#">Portal</a>
+    <a class="nav-link active" href="#">Events</a>
+    <a class="nav-link" href="#">Rules</a>
+    <a class="nav-link" href="#">Settings</a>
+  </nav>
+  <div class="topbar-right"><div class="avatar">L</div></div>
+</div>
+
+<main>
+
+  <div class="page-heading reveal">Events</div>
+  <div class="page-sub reveal" style="transition-delay:.04s;">All open and upcoming draft events</div>
+
+  <!-- IN PROGRESS (compact strip) -->
+  <div class="reveal" style="transition-delay:.06s;">
+    <div class="section-label">Happening now</div>
+    <a href="#" class="inprogress-strip" style="margin-bottom:6px;text-decoration:none;color:inherit;">
+      <div class="inprogress-dot"></div>
+      <div>
+        <div class="inprogress-name">busted</div>
+        <div class="inprogress-meta">6V6 · Draft · May 31</div>
+      </div>
+      <span class="inprogress-badge">Draft in progress →</span>
+    </a>
+    <a href="#" class="inprogress-strip" style="margin-bottom:20px;text-decoration:none;color:inherit;">
+      <div class="inprogress-dot"></div>
+      <div>
+        <div class="inprogress-name">[TEST] Draft May 29, 01:49 PM</div>
+        <div class="inprogress-meta">6V6 · Draft · Jun 5</div>
+      </div>
+      <span class="inprogress-badge">Draft in progress →</span>
+    </a>
+  </div>
+
+  <!-- HERO — NEXT UP -->
+  <div class="reveal" style="transition-delay:.10s;">
+    <div class="section-label">Next up</div>
+    <a href="#" class="hero signedup" style="display:block;text-decoration:none;color:inherit;">
+      <div class="hero-eyebrow">● Upcoming · Sun May 31, 2026</div>
+      <div class="hero-name">Live Test Sunday 5/31</div>
+      <div class="hero-meta">
+        <span class="hero-meta-item">6V6</span>
+        <div class="hero-divider"></div>
+        <span class="hero-meta-item">Draft</span>
+        <div class="hero-divider"></div>
+        <span class="hero-meta-item">20 min halves</span>
+        <div class="hero-divider"></div>
+        <span class="hero-meta-item">7:15 PM</span>
+      </div>
+      <div class="hero-bottom">
+        <div class="hero-bar-wrap">
+          <div class="hero-bar-label">
+            <span>Signups</span>
+            <span style="color:var(--khaki);">53 / 60</span>
+          </div>
+          <div class="hero-bar-track">
+            <div class="hero-bar-fill" style="width:88%;"></div>
+          </div>
+        </div>
+        <!-- Signed up state -->
+        <button class="hero-signup-btn signedup"><span style="font-size:14px;line-height:1;">💀</span> Signed up as Rifle / Heavy</button>
+      </div>
+    </a>
+  </div>
+
+  <!-- Also show a "not signed up" hero variant as a demo toggle -->
+  <details style="margin-bottom:20px;font-size:10px;color:var(--text-muted);cursor:pointer;">
+    <summary style="padding:6px 0;letter-spacing:.08em;text-transform:uppercase;">Preview: not signed up state ↓</summary>
+    <div class="hero" style="margin-top:8px;">
+      <div class="hero-eyebrow">● Upcoming · Thu Oct 30, 2026</div>
+      <div class="hero-name">2026 LAN Tournament 1</div>
+      <div class="hero-meta">
+        <span class="hero-meta-item">6V6</span>
+        <div class="hero-divider"></div>
+        <span class="hero-meta-item">Community Event</span>
+        <div class="hero-divider"></div>
+        <span class="hero-meta-item">20 min halves</span>
+        <div class="hero-divider"></div>
+        <span class="hero-meta-item">7:00 PM</span>
+      </div>
+      <div class="hero-bottom">
+        <div class="hero-bar-wrap">
+          <div class="hero-bar-label">
+            <span>Signups</span>
+            <span style="color:var(--khaki);">1 / 60</span>
+          </div>
+          <div class="hero-bar-track">
+            <div class="hero-bar-fill" style="width:2%;"></div>
+          </div>
+        </div>
+        <button class="hero-signup-btn signup">Sign Up →</button>
+      </div>
+    </div>
+  </details>
+
+  <!-- REST OF UPCOMING -->
+  <div class="reveal" style="transition-delay:.16s;">
+    <div class="section-label" style="margin-top:4px;">Also upcoming</div>
+    <div class="ev-list">
+
+      <div class="ev-row signedup">
+        <div class="ev-dot" style="background:var(--khaki);"></div>
+        <div class="ev-info">
+          <div class="ev-name">2026 LAN Tournament 1</div>
+          <div class="ev-meta">Thu Oct 30, 2026 · 6V6 · Community Event · 20 min</div>
+          <div style="margin-top:7px;"><span class="ev-in-pill"><span style="font-size:13px;line-height:1;">💀</span> You're in · Rifle / Heavy</span></div>
+        </div>
+        <div class="ev-right">
+          <div class="ev-count">1</div>
+          <div class="ev-count-label">signed up</div>
+        </div>
+      </div>
+
+      <div class="ev-row">
+        <div class="ev-dot" style="background:var(--text-dim);opacity:0.5;"></div>
+        <div class="ev-info">
+          <div class="ev-name">Hopper Test</div>
+          <div class="ev-meta">Fri May 8, 2026 · 6V6 · Draft · 20 min</div>
+          <span class="ev-pill" style="margin-top:8px;">Sign Up</span>
+        </div>
+        <div class="ev-right">
+          <div class="ev-count">3</div>
+          <div class="ev-count-label">signed up</div>
+        </div>
+      </div>
+
+      <div class="ev-row">
+        <div class="ev-dot" style="background:var(--text-dim);opacity:0.5;"></div>
+        <div class="ev-info">
+          <div class="ev-name">Untitled Draft</div>
+          <div class="ev-meta">6V6 · Community Event · 20 min</div>
+          <span class="ev-pill" style="margin-top:8px;">Sign Up</span>
+        </div>
+        <div class="ev-right">
+          <div class="ev-count">0</div>
+          <div class="ev-count-label">signed up</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PAST DRAFTS -->
+  <div class="reveal" style="transition-delay:.22s; margin-top:32px;">
+    <div class="section-label">Past drafts</div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+
+      <div class="past-card">
+        <div class="past-champ-dot" style="background:#4a9cff;"></div>
+        <div class="past-info">
+          <div class="past-name">[TEST] Draft Apr 29, 03:28 PM</div>
+          <div class="past-meta">May 6, 2026 · 6V6 · Draft</div>
+          <div class="past-winner">🏆 Winner: Allies</div>
+        </div>
+        <a class="past-view-btn" href="#">View</a>
+      </div>
+
+      <div class="past-card">
+        <div class="past-champ-dot" style="background:#c0392b;"></div>
+        <div class="past-info">
+          <div class="past-name">Test2</div>
+          <div class="past-meta">Apr 28, 2026 · 6V6 · Draft</div>
+          <div class="past-winner">🏆 Winner: Axis</div>
+        </div>
+        <a class="past-view-btn" href="#">View</a>
+      </div>
+
+      <div class="past-card">
+        <div class="past-champ-dot" style="background:var(--text-dim);"></div>
+        <div class="past-info">
+          <div class="past-name">[TEST] Draft Mar 12, 01:30 AM</div>
+          <div class="past-meta">Mar 18, 2026 · 6V6 · Draft</div>
+          <div class="past-winner" style="color:var(--text-muted);">No champion declared</div>
+        </div>
+        <a class="past-view-btn" href="#">View</a>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<script>
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const SPACING = 32, DOT_R = 1.1, INFLUENCE = 100, PUSH = 26;
+  let dots = [], mx = -999, my = -999;
+
+  function build() {
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight; dots = [];
+    for (let x = SPACING/2; x < canvas.width; x += SPACING)
+      for (let y = SPACING/2; y < canvas.height; y += SPACING)
+        dots.push({ ox:x, oy:y, x, y });
+  }
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const d of dots) {
+      const dx = d.ox-mx, dy = d.oy-my;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if (dist < INFLUENCE && dist > 0) {
+        const f = (INFLUENCE-dist)/INFLUENCE;
+        d.x += ((d.ox+(dx/dist)*f*PUSH)-d.x)*0.22;
+        d.y += ((d.oy+(dy/dist)*f*PUSH)-d.y)*0.22;
+      } else { d.x += (d.ox-d.x)*0.07; d.y += (d.oy-d.y)*0.07; }
+      const inRange = dist < INFLUENCE;
+      const alpha = inRange ? 0.045+(1-dist/INFLUENCE)*0.2 : 0.045;
+      ctx.beginPath(); ctx.arc(d.x, d.y, DOT_R, 0, Math.PI*2);
+      ctx.fillStyle = inRange ? `rgba(67,206,162,${alpha})` : `rgba(67,206,162,${alpha*0.6})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  build(); draw();
+  window.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; });
+  window.addEventListener('resize', build);
+
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
