@@ -78,8 +78,9 @@ export default function DashboardPage() {
   }
 
   function getEventSection(e: EventRow): Section {
-    if (e.status === 'active' || e.status === 'in_progress' || e.has_picks) return 'in_progress';
     if (e.status === 'completed') return 'completed';
+    if (e.status === 'active' || e.status === 'in_progress') return 'in_progress';
+    if (e.status === 'published' && e.has_picks) return 'in_progress';
     if (e.status === 'published') return 'published';
     return 'unpublished';
   }
@@ -204,7 +205,7 @@ export default function DashboardPage() {
 
         {/* Header */}
         <div className="db-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, animationDelay: '0s' }}>
-          <div style={{ fontFamily: 'var(--font-heading)', fontSize: 22, letterSpacing: '0.04em', background: 'linear-gradient(135deg, #a08848 0%, #c8b87a 40%, #ede0a8 60%, #c8b87a 80%, #a08848 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', filter: 'drop-shadow(0 0 3px rgba(200,184,122,0.3))' }}>
+          <div style={{ fontFamily: 'var(--font-heading)', fontSize: 22, letterSpacing: '0.04em', background: 'linear-gradient(135deg, #a08848 0%, #c8b87a 40%, #ede0a8 60%, #c8b87a 80%, #a08848 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',  }}>
             Organizer Dashboard
           </div>
           <Link href="/events/new" className="db-new" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: 'var(--khaki)', color: '#0e0e0e', border: 'none', borderRadius: 3, fontSize: 11, fontFamily: 'var(--font-body)', letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none', fontWeight: 'bold', transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s' }}>
