@@ -255,18 +255,18 @@ export default function DashboardPage() {
           {/* COMPLETED — full width */}
           <div className="db-section" style={{ ...panel, background: 'linear-gradient(180deg,rgba(106,76,147,0.1) 0%,rgba(24,90,157,0.07) 100%)', borderColor: 'rgba(106,76,147,0.18)', animationDelay: '0.15s' }}>
             <PanelHeader title="✓ Completed" color="var(--text-dim)" count={grouped.completed.length} />
-            <div style={{ padding: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
               {grouped.completed.length === 0
                 ? <div style={{ fontSize: 10, color: 'var(--text-dim)', padding: '4px 0' }}>No completed events yet.</div>
                 : grouped.completed.map(event => (
-                  <div key={event.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '8px 12px', opacity: 0.6, display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 180px' }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: event.champion_color || 'var(--text-dim)' }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 11, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 1 }}>{event.name}</div>
-                      <div style={{ fontSize: 9, color: 'var(--text-dim)' }}>{formatDate(event.starts_at)} · {event.format}</div>
-                      {event.champion_name && <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1 }}>Winner: {event.champion_name}</div>}
+                  <div key={event.id} className="db-card" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '8px 14px', opacity: 0.65, display: 'flex', alignItems: 'center', gap: 12, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)' }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: event.champion_color || 'var(--text-dim)' }} />
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 12, fontFamily: 'var(--font-heading)', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.name}</div>
+                      <div style={{ fontSize: 9, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{formatDate(event.starts_at)} · {event.format}</div>
+                      {event.champion_name && <div style={{ fontSize: 9, color: 'var(--khaki)', whiteSpace: 'nowrap' }}>🏆 {event.champion_name}</div>}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                       <ActionBtn href={getNavHref(event)}>View</ActionBtn>
                       <ActionBtn variant="danger" onClick={() => setDeleteModal(event.id)}>Del</ActionBtn>
                     </div>
