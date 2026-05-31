@@ -42,12 +42,10 @@ export function ReactiveCanvas() {
           d.y += (d.oy - d.y) * 0.07;
         }
         const inRange = dist < INFLUENCE;
-        const alpha = inRange ? 0.045 + (1 - dist / INFLUENCE) * 0.2 : 0.045;
+        const alpha = inRange ? 0.08 + (1 - dist / INFLUENCE) * 0.2 : 0.08;
         cx.beginPath();
         cx.arc(d.x, d.y, DOT_R, 0, Math.PI * 2);
-        cx.fillStyle = inRange
-          ? `rgba(67,206,162,${alpha})`
-          : `rgba(67,206,162,${alpha * 0.6})`;
+        cx.fillStyle = `rgba(67,206,162,${alpha})`;
         cx.fill();
       }
       animId = requestAnimationFrame(draw);
