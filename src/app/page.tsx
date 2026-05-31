@@ -174,8 +174,8 @@ export default function LandingPage() {
         ].map((card) => (
           <div
             key={card.title}
-            className="lp-card"
-            style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 14px' }}
+            className="lp-card glass"
+            style={{ flex: 1, padding: '16px 14px' }}
             onMouseMove={(e) => {
               const r = e.currentTarget.getBoundingClientRect()
               e.currentTarget.style.setProperty('--cx', (e.clientX - r.left) + 'px')

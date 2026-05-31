@@ -96,7 +96,7 @@ export default function EventsPage() {
         </div>
 
         {events.length === 0 ? (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: 40, textAlign: 'center' }}>
+          <div className="glass" style={{ padding: 40, textAlign: 'center' }}>
             <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No events open right now. Check back soon.</div>
           </div>
         ) : events.map(event => {
@@ -114,10 +114,11 @@ export default function EventsPage() {
               className="ev-row"
               style={{
                 display: 'flex', alignItems: 'center', gap: 16,
-                background: 'var(--surface)',
-                border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(126,184,212,0.35)' : 'var(--border)'}`,
+                background: 'rgba(255,255,255,0.04)',
+                border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(126,184,212,0.35)' : 'rgba(255,255,255,0.13)'}`,
                 borderLeft: inProgress ? '3px solid var(--green-light)' : isSignedUp ? '3px solid var(--khaki)' : undefined,
-                borderRadius: 4, padding: '18px 20px', marginBottom: 8,
+                borderRadius: 8, padding: '18px 20px', marginBottom: 8,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.13)',
                 textDecoration: 'none', color: 'var(--text)',
               }}
               onMouseMove={(e) => {

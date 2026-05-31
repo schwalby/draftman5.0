@@ -361,7 +361,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Table */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+        <div className="glass" style={{ overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
@@ -536,7 +536,7 @@ export default function SettingsPage() {
                 Remove this section before going live.
               </div>
             </div>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--rust)', borderRadius: 4, padding: '20px 24px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.13)', borderLeft: '3px solid var(--rust)', borderRadius: 8, boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.13)', padding: '20px 24px' }}>
               <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Seed Test Draft</div>
               <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
                 Creates a 6v6 event, signs up all fake users, creates 8 teams, runs a full snake draft, then drops you at tournament setup. Uses existing fake users (discord_id starting with 1000000000000000).
@@ -566,7 +566,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Seed Signups Only */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--rust)', borderRadius: 4, padding: '20px 24px', marginTop: 12 }}>
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.13)', borderLeft: '3px solid var(--rust)', borderRadius: 8, boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.13)', padding: '20px 24px', marginTop: 12 }}>
               <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Seed Signups Only</div>
               <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
                 Creates a 6v6 event and signs up all fake users — no teams, no picks. Use this to test the full draft flow from scratch.
@@ -596,7 +596,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Fake Bot Result */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--rust)', borderRadius: 4, padding: '20px 24px', marginTop: 12 }}>
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.13)', borderLeft: '3px solid var(--rust)', borderRadius: 8, boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.13)', padding: '20px 24px', marginTop: 12 }}>
               <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Fake Bot Result</div>
               <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
                 Submit a match score as if the KTP Score Bot reported it. Result goes to Awaiting Confirmation — then confirm it on the draft page.

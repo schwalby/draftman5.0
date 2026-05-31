@@ -248,7 +248,7 @@ function PortalContent() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 36 }} className="portal-profile-grid">
 
           {/* Discord card */}
-          <div className="portal-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 20px' }}
+          <div className="portal-card glass" style={{ padding: '16px 20px' }}
             onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--cx', (e.clientX-r.left)+'px'); e.currentTarget.style.setProperty('--cy', (e.clientY-r.top)+'px') }}
             onMouseLeave={e => { e.currentTarget.style.setProperty('--cx','50%'); e.currentTarget.style.setProperty('--cy','50%') }}
           >
@@ -285,7 +285,7 @@ function PortalContent() {
           </div>
 
           {/* Steam card */}
-          <div className="portal-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '16px 20px' }}
+          <div className="portal-card glass" style={{ padding: '16px 20px' }}
             onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--cx', (e.clientX-r.left)+'px'); e.currentTarget.style.setProperty('--cy', (e.clientY-r.top)+'px') }}
             onMouseLeave={e => { e.currentTarget.style.setProperty('--cx','50%'); e.currentTarget.style.setProperty('--cy','50%') }}
           >
@@ -419,7 +419,7 @@ function PortalContent() {
           }}>Open Events</div>
 
           {events.length === 0 ? (
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: 28, textAlign: 'center' }}>
+            <div className="glass" style={{ padding: 28, textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No events open right now. Check back soon.</div>
             </div>
           ) : (
@@ -432,11 +432,10 @@ function PortalContent() {
                 const canSignup = hasSteamId
 
                 return (
-                  <div key={event.id} className="portal-event-card" style={{
-                    background: 'var(--surface)',
-                    border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(126,184,212,0.35)' : 'var(--border)'}`,
-                    borderLeft: `3px solid ${inProgress ? 'var(--green-light)' : isSignedUp ? 'var(--khaki)' : 'var(--border)'}`,
-                    borderRadius: 4, padding: 18,
+                  <div key={event.id} className="portal-event-card glass" style={{
+                    border: `1px solid ${inProgress ? 'rgba(90,156,90,0.35)' : isSignedUp ? 'rgba(126,184,212,0.35)' : 'rgba(255,255,255,0.13)'}`,
+                    borderLeft: `3px solid ${inProgress ? 'var(--green-light)' : isSignedUp ? 'var(--khaki)' : 'rgba(255,255,255,0.1)'}`,
+                    padding: 18,
                     display: 'flex', flexDirection: 'column', gap: 10,
                   }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
