@@ -54,7 +54,17 @@ export default function EventsPage() {
           return { ...ev, has_picks: false }
         }
       }))
-      setEvents(enriched)
+      const sorted = enriched.sort((a, b) => {
+        const aActive = a.status === 'active' || a.has_picks
+        const bActive = b.status === 'active' || b.has_picks
+        if (aActive && !bActive) return -1
+        if (!aActive && bActive) return 1
+        if (!a.starts_at && !b.starts_at) return 0
+        if (!a.starts_at) return 1
+        if (!b.starts_at) return -1
+        return new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+      })
+      setEvents(sorted)
     }
     setLoading(false)
   }, [])
