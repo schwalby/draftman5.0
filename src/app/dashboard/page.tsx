@@ -221,7 +221,7 @@ export default function DashboardPage() {
           {grouped.in_progress.length > 0 && (
             <div className="db-section" style={{ ...panel, background: 'linear-gradient(180deg,rgba(67,206,162,0.1) 0%,rgba(24,90,157,0.07) 100%)', borderColor: 'rgba(67,206,162,0.18)', marginBottom: 6, animationDelay: '0.05s' }}>
               <PanelHeader title="● In Progress" color="#43cea2" count={grouped.in_progress.length} />
-              <div style={{ padding: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8 }}>
                 {grouped.in_progress.map(e => <EventCard key={e.id} event={e} section="in_progress" />)}
               </div>
             </div>
