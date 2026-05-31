@@ -17,6 +17,7 @@ interface EventRow {
   ringer_count?: number;
   champion_name?: string | null;
   champion_color?: string | null;
+  has_picks?: boolean;
 }
 
 type Section = 'in_progress' | 'published' | 'unpublished' | 'completed';
@@ -77,7 +78,7 @@ export default function DashboardPage() {
   }
 
   function getEventSection(e: EventRow): Section {
-    if (e.status === 'active' || e.status === 'in_progress') return 'in_progress';
+    if (e.status === 'active' || e.status === 'in_progress' || e.has_picks) return 'in_progress';
     if (e.status === 'completed') return 'completed';
     if (e.status === 'published') return 'published';
     return 'unpublished';

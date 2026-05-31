@@ -28,8 +28,8 @@ export async function GET() {
 
   const eventIds = events.map((e: any) => e.id)
 
-  // Fetch signup counts and current user's signups in parallel
-  const [{ data: signupCounts }, { data: mySignups }] = await Promise.all([
+  // Fetch signup counts, user signups, and draft picks in parallel
+  const [{ data: signupCounts }, { data: mySignups }, { data: pickedEvents }] = await Promise.all([
     supabase
       .from('signups')
       .select('event_id')
@@ -40,6 +40,11 @@ export async function GET() {
       .select('event_id, class')
       .in('event_id', eventIds)
       .eq('user_id', session.user.userId),
+    supabase
+      .from('draft_picks')
+      .select('event_id')
+      .in('event_id', eventIds)
+      .limit(1000),
   ])
 
   const countMap: Record<string, number> = {}
@@ -52,10 +57,13 @@ export async function GET() {
     mySignupMap[s.event_id] = { class: s.class }
   }
 
+  const hasPicksSet = new Set((pickedEvents ?? []).map((p: any) => p.event_id))
+
   const eventsWithCounts = events.map((e: any) => ({
     ...e,
     signup_count: countMap[e.id] ?? 0,
     my_signup: mySignupMap[e.id] ?? null,
+    has_picks: hasPicksSet.has(e.id),
   }))
 
   return NextResponse.json(eventsWithCounts)
