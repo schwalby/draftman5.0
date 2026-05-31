@@ -42,7 +42,7 @@ export function ReactiveCanvas() {
           d.y += (d.oy - d.y) * 0.07;
         }
         const inRange = dist < INFLUENCE;
-        const alpha = inRange ? 0.08 + (1 - dist / INFLUENCE) * 0.2 : 0.08;
+        const alpha = inRange ? 0.13 + (1 - dist / INFLUENCE) * 0.2 : 0.13;
         cx.beginPath();
         cx.arc(d.x, d.y, DOT_R, 0, Math.PI * 2);
         cx.fillStyle = `rgba(67,206,162,${alpha})`;
