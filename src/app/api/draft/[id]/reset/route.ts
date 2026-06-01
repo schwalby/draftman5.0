@@ -17,9 +17,13 @@ export async function DELETE(
 
   const { data: event } = await supabase
     .from('events')
-    .select('name')
+    .select('name, status')
     .eq('id', id)
     .single()
+
+  if (event?.status === 'completed') {
+    return NextResponse.json({ error: 'Cannot reset a completed event' }, { status: 409 })
+  }
 
   const [picksRes, lobbyRes, statusRes] = await Promise.all([
     supabase.from('draft_picks').delete().eq('event_id', id),

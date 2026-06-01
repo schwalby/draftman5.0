@@ -62,7 +62,7 @@ export default function DraftLobbyPage({ params }: { params: { id: string } }) {
       }
 
       const myTeam = data.teams.find(t => t.captain_id === myUserId)
-      if (myTeam?.captain_ready) setMyReady(true)
+      setMyReady(!!myTeam?.captain_ready)
     } catch (e) {
       console.error('lobby poll error', e)
     }
@@ -90,10 +90,14 @@ export default function DraftLobbyPage({ params }: { params: { id: string } }) {
     }
   }
 
-  async function startDraft() {
+  async function startDraft(force = false) {
     if (starting) return
     setStarting(true)
-    const res = await fetch(`/api/draft/${eventId}/lobby/start`, { method: 'POST' })
+    const res = await fetch(`/api/draft/${eventId}/lobby/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force }),
+    })
     if (res.ok) {
       router.push(`/events/${eventId}/draft`)
     } else {
@@ -307,7 +311,7 @@ export default function DraftLobbyPage({ params }: { params: { id: string } }) {
                 {starting ? 'Starting…' : 'Start Draft →'}
               </button>
               <button
-                onClick={startDraft}
+                onClick={() => startDraft(true)}
                 disabled={starting}
                 style={{
                   padding: '10px 18px', background: 'transparent',

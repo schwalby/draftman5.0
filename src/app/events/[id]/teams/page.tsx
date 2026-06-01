@@ -234,8 +234,13 @@ export default function TeamSetupPage() {
         setError(data.error || 'Failed to save teams.')
         return
       }
-      // Open lobby + notify #captains-chat (best-effort, don't block on failure)
-      fetch(`/api/draft/${eventId}/lobby`, { method: 'POST' }).catch(() => {})
+      // Open lobby + notify #captains-chat
+      const lobbyRes = await fetch(`/api/draft/${eventId}/lobby`, { method: 'POST' })
+      if (!lobbyRes.ok) {
+        const d = await lobbyRes.json()
+        setError(d.error || 'Failed to open lobby.')
+        return
+      }
       router.push(`/events/${eventId}/draft/lobby`)
     } catch (err) {
       console.error('Save error:', err)

@@ -53,8 +53,8 @@ export async function POST(
       .select('status')
       .eq('id', params.id)
       .single()
-    if (event?.status === 'drafting') {
-      return NextResponse.json({ error: 'Draft is already in progress' }, { status: 409 })
+    if (event?.status === 'drafting' || event?.status === 'lobby') {
+      return NextResponse.json({ error: 'Cannot change teams once the lobby is open' }, { status: 409 })
     }
 
     // Snapshot existing IDs before touching anything

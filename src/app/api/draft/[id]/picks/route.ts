@@ -77,10 +77,10 @@ export async function POST(
     .single()
 
   if (error) {
-    if (error.message.includes('foreign key constraint')) {
+    if ((error as any).code === '23503') {
       return NextResponse.json({ error: 'Team data is out of date — refresh the page and try again.', stale: true }, { status: 409 })
     }
-    if (error.message.includes('unique constraint') || error.message.includes('duplicate')) {
+    if ((error as any).code === '23505') {
       return NextResponse.json({ error: 'That pick was already made.', stale: true }, { status: 409 })
     }
     return NextResponse.json({ error: error.message }, { status: 500 })

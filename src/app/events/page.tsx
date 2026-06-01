@@ -106,14 +106,14 @@ export default function EventsPage() {
     )
   }
 
-  const inProgress = events.filter(e => e.status === 'active' || e.status === 'lobby' || e.status === 'drafting' || e.has_picks)
-  const upcoming = events.filter(e => e.status !== 'active' && e.status !== 'lobby' && e.status !== 'drafting' && !e.has_picks)
+  const inProgress = events.filter(e => e.status === 'active' || e.status === 'lobby' || e.status === 'drafting')
+  const upcoming = events.filter(e => e.status !== 'active' && e.status !== 'lobby' && e.status !== 'drafting')
 
   function inProgressBadge(e: Event): { label: string; href: string } {
-    if (e.status === 'lobby')    return { label: 'Lobby Open →',         href: `/events/${e.id}/draft/lobby` }
-    if (e.status === 'drafting') return { label: 'Picking Teams →',        href: `/events/${e.id}/draft` }
-    if (e.status === 'active')   return { label: 'Draft in Progress →',   href: `/events/${e.id}/tournament` }
-    return { label: 'Picking in Progress →', href: `/events/${e.id}/draft` }
+    if (e.status === 'lobby')    return { label: 'Lobby Open →',        href: `/events/${e.id}/draft/lobby` }
+    if (e.status === 'drafting') return { label: 'Picking Teams →',     href: `/events/${e.id}/draft` }
+    if (e.status === 'active')   return { label: 'Draft in Progress →', href: `/events/${e.id}/tournament` }
+    return { label: 'View →', href: `/events/${e.id}` }
   }
   const hero = upcoming[0] ?? null
   const alsoUpcoming = upcoming.slice(1)
