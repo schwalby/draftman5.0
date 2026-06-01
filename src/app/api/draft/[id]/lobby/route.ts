@@ -54,10 +54,12 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
   const channelId = process.env.CAPTAINS_CHAT_CHANNEL_ID
   const token = process.env.DISCORD_BOT_TOKEN
+  const roleId = process.env.CAPTAINS_ROLE_ID
   const baseUrl = process.env.NEXTAUTH_URL ?? ''
 
   if (channelId && token) {
     const lobbyUrl = `${baseUrl}/events/${params.id}/draft/lobby`
+    const mention = roleId ? `<@&${roleId}> ` : ''
     await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
       method: 'POST',
       headers: {
@@ -65,7 +67,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        content: `🟡 **${event?.name ?? 'Draft'} — Lobby is open**\nAll captains head here to ready up: ${lobbyUrl}`,
+        content: `${mention}🟡 **${event?.name ?? 'Draft'} — Lobby is open**\nAll captains head here to ready up: ${lobbyUrl}`,
       }),
     })
   }
