@@ -52,6 +52,11 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     .eq('id', params.id)
     .single()
 
+  await supabase
+    .from('events')
+    .update({ status: 'lobby', updated_at: new Date().toISOString() })
+    .eq('id', params.id)
+
   const channelId = process.env.CAPTAINS_CHAT_CHANNEL_ID
   const token = process.env.DISCORD_BOT_TOKEN
   const roleId = process.env.CAPTAINS_ROLE_ID

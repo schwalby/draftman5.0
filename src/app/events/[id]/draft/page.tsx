@@ -136,7 +136,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
         fetch(`/api/draft/${eventId}/picks`),
         fetch(`/api/events/${eventId}/signups`),
       ])
-      if (evRes.ok) { const d = await evRes.json(); setEvent(d.event ?? d) }
+      if (evRes.ok) { const d = await evRes.json(); const ev = d.event ?? d; setEvent(ev); if (ev?.status === 'lobby') { router.replace(`/events/${eventId}/draft/lobby`); return } }
       if (teamsRes.ok) { const d = await teamsRes.json(); const arr = d?.teams ?? d; setTeams(Array.isArray(arr) ? arr : []) }
       if (picksRes.ok) { const d = await picksRes.json(); setPicks(Array.isArray(d) ? d : []) }
       if (signupsRes.ok) { const d = await signupsRes.json(); setSignups(Array.isArray(d) ? d : []) }
