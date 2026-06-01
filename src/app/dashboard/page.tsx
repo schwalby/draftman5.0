@@ -79,7 +79,7 @@ export default function DashboardPage() {
 
   function getEventSection(e: EventRow): Section {
     if (e.status === 'completed') return 'completed';
-    if (e.status === 'active' || e.status === 'in_progress') return 'in_progress';
+    if (e.status === 'active' || e.status === 'in_progress' || e.status === 'drafting') return 'in_progress';
     if (e.status === 'published' && e.has_picks) return 'in_progress';
     if (e.status === 'published') return 'published';
     return 'unpublished';
