@@ -4,7 +4,10 @@ import { authOptions } from '@/lib/auth'
 import { getSupabaseAdmin } from '@/lib/supabase'
 
 // GET /api/draft/[id]/lobby — teams + captain ready status
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const supabase = getSupabaseAdmin()
 
   const [teamsRes, readyRes, eventRes] = await Promise.all([
