@@ -76,6 +76,14 @@ export async function POST(
     .select('*, user:users(ingame_name, discord_username)')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    if (error.message.includes('foreign key constraint')) {
+      return NextResponse.json({ error: 'Team data is out of date — refresh the page and try again.', stale: true }, { status: 409 })
+    }
+    if (error.message.includes('unique constraint') || error.message.includes('duplicate')) {
+      return NextResponse.json({ error: 'That pick was already made.', stale: true }, { status: 409 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json(data, { status: 201 })
 }

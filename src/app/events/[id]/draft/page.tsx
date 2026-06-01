@@ -286,7 +286,11 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     })
     setPicking(false)
     if (res.ok) { setSelected(null); setConfirmClass(null); resetTimer(); showToast('Pick confirmed') }
-    else { const d = await res.json(); showToast(d.error || 'Pick failed', true) }
+    else {
+      const d = await res.json()
+      showToast(d.error || 'Pick failed', true)
+      if (d.stale) { setSelected(null); setConfirmClass(null); fetchAll() }
+    }
   }
 
   // FIX: undoPick always removes the last pick in DB order.
