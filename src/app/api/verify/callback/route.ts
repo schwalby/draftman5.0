@@ -16,8 +16,12 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const token = searchParams.get('token')
 
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
+  const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host')
+  const base  = host ? `${proto}://${host}` : (process.env.NEXTAUTH_URL ?? 'https://draftman50-production.up.railway.app')
+
   if (!token) {
-    return NextResponse.redirect(new URL('/verify?error=missing_token', req.url))
+    return NextResponse.redirect(new URL('/verify?error=missing_token', base))
   }
 
   // ── 1. Atomically consume the token (fixes race condition) ─────────────────
@@ -41,25 +45,25 @@ export async function GET(req: NextRequest) {
       .maybeSingle()
 
     if (!deadToken) {
-      return NextResponse.redirect(new URL('/verify?error=invalid_token', req.url))
+      return NextResponse.redirect(new URL('/verify?error=invalid_token', base))
     }
     if (new Date(deadToken.expires_at) < new Date()) {
-      return NextResponse.redirect(new URL('/verify?error=expired_token', req.url))
+      return NextResponse.redirect(new URL(\1, base))
     }
-    return NextResponse.redirect(new URL('/verify?error=invalid_token', req.url))
+    return NextResponse.redirect(new URL('/verify?error=invalid_token', base))
   }
 
   // ── 2. Validate Steam OpenID response ──────────────────────────────────────
   const mode = searchParams.get('openid.mode')
   if (mode !== 'id_res') {
-    return NextResponse.redirect(new URL('/verify?error=steam_cancelled', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   // Extract Steam ID from claimed_id: https://steamcommunity.com/openid/id/76561198XXXXXXXXX
   const claimedId = searchParams.get('openid.claimed_id') ?? ''
   const steamId64Match = claimedId.match(/\/(\d{17})$/)
   if (!steamId64Match) {
-    return NextResponse.redirect(new URL('/verify?error=steam_id_parse', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
   const steamId64 = steamId64Match[1]
 
@@ -79,7 +83,7 @@ export async function GET(req: NextRequest) {
   })
   const validationText = await validationRes.text()
   if (!validationText.includes('is_valid:true')) {
-    return NextResponse.redirect(new URL('/verify?error=steam_invalid', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   // ── 3. Fetch Steam profile ─────────────────────────────────────────────────
@@ -90,12 +94,12 @@ export async function GET(req: NextRequest) {
   const player = summaryData?.response?.players?.[0]
 
   if (!player) {
-    return NextResponse.redirect(new URL('/verify?error=steam_profile_not_found', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   // Check if profile is private (communityvisibilitystate < 3 means private/friends only)
   if (player.communityvisibilitystate < 3) {
-    return NextResponse.redirect(new URL('/verify?error=private', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   // ── 4. Check account age ───────────────────────────────────────────────────
@@ -103,13 +107,13 @@ export async function GET(req: NextRequest) {
   if (!timecreated) {
     // Bug fix: missing timecreated means the field is hidden — not that profile is private
     // Profile visibility was already checked above — this is a separate condition
-    return NextResponse.redirect(new URL('/verify?error=steam_profile_not_found', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   const accountAgeDays = (Date.now() / 1000 - timecreated) / 86400
   if (accountAgeDays < MIN_ACCOUNT_AGE_DAYS) {
     const daysLeft = Math.ceil(MIN_ACCOUNT_AGE_DAYS - accountAgeDays)
-    return NextResponse.redirect(new URL(`/verify?error=too_new&days_left=${daysLeft}`, req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   // ── 5. Check DoD ownership ─────────────────────────────────────────────────
@@ -121,12 +125,12 @@ export async function GET(req: NextRequest) {
 
   if (games.length === 0) {
     // Empty games list = private library
-    return NextResponse.redirect(new URL('/verify?error=private', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   const ownsDoD = games.some(g => g.appid === DOD_APP_ID)
   if (!ownsDoD) {
-    return NextResponse.redirect(new URL('/verify?error=no_dod', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   // ── 6. All checks passed — save to DB ─────────────────────────────────────
@@ -153,7 +157,7 @@ export async function GET(req: NextRequest) {
 
   if (updateErr) {
     console.error('[verify/callback] Failed to update user:', updateErr)
-    return NextResponse.redirect(new URL('/verify?error=db_error', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   // Token was already atomically marked used in step 1 — no second update needed

@@ -20,16 +20,17 @@ const supabase = createClient(
 // Web-initiated Steam verification. Creates a one-time token from the user's
 // session and redirects straight to the Steam OpenID login page.
 export async function GET(req: NextRequest) {
+  const base = getPublicBase(req)
   const session = await getServerSession(authOptions)
   if (!session?.user) {
-    return NextResponse.redirect(new URL('/', req.url))
+    return NextResponse.redirect(new URL('/', base))
   }
 
   const discordId = (session.user as any).discordId as string | undefined
   const discordUsername = session.user.discordUsername ?? session.user.name ?? 'unknown'
 
   if (!discordId) {
-    return NextResponse.redirect(new URL('/portal?error=no_discord', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   // Already verified — no need to go through the flow again
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle()
 
   if (existingUser?.steam_verified && existingUser?.steam_id) {
-    return NextResponse.redirect(new URL('/portal', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   // Delete any existing unused tokens for this user
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.error('[verify/start] Failed to create token:', error)
-    return NextResponse.redirect(new URL('/portal?error=verify_failed', req.url))
+    return NextResponse.redirect(new URL(\1, base))
   }
 
   const base = getPublicBase(req)
