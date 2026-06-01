@@ -231,7 +231,9 @@ export default function TeamSetupPage() {
         setError(data.error || 'Failed to save teams.')
         return
       }
-      router.push(`/events/${eventId}/draft`)
+      // Open lobby + notify #captains-chat (best-effort, don't block on failure)
+      fetch(`/api/draft/${eventId}/lobby`, { method: 'POST' }).catch(() => {})
+      router.push(`/events/${eventId}/draft/lobby`)
     } catch (err) {
       console.error('Save error:', err)
       setError('Failed to save teams.')
