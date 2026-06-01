@@ -65,7 +65,7 @@ export default function EventsPage() {
         })
       setPast(completed)
 
-      const open = data.filter((e: Event) => e.status === 'scheduled' || e.status === 'active' || e.status === 'published')
+      const open = data.filter((e: Event) => ['scheduled', 'active', 'published', 'lobby', 'drafting'].includes(e.status))
       const enriched = await Promise.all(open.map(async (ev: Event) => {
         try {
           const picksRes = await fetch(`/api/draft/${ev.id}/picks`)
@@ -106,8 +106,15 @@ export default function EventsPage() {
     )
   }
 
-  const inProgress = events.filter(e => e.status === 'active' || e.has_picks)
-  const upcoming = events.filter(e => e.status !== 'active' && !e.has_picks)
+  const inProgress = events.filter(e => e.status === 'active' || e.status === 'lobby' || e.status === 'drafting' || e.has_picks)
+  const upcoming = events.filter(e => e.status !== 'active' && e.status !== 'lobby' && e.status !== 'drafting' && !e.has_picks)
+
+  function inProgressBadge(e: Event): { label: string; href: string } {
+    if (e.status === 'lobby')    return { label: 'Lobby Open →',         href: `/events/${e.id}/draft/lobby` }
+    if (e.status === 'drafting') return { label: 'Picking in Progress →', href: `/events/${e.id}/draft` }
+    if (e.status === 'active')   return { label: 'Draft in Progress →',   href: `/events/${e.id}/tournament` }
+    return { label: 'Picking in Progress →', href: `/events/${e.id}/draft` }
+  }
   const hero = upcoming[0] ?? null
   const alsoUpcoming = upcoming.slice(1)
 
@@ -160,24 +167,27 @@ export default function EventsPage() {
           <div className="ev-section" style={{ marginBottom: 24, animationDelay: '0.06s' }}>
             {sectionLabel('Happening now')}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {inProgress.map(e => (
-                <Link key={e.id} href={`/events/${e.id}/tournament`}
-                  className="ev-inprogress-strip"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit',
-                    background: 'linear-gradient(135deg,rgba(67,206,162,0.06) 0%,rgba(24,90,157,0.08) 100%)',
-                    border: '1px solid rgba(67,206,162,0.15)', borderRadius: 8, padding: '10px 16px',
-                  }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#43cea2', flexShrink: 0, animation: 'ev-pulse 2s ease-in-out infinite' }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'var(--font-heading)', fontSize: 13, color: 'var(--text)', marginBottom: 2 }}>{e.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{e.format} · {e.type === 'draft' ? 'Draft' : 'Community Event'}{e.starts_at ? ` · ${formatDate(e.starts_at)}` : ''}</div>
-                  </div>
-                  <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: 2, border: '1px solid rgba(67,206,162,0.3)', color: '#43cea2', flexShrink: 0 }}>
-                    Draft in progress →
-                  </span>
-                </Link>
-              ))}
+              {inProgress.map(e => {
+                const badge = inProgressBadge(e)
+                return (
+                  <Link key={e.id} href={badge.href}
+                    className="ev-inprogress-strip"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit',
+                      background: 'linear-gradient(135deg,rgba(67,206,162,0.06) 0%,rgba(24,90,157,0.08) 100%)',
+                      border: '1px solid rgba(67,206,162,0.15)', borderRadius: 8, padding: '10px 16px',
+                    }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#43cea2', flexShrink: 0, animation: 'ev-pulse 2s ease-in-out infinite' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: 'var(--font-heading)', fontSize: 13, color: 'var(--text)', marginBottom: 2 }}>{e.name}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{e.format} · {e.type === 'draft' ? 'Draft' : 'Community Event'}{e.starts_at ? ` · ${formatDate(e.starts_at)}` : ''}</div>
+                    </div>
+                    <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '3px 9px', borderRadius: 2, border: '1px solid rgba(67,206,162,0.3)', color: '#43cea2', flexShrink: 0 }}>
+                      {badge.label}
+                    </span>
+                  </Link>
+                )
+              })}
             </div>
           </div>
         )}
