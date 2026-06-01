@@ -239,7 +239,7 @@ export default function EventPage() {
   };
 
   const statusLabel = (() => {
-    if (draftInProgress && !tournamentExists) return 'Draft In Progress'
+    if (draftInProgress && !tournamentExists) return 'Picking In Progress'
     if (tournamentExists && event.status !== 'completed') return 'Games Active'
     if (event.status === 'completed') return 'Draft Complete'
     if (event.status === 'scheduled') return 'Scheduled'

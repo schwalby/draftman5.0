@@ -112,7 +112,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null)
   const [editingTeamName, setEditingTeamName] = useState('')
   const [teamNames, setTeamNames] = useState<Record<string, string>>({})
-  // FIX: track if "End Draft" confirm is showing
+  // FIX: track if "Finish Picking" confirm is showing
   const [endDraftConfirm, setEndDraftConfirm] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -620,7 +620,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           <style>{`@keyframes holdingPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(90,156,90,0.5)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(90,156,90,0)}}@media(max-width:600px){.h-content{padding:16px 14px 32px!important}.h-status{flex-wrap:wrap!important}.h-count{font-size:60px!important}}`}</style>
           <div className="h-content" style={{ maxWidth: 780, margin: '0 auto', padding: '20px 20px 40px', width: '100%' }}>
             <div style={{ textAlign: 'center', padding: '24px 0 20px', borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
-              <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--khaki)', marginBottom: 6 }}>Draft Complete</div>
+              <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--khaki)', marginBottom: 6 }}>Teams Set</div>
               <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 26, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text)' }}>{event?.name}</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
@@ -681,7 +681,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
             {/* Status line */}
             <div className="h-status" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-dim)', marginBottom: 10, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green-light)', flexShrink: 0, animation: 'holdingPulse 2s ease-in-out infinite' }} />
-              <span style={{ color: 'var(--green-light)' }}>Draft in progress</span>
+              <span style={{ color: 'var(--green-light)' }}>Picking in progress</span>
               <span style={{ color: 'var(--text-muted, #555750)', margin: '0 2px' }}>·</span>
               {event?.name}
               <span style={{ color: 'var(--text-muted, #555750)', margin: '0 2px' }}>·</span>
@@ -727,7 +727,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
         <div className="h-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 18, padding: 40 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--green-light)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green-light)', animation: 'holdingPulse 2s ease-in-out infinite' }} />
-            Draft in progress
+            Picking in progress
           </div>
           <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 30, letterSpacing: '0.1em', textTransform: 'uppercase', lineHeight: 1.1 }}>{event?.name}</div>
           <div>
@@ -766,7 +766,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           <span style={{ color: 'var(--border-strong)', padding: '0 4px' }}>›</span>
           <Link href={`/events/${eventId}`} style={{ color: 'var(--text-dim)', textDecoration: 'none', padding: '0 4px' }}>{event?.name || 'Event'}</Link>
           <span style={{ color: 'var(--border-strong)', padding: '0 4px' }}>›</span>
-          <span style={{ color: 'var(--text)', padding: '0 4px' }}>Draft Board</span>
+          <span style={{ color: 'var(--text)', padding: '0 4px' }}>Pick Board</span>
         </nav>
         {!isDraftDone && sortedTeams.length > 0 && (
           <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '3px 10px', borderRadius: 2, border: '1px solid var(--khaki)', color: 'var(--khaki)', background: 'rgba(126,184,212,0.08)', marginLeft: 4, whiteSpace: 'nowrap' }}>
@@ -823,7 +823,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
                 <span style={{ fontSize: 12, color: 'var(--text-dim)', marginLeft: 8 }}>{available.length} players remaining</span>
               </>
             )}
-            {isDraftDone && <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 13, color: 'var(--green-light)', letterSpacing: '0.04em' }}>Draft complete</span>}
+            {isDraftDone && <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 13, color: 'var(--green-light)', letterSpacing: '0.04em' }}>Teams set</span>}
             {sortedTeams.length === 0 && !isDraftDone && <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No teams set up yet</span>}
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
               {/* FIX: Undo only shows when picks exist and draft not done */}
@@ -842,7 +842,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
                   onClick={() => setEndDraftConfirm(true)}
                   style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 11px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}
                 >
-                  End Draft
+                  Finish Picking
                 </button>
               )}
             </div>
@@ -935,7 +935,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
           <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
             <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{contextMenu.name}</div>
             <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 1 }}>
-              {contextMenu.isDrafted ? 'Drafted player' : 'Available player'}
+              {contextMenu.isDrafted ? 'Picked player' : 'Available player'}
             </div>
           </div>
           <CtxItem label="Change Class" icon="◎" onClick={() => {
@@ -1051,7 +1051,7 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       {endDraftConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setEndDraftConfirm(false)}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '28px 32px', minWidth: 300, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>End Draft</div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Finish Picking</div>
             <div style={{ fontSize: 15, color: 'var(--text)', marginBottom: 8 }}>Ready to move to tournament setup?</div>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 24 }}>
               The draft will be locked and you'll be taken to group assignment. You can still undo picks before confirming.

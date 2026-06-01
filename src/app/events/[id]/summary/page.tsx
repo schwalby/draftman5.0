@@ -121,13 +121,13 @@ export default function DraftSummaryPage() {
 
   if (status === 'loading' || loading) return (
     <div>
-      <Topbar breadcrumbs={[{ label: eventName || 'Event', href: `/events/${eventId}` }, { label: 'Draft Summary' }]} />
+      <Topbar breadcrumbs={[{ label: eventName || 'Event', href: `/events/${eventId}` }, { label: 'Team Summary' }]} />
       <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner /></div>
     </div>
   )
   if (!hasAccess) return (
     <div>
-      <Topbar breadcrumbs={[{ label: 'Event', href: `/events/${eventId}` }, { label: 'Draft Summary' }]} />
+      <Topbar breadcrumbs={[{ label: 'Event', href: `/events/${eventId}` }, { label: 'Team Summary' }]} />
       <div style={{ padding: 60, textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 11, letterSpacing: 2, color: 'var(--text-dim)' }}>
         YOU MUST BE SIGNED UP FOR THIS EVENT TO VIEW ROSTERS
       </div>
@@ -183,7 +183,7 @@ export default function DraftSummaryPage() {
 
   return (
     <div>
-      <Topbar breadcrumbs={[{ label: eventName || 'Event', href: `/events/${eventId}` }, { label: 'Draft Summary' }]} />
+      <Topbar breadcrumbs={[{ label: eventName || 'Event', href: `/events/${eventId}` }, { label: 'Team Summary' }]} />
       <div style={{ maxWidth: 1300, margin: '0 auto', padding: '32px 24px' }}>
 
         {/* Header */}

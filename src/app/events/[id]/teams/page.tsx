@@ -304,7 +304,7 @@ export default function TeamSetupPage() {
                 flexShrink: 0,
               }}
             >
-              Rejoin Draft →
+              Rejoin Picks →
             </button>
           </div>
         )}
@@ -526,7 +526,7 @@ export default function TeamSetupPage() {
                 textTransform: 'uppercase', fontWeight: 700,
                 padding: '0 20px', height: 34, borderRadius: 4, cursor: 'pointer',
               }}
-            >Rejoin Draft →</button>
+            >Rejoin Picks →</button>
           ) : (
             <button
               onClick={handleSave}
@@ -540,7 +540,7 @@ export default function TeamSetupPage() {
                 padding: '0 20px', height: 34, borderRadius: 4,
                 cursor: saving ? 'not-allowed' : 'pointer',
               }}
-            >{saving ? 'Saving...' : 'Lock In & Start Draft'}</button>
+            >{saving ? 'Saving...' : 'Lock In & Open Lobby'}</button>
           )}
         </div>
 

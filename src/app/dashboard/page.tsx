@@ -234,7 +234,7 @@ export default function DashboardPage() {
               <PanelHeader title="— Unpublished" color="var(--text-muted)" count={grouped.unpublished.length} />
               <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {grouped.unpublished.length === 0
-                  ? <div style={{ fontSize: 10, color: 'var(--text-dim)', padding: '4px 0' }}>No drafts</div>
+                  ? <div style={{ fontSize: 10, color: 'var(--text-dim)', padding: '4px 0' }}>No events</div>
                   : grouped.unpublished.map(e => <EventCard key={e.id} event={e} section="unpublished" />)
                 }
               </div>
@@ -284,7 +284,7 @@ export default function DashboardPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setDeleteModal(null)}>
           <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 28, maxWidth: 380, width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16, color: 'var(--text)', marginBottom: 10 }}>Delete Event</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>This will permanently delete the event and all associated signups, teams, and draft picks. This cannot be undone.</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>This will permanently delete the event and all associated signups, teams, and picks. This cannot be undone.</div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button style={modalBtn} onClick={() => setDeleteModal(null)}>Cancel</button>
               <button style={{ ...modalBtn, color: 'var(--danger, #c0392b)', borderColor: 'currentColor' }} onClick={() => handleDelete(deleteModal)}>Delete</button>
@@ -297,8 +297,8 @@ export default function DashboardPage() {
       {resetModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setResetModal(null)}>
           <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 28, maxWidth: 380, width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16, color: 'var(--text)', marginBottom: 10 }}>Reset Draft</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>This will clear all draft picks and ready states for this event. Teams and captains will be preserved. Captains will need to re-ready in the lobby before the draft can restart. This cannot be undone.</div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16, color: 'var(--text)', marginBottom: 10 }}>Reset Picks</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>This will clear all picks and ready states for this event. Teams and captains will be preserved. Captains will need to re-ready in the lobby before picking can restart. This cannot be undone.</div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button style={modalBtn} onClick={() => setResetModal(null)}>Cancel</button>
               <button style={{ ...modalBtn, color: 'var(--danger, #c0392b)', borderColor: 'currentColor' }} onClick={() => handleResetDraft(resetModal)}>Reset</button>
