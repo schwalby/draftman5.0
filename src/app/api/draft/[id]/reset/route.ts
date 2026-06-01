@@ -13,15 +13,18 @@ export async function DELETE(
   }
 
   const { id } = params
+  const supabase = getSupabaseAdmin()
 
-  const { error } = await getSupabaseAdmin()
-    .from('draft_picks')
-    .delete()
-    .eq('event_id', id)
+  const [picksRes, lobbyRes, statusRes] = await Promise.all([
+    supabase.from('draft_picks').delete().eq('event_id', id),
+    supabase.from('draft_lobby').delete().eq('event_id', id),
+    supabase.from('events').update({ status: 'published', updated_at: new Date().toISOString() }).eq('id', id),
+  ])
 
-  if (error) {
-    console.error('Reset draft error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  const err = picksRes.error || lobbyRes.error || statusRes.error
+  if (err) {
+    console.error('Reset draft error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

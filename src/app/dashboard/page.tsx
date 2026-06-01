@@ -298,7 +298,7 @@ export default function DashboardPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setResetModal(null)}>
           <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 28, maxWidth: 380, width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16, color: 'var(--text)', marginBottom: 10 }}>Reset Draft</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>This will clear all draft picks for this event. Teams will be preserved. The draft will restart from pick 1. This cannot be undone.</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>This will clear all draft picks and ready states for this event. Teams and captains will be preserved. Captains will need to re-ready in the lobby before the draft can restart. This cannot be undone.</div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button style={modalBtn} onClick={() => setResetModal(null)}>Cancel</button>
               <button style={{ ...modalBtn, color: 'var(--danger, #c0392b)', borderColor: 'currentColor' }} onClick={() => handleResetDraft(resetModal)}>Reset</button>
