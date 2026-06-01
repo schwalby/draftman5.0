@@ -15,8 +15,6 @@ export async function DELETE(
   const { id } = params
   const supabase = getSupabaseAdmin()
 
-  const supabase = getSupabaseAdmin()
-
   const { data: event } = await supabase
     .from('events')
     .select('name')
