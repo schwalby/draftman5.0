@@ -269,8 +269,8 @@ export default function DraftPage({ params }: { params: { id: string } }) {
     const name = playerDisplayName(s).toLowerCase()
     if (search && !name.includes(search.toLowerCase())) return false
     if (classFilter !== 'all' && !s.class.includes(classFilter)) return false
-    // Hide players whose classes are all full for the active team
-    if (activeTeam && !playerHasOpenSlot(s.class)) return false
+    // CLASS RESTRICTIONS DISABLED — re-enable by uncommenting:
+    // if (activeTeam && !playerHasOpenSlot(s.class)) return false
     return true
   })
 
@@ -867,7 +867,8 @@ export default function DraftPage({ params }: { params: { id: string } }) {
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 400, fontSize: 13, color: 'var(--khaki)' }}>{available.length}</span>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '4px 10px', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text)', outline: 'none', width: 150 }} />
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-                {['all', 'rifle', 'third', 'heavy', 'sniper', 'flex'].filter(cls => !isClassFull(cls)).map(cls => (
+                {/* CLASS FILTER AUTO-HIDE DISABLED — was: .filter(cls => !isClassFull(cls)) */}
+                {['all', 'rifle', 'third', 'heavy', 'sniper', 'flex'].map(cls => (
                   <button key={cls} onClick={() => setClassFilter(cls)} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 2, cursor: 'pointer', transition: 'all 0.15s', border: classFilter === cls ? '1px solid var(--khaki)' : '1px solid var(--border)', color: classFilter === cls ? 'var(--khaki)' : cls === 'all' ? 'var(--text-dim)' : CLS_COLOR[cls], background: classFilter === cls ? 'rgba(126,184,212,0.07)' : 'transparent' }}>{cls === 'all' ? 'All' : CLS_LABEL[cls]}</button>
                 ))}
               </div>
@@ -1027,51 +1028,20 @@ export default function DraftPage({ params }: { params: { id: string } }) {
       )}
 
       {/* CONFIRM MODAL */}
+      {/* CLASS ROLE ASSIGNMENT DISABLED — re-enable needsPick block to restore */}
       {confirmPlayer && (() => {
-        // Classes this player can fill for the active team
-        const openClasses = confirmPlayer.class.includes('flex')
-          ? ['flex']
-          : confirmPlayer.class.filter(c => !isClassFullForActiveTeam(c))
-        const needsPick = openClasses.length > 1
-        const canConfirm = !needsPick || confirmClass !== null
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => { setConfirmPlayer(null); setSelected(null); setConfirmClass(null) }}>
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '28px 32px', minWidth: 300, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
               <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 12 }}>Confirm Pick</div>
               <div style={{ fontSize: 22, fontFamily: 'var(--font-heading)', fontWeight: 300, color: 'var(--text)', marginBottom: 6 }}>{playerDisplayName(confirmPlayer)}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: needsPick ? 16 : 24 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 24 }}>
                 {confirmPlayer.class.map(c => CLS_LABEL[c] || c).join(' / ')}
                 {activeTeam && <span> &nbsp;→&nbsp; {captainDisplayName(activeTeam)}</span>}
               </div>
-              {needsPick && (
-                <>
-                  <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 8 }}>Assign Class</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-                    {openClasses.map(cls => {
-                      const isSel = confirmClass === cls
-                      return (
-                        <button
-                          key={cls}
-                          onClick={() => setConfirmClass(cls)}
-                          style={{
-                            padding: '8px 18px', borderRadius: 4, cursor: 'pointer',
-                            fontSize: 12, fontFamily: 'var(--font-body)',
-                            background: isSel ? `${CLS_COLOR[cls]}22` : 'transparent',
-                            color: CLS_COLOR[cls],
-                            border: `1px solid ${isSel ? CLS_COLOR[cls] : CLS_COLOR[cls] + '66'}`,
-                            fontWeight: isSel ? 600 : 400,
-                          }}
-                        >
-                          {CLS_LABEL[cls]}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button onClick={() => { setConfirmPlayer(null); setSelected(null); setConfirmClass(null) }} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={() => { setConfirmPlayer(null); confirmPick() }} disabled={picking || !canConfirm} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: `1px solid ${canConfirm ? 'var(--green-light)' : 'var(--border)'}`, color: canConfirm ? 'var(--green-light)' : 'var(--text-dim)', background: canConfirm ? 'rgba(90,156,90,0.12)' : 'transparent', cursor: canConfirm && !picking ? 'pointer' : 'not-allowed', opacity: picking ? 0.6 : 1 }}>✓ Confirm Pick</button>
+                <button onClick={() => { setConfirmPlayer(null); confirmPick() }} disabled={picking} style={{ fontFamily: 'var(--font-heading)', fontWeight: 300, fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '7px 16px', borderRadius: 3, border: '1px solid var(--green-light)', color: 'var(--green-light)', background: 'rgba(90,156,90,0.12)', cursor: picking ? 'not-allowed' : 'pointer', opacity: picking ? 0.6 : 1 }}>✓ Confirm Pick</button>
               </div>
             </div>
           </div>
