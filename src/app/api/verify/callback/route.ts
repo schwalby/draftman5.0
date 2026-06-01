@@ -25,8 +25,6 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 1. Atomically consume the token (fixes race condition) ─────────────────
-  // Single UPDATE with WHERE clause — if another request got here first,
-  // this returns zero rows and we bail. No SELECT then UPDATE.
   const { data: verifyToken, error: tokenErr } = await supabase
     .from('verify_tokens')
     .update({ used: true })
@@ -37,7 +35,6 @@ export async function GET(req: NextRequest) {
     .maybeSingle()
 
   if (tokenErr || !verifyToken) {
-    // Could be invalid, already used, or expired — check which
     const { data: deadToken } = await supabase
       .from('verify_tokens')
       .select('used, expires_at')
@@ -48,7 +45,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(new URL('/verify?error=invalid_token', base))
     }
     if (new Date(deadToken.expires_at) < new Date()) {
-      return NextResponse.redirect(new URL(\1, base))
+      return NextResponse.redirect(new URL('/verify?error=expired_token', base))
     }
     return NextResponse.redirect(new URL('/verify?error=invalid_token', base))
   }
@@ -56,20 +53,16 @@ export async function GET(req: NextRequest) {
   // ── 2. Validate Steam OpenID response ──────────────────────────────────────
   const mode = searchParams.get('openid.mode')
   if (mode !== 'id_res') {
-    return NextResponse.redirect(new URL(\1, base))
+    return NextResponse.redirect(new URL('/verify?error=steam_cancelled', base))
   }
 
-  // Extract Steam ID from claimed_id: https://steamcommunity.com/openid/id/76561198XXXXXXXXX
   const claimedId = searchParams.get('openid.claimed_id') ?? ''
   const steamId64Match = claimedId.match(/\/(\d{17})$/)
   if (!steamId64Match) {
-    return NextResponse.redirect(new URL(\1, base))
+    return NextResponse.redirect(new URL('/verify?error=steam_id_parse', base))
   }
   const steamId64 = steamId64Match[1]
 
-  // Validate with Steam's OpenID endpoint to prevent spoofing
-  // Bug fix: iterate searchParams explicitly — URLSearchParams(searchParams as any)
-  // does not correctly copy all params, breaking Steam's check_authentication
   const validationParams = new URLSearchParams()
   searchParams.forEach((value, key) => {
     validationParams.set(key, value)
@@ -83,7 +76,7 @@ export async function GET(req: NextRequest) {
   })
   const validationText = await validationRes.text()
   if (!validationText.includes('is_valid:true')) {
-    return NextResponse.redirect(new URL(\1, base))
+    return NextResponse.redirect(new URL('/verify?error=steam_invalid', base))
   }
 
   // ── 3. Fetch Steam profile ─────────────────────────────────────────────────
@@ -94,26 +87,23 @@ export async function GET(req: NextRequest) {
   const player = summaryData?.response?.players?.[0]
 
   if (!player) {
-    return NextResponse.redirect(new URL(\1, base))
+    return NextResponse.redirect(new URL('/verify?error=steam_profile_not_found', base))
   }
 
-  // Check if profile is private (communityvisibilitystate < 3 means private/friends only)
   if (player.communityvisibilitystate < 3) {
-    return NextResponse.redirect(new URL(\1, base))
+    return NextResponse.redirect(new URL('/verify?error=private', base))
   }
 
   // ── 4. Check account age ───────────────────────────────────────────────────
   const timecreated = player.timecreated
   if (!timecreated) {
-    // Bug fix: missing timecreated means the field is hidden — not that profile is private
-    // Profile visibility was already checked above — this is a separate condition
-    return NextResponse.redirect(new URL(\1, base))
+    return NextResponse.redirect(new URL('/verify?error=steam_profile_not_found', base))
   }
 
   const accountAgeDays = (Date.now() / 1000 - timecreated) / 86400
   if (accountAgeDays < MIN_ACCOUNT_AGE_DAYS) {
     const daysLeft = Math.ceil(MIN_ACCOUNT_AGE_DAYS - accountAgeDays)
-    return NextResponse.redirect(new URL(\1, base))
+    return NextResponse.redirect(new URL(`/verify?error=too_new&days_left=${daysLeft}`, base))
   }
 
   // ── 5. Check DoD ownership ─────────────────────────────────────────────────
@@ -124,20 +114,18 @@ export async function GET(req: NextRequest) {
   const games: { appid: number }[] = gamesData?.response?.games ?? []
 
   if (games.length === 0) {
-    // Empty games list = private library
-    return NextResponse.redirect(new URL(\1, base))
+    return NextResponse.redirect(new URL('/verify?error=private', base))
   }
 
   const ownsDoD = games.some(g => g.appid === DOD_APP_ID)
   if (!ownsDoD) {
-    return NextResponse.redirect(new URL(\1, base))
+    return NextResponse.redirect(new URL('/verify?error=no_dod', base))
   }
 
   // ── 6. All checks passed — save to DB ─────────────────────────────────────
   const steamName   = player.personaname ?? null
   const steamAvatar = player.avatarfull ?? player.avatar ?? null
 
-  // Convert SteamID64 to STEAM_0:X:Y format for display
   const STEAM_BASE = BigInt('76561197960265728')
   const id64Big = BigInt(steamId64)
   const y = Number((id64Big - STEAM_BASE) % BigInt(2))
@@ -157,17 +145,10 @@ export async function GET(req: NextRequest) {
 
   if (updateErr) {
     console.error('[verify/callback] Failed to update user:', updateErr)
-    return NextResponse.redirect(new URL(\1, base))
+    return NextResponse.redirect(new URL('/verify?error=db_error', base))
   }
 
-  // Token was already atomically marked used in step 1 — no second update needed
-
   // ── 7. Notify bot to grant Discord role ────────────────────────────────────
-  // Bug fix: await the grant call and handle failure — do not fire and forget.
-  // If grant fails the user sees success but never gets the role, causing confusion.
-  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
-  const host  = req.headers.get('x-forwarded-host') ?? req.headers.get('host')
-  const base  = host ? `${proto}://${host}` : (process.env.NEXTAUTH_URL ?? 'https://draftman50-production.up.railway.app')
   try {
     const grantRes = await fetch(`${base}/api/verify/grant`, {
       method: 'POST',
@@ -183,13 +164,9 @@ export async function GET(req: NextRequest) {
 
     if (!grantRes.ok) {
       console.error('[verify/callback] Grant endpoint returned error:', grantRes.status)
-      // Redirect to success anyway — Steam data is saved.
-      // User has verified, role grant can be done manually if needed.
-      // A retry mechanism can be added in future.
     }
   } catch (err) {
     console.error('[verify/callback] Failed to reach grant endpoint:', err)
-    // Same — Steam data is saved, redirect to success, log for manual follow-up
   }
 
   return NextResponse.redirect(new URL('/portal?verified=1', base))
