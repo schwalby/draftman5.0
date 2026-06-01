@@ -47,6 +47,16 @@ export async function POST(
 
     const supabase = getSupabaseAdmin()
 
+    // Block re-save if draft is already in progress
+    const { data: event } = await supabase
+      .from('events')
+      .select('status')
+      .eq('id', params.id)
+      .single()
+    if (event?.status === 'drafting') {
+      return NextResponse.json({ error: 'Draft is already in progress' }, { status: 409 })
+    }
+
     // Snapshot existing IDs before touching anything
     const { data: existing } = await supabase
       .from('teams')

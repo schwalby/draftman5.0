@@ -103,11 +103,14 @@ export default function TeamSetupPage() {
         const evData = await evRes.json()
         if (evData.event) setEventName(evData.event.name)
 
-        // Check if draft is already in progress
-        const picksRes = await fetch(`/api/draft/${eventId}/picks`)
-        const picksData = await picksRes.json()
-        if (Array.isArray(picksData) && picksData.length > 0) {
+        // Check if draft is already in progress (by status or existing picks)
+        const eventStatus = evData?.event?.status ?? evData?.status
+        if (eventStatus === 'drafting') {
           setDraftInProgress(true)
+        } else {
+          const picksRes = await fetch(`/api/draft/${eventId}/picks`)
+          const picksData = await picksRes.json()
+          if (Array.isArray(picksData) && picksData.length > 0) setDraftInProgress(true)
         }
 
         const teamRes = await fetch(`/api/events/${eventId}/teams`)
