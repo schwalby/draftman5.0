@@ -295,7 +295,7 @@ export default function DraftLobbyPage({ params }: { params: { id: string } }) {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
-                onClick={startDraft}
+                onClick={() => startDraft(false)}
                 disabled={!lobby?.allReady || starting}
                 style={{
                   flex: 1, padding: '10px 20px',
