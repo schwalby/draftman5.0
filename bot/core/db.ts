@@ -37,6 +37,17 @@ export async function getSignupCount(eventId: string): Promise<number> {
   return count ?? 0
 }
 
+// Count of players actually checked in (not just signed up) — for the check-in embed (§5.5)
+export async function getCheckedInCount(eventId: string): Promise<number> {
+  const { count } = await supabase
+    .from('signups')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .neq('status', 'withdrawn')
+    .eq('checked_in', true)
+  return count ?? 0
+}
+
 export async function getClassCounts(eventId: string): Promise<Record<string, number>> {
   const { data } = await supabase
     .from('signups')

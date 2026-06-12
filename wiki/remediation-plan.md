@@ -96,10 +96,15 @@ Web POST ignores body.priority → `max(priority)+1` (survives deletes, not coun
 reject when confirmed signups ≥ capacity. Same in `bot/core/db.ts:createSignup`.
 Grep UI for deliberate priority sends first. (§1.2) Prereq: R4.
 
-### R9 — PATCH allowlist + checkin count (Low) ☐
-- `users/[id]/route.ts`: replace `.update(body)` with explicit allowlist (mirror `events/[id]/route.ts:27-37` pattern) (§4.2)
-- One-liner: checkin embed counts `checked_in=true`, not total signups (§5.5)
-Bundle into any deploy.
+### R9 — PATCH allowlist + checkin count (Low) ☑ 2026-06-12
+- `users/[id]/route.ts`: `.update(body)` → allowlist `['is_organizer','is_superuser',
+  'is_captain','ingame_name']` + 400 if no updatable field. Verified only caller
+  (settings/page.tsx) sends is_organizer/is_superuser, both covered — no behavior change.
+  Mass-assignment hole closed (§4.2).
+- `bot/core/db.ts`: added `getCheckedInCount()` (filters checked_in=true);
+  `bot/commands/checkin.ts` embed now uses it instead of `getSignupCount` so "N / cap
+  checked in" shows real checked-in count (§5.5).
+Both projects `tsc --noEmit` clean. Shipped with R6 (no separate deploy).
 
 ## Phase 3 — Consolidate duplicates (one per deploy)
 

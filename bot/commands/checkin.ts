@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction, ButtonInteraction, EmbedBuilder } from 'discord.js'
-import { getUserByDiscordId, getUserSignups, getSignupCount, checkIn } from '../core/db'
+import { getUserByDiscordId, getUserSignups, getCheckedInCount, checkIn } from '../core/db'
 
 // Shared logic used by both /checkin and the draftday check-in button
 export async function performCheckin(
@@ -48,7 +48,7 @@ export async function performCheckin(
   }
 
   const event = eligible[0].event as any
-  const checkinCount = await getSignupCount(event.id)
+  const checkinCount = await getCheckedInCount(event.id)
   const eventUrl = `${process.env.API_BASE_URL}/events/${event.id}`
 
   const embed = new EmbedBuilder()

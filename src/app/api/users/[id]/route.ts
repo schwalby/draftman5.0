@@ -44,9 +44,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: 'Cannot remove your own SuperUser status' }, { status: 400 })
   }
 
+  // Allowlist — never pass the raw body to .update() (mass assignment, §4.2). Only these
+  // fields are editable here; anything else in the body is ignored.
+  const allowed = ['is_organizer', 'is_superuser', 'is_captain', 'ingame_name']
+  const updates: Record<string, unknown> = {}
+  for (const key of allowed) {
+    if (body[key] !== undefined) updates[key] = body[key]
+  }
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No updatable fields provided' }, { status: 400 })
+  }
+  updates.updated_at = new Date().toISOString()
+
   const { data, error } = await supabase
     .from('users')
-    .update(body)
+    .update(updates)
     .eq('id', params.id)
     .select()
     .maybeSingle()
