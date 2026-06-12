@@ -62,8 +62,19 @@ R3 is a HARD prerequisite for Phases 1–2.
 
 ## Phase 2 — State integrity in routes (highest-value code)
 
-### R6 — Match lifecycle guards (Medium) — **most important code change** ☐
+### R6 — Match lifecycle guards (Medium) — **most important code change** ☑ CODE DONE 2026-06-12 (deploy + manual bracket test PENDING)
 All in `api/tournaments/[id]/matches/[matchId]/route.ts`, response shapes unchanged:
+**Implemented:** (1) confirm status-guard `.eq('status','awaiting_confirmation').select('id')`
+→ 0 rows = 409 (serializes concurrent/double confirm); (2) `advanceBracket` deterministic
+slot = `match_number % 2 === 1 ? team1_id : team2_id` (odd→team1, even→team2), re-advance
+REPLACES; null match_number → skip+warn; (3) reject un-advances — clears the deterministic
+slot in next match, guarded `.eq('status','pending').eq(slot, winner_id)` so it only
+touches an un-started slot still holding the rejected team; (4) confirm derives winner
+from scores when winner_id null (KTP path), 400 if scores missing/tied; (5) captain confirm/
+reject scoped via `isMatchCaptain` (team1/team2 captain_id === actorId), select extended
+with captain_id. `tsc --noEmit` passes. **NOT yet deployed; needs throwaway-bracket test.**
+
+Original spec:
 1. `confirm`: add `.eq('status','awaiting_confirmation')` to update; 0 rows → 409 (kills double-confirm §2.2)
 2. `advanceBracket`: deterministic slot from match_number parity (QF1→SF1.team1 etc.), not "first empty" → re-advance REPLACES
 3. `reject`: clear rejected winner from next match's slot (un-advancement)

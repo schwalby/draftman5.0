@@ -108,41 +108,75 @@ export async function PATCH(
   const isSuperUser = session.user.isSuperUser
   const isOrganizer = session.user.isOrganizer
   const isCaptain = session.user.isCaptain
-  const canConfirm = isSuperUser || isOrganizer || isCaptain
   const actorId = session.user.userId
   const actorName = session.user.name ?? 'unknown'
 
   const { data: match } = await supabase
     .from('tournament_matches')
-    .select('*, team1:teams!team1_id(name), team2:teams!team2_id(name), winner:teams!winner_id(name)')
+    .select('*, team1:teams!team1_id(name, captain_id), team2:teams!team2_id(name, captain_id), winner:teams!winner_id(name)')
     .eq('id', params.matchId)
     .maybeSingle()
 
   const matchLabel = `${(match?.team1 as any)?.name ?? '?'} vs ${(match?.team2 as any)?.name ?? '?'}`
 
+  // A captain may only confirm/reject a match involving their OWN team — not any match
+  // globally. Organizers and superusers keep blanket rights. (§3.4 / R6.5)
+  const isMatchCaptain =
+    isCaptain &&
+    ((match?.team1 as any)?.captain_id === actorId ||
+      (match?.team2 as any)?.captain_id === actorId)
+  const canConfirm = isSuperUser || isOrganizer || isMatchCaptain
+
   if (action === 'confirm') {
     if (!canConfirm) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const { error } = await supabase
+    // Refuse to confirm a match with no winner. KTPBridge writes scores but no winner_id
+    // (§3.1); derive the winner from scores here, or reject if scores are missing/tied.
+    let effectiveWinnerId = (match?.winner_id as string | null) ?? null
+    if (!effectiveWinnerId) {
+      const s1 = match?.score_team1
+      const s2 = match?.score_team2
+      if (s1 == null || s2 == null || s1 === s2) {
+        return NextResponse.json(
+          { error: 'Cannot confirm: match has no winner and scores are missing or tied' },
+          { status: 400 }
+        )
+      }
+      effectiveWinnerId = s1 > s2 ? match.team1_id : match.team2_id
+    }
+
+    // Status guard makes confirm idempotent: only an awaiting_confirmation match can be
+    // confirmed. A second confirm (or confirm of a non-reported match) matches 0 rows →
+    // 409, so the winner can never be advanced into the next match twice (§2.2).
+    const { data: confirmed, error } = await supabase
       .from('tournament_matches')
       .update({
         status: 'complete',
         confirmed: true,
         confirmed_by: actorId,
         confirmed_at: new Date().toISOString(),
+        winner_id: effectiveWinnerId,
         updated_at: new Date().toISOString(),
       })
       .eq('id', params.matchId)
+      .eq('status', 'awaiting_confirmation')
+      .select('id')
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!confirmed || confirmed.length === 0) {
+      return NextResponse.json(
+        { error: 'Match is not awaiting confirmation (already confirmed or not yet reported)' },
+        { status: 409 }
+      )
+    }
 
     // Recalculate standings if group stage
     if (match?.group_id) {
       await recalcStandings(supabase, params.id, match.group_id)
     }
 
-    // Advance bracket
-    await advanceBracket(supabase, match, params.id)
+    // Advance bracket using the effective (possibly derived) winner
+    await advanceBracket(supabase, { ...match, winner_id: effectiveWinnerId }, params.id)
 
     await logAudit({
       action: 'match.confirm',
@@ -180,6 +214,19 @@ export async function PATCH(
       .eq('id', params.matchId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Un-advance: if this match had already fed its winner into the next match, clear that
+    // deterministic slot — but only if the slot still holds the rejected winner AND the
+    // downstream match hasn't started yet. Closes the reject-after-advance hole (§2.2).
+    if (match?.next_match_id && match?.winner_id && match?.match_number != null) {
+      const slot = match.match_number % 2 === 1 ? 'team1_id' : 'team2_id'
+      await supabase
+        .from('tournament_matches')
+        .update({ [slot]: null, updated_at: new Date().toISOString() })
+        .eq('id', match.next_match_id)
+        .eq('status', 'pending')
+        .eq(slot, match.winner_id)
+    }
 
     await logAudit({
       action: 'match.reject',
@@ -316,17 +363,23 @@ async function recalcStandings(supabase: any, tournamentId: string, groupId: str
   }
 }
 
-async function advanceBracket(supabase: any, match: any, tournamentId: string) {
+async function advanceBracket(supabase: any, match: any, _tournamentId: string) {
   if (!match?.next_match_id || !match?.winner_id) return
-  const { data: nextMatch } = await supabase
-    .from('tournament_matches')
-    .select('team1_id, team2_id')
-    .eq('id', match.next_match_id)
-    .maybeSingle()
-  if (!nextMatch) return
-  const updateField = nextMatch.team1_id ? 'team2_id' : 'team1_id'
+  // Deterministic slot: a feeder's match_number parity fixes which slot it occupies in the
+  // next match (odd → team1, even → team2): QF1/QF3 → their SF's team1, QF2/QF4 → team2;
+  // SF1 → final.team1, SF2 → final.team2. Re-advancing therefore REPLACES the same slot
+  // instead of filling "first empty", so double-confirm/edit can't put a team in both
+  // slots or clobber the other feeder's winner (§2.2).
+  if (match.match_number == null) {
+    console.warn(
+      '[advanceBracket] match', match.id,
+      'has next_match_id but null match_number; skipping advance to avoid mis-slotting'
+    )
+    return
+  }
+  const slot = match.match_number % 2 === 1 ? 'team1_id' : 'team2_id'
   await supabase
     .from('tournament_matches')
-    .update({ [updateField]: match.winner_id })
+    .update({ [slot]: match.winner_id, updated_at: new Date().toISOString() })
     .eq('id', match.next_match_id)
 }
