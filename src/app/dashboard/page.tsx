@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Topbar } from '@/components/Topbar';
+import { AppShell } from '@/components/AppShell';
 import Link from 'next/link';
 
 interface EventRow {
@@ -130,7 +130,7 @@ export default function DashboardPage() {
       default: {},
       primary: { borderColor: 'rgba(200,184,122,0.4)', color: 'var(--khaki)' },
       danger:  { color: 'var(--danger, #c0392b)', borderColor: 'transparent' },
-      teal:    { borderColor: 'rgba(67,206,162,0.45)', color: '#43cea2' },
+      teal:    { borderColor: 'rgba(29,233,182,0.45)', color: 'var(--teal)' },
     };
     const style = { ...base, ...variants[variant] };
     if (href) return <Link href={href} style={style} className="db-btn">{children}</Link>;
@@ -139,9 +139,9 @@ export default function DashboardPage() {
 
   function EventCard({ event, section }: { event: EventRow; section: Section }) {
     const signupPct = event.capacity ? Math.min(100, Math.round(((event.signup_count ?? 0) / event.capacity) * 100)) : 0;
-    const barColor = section === 'in_progress' ? '#43cea2' : 'var(--khaki)';
+    const barColor = section === 'in_progress' ? 'var(--teal)' : 'var(--khaki)';
     const leftAccent = section === 'in_progress'
-      ? '2px solid #43cea2'
+      ? '2px solid var(--teal)'
       : section === 'published'
       ? '2px solid rgba(200,184,122,0.5)'
       : '2px solid rgba(255,255,255,0.06)';
@@ -185,8 +185,7 @@ export default function DashboardPage() {
   if (status === 'loading') return null;
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      <Topbar />
+    <AppShell>
       <style>{`
         @keyframes db-up { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
         .db-section { opacity:0; animation: db-up 0.45s ease forwards; }
@@ -194,7 +193,7 @@ export default function DashboardPage() {
         .db-card:hover { border-color: rgba(255,255,255,0.22) !important; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
         .db-btn { transition: border-color 0.12s, color 0.12s; }
         .db-btn:hover { border-color: rgba(255,255,255,0.2) !important; color: var(--text) !important; }
-        .db-new:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(200,184,122,0.3); background: #d4c688 !important; }
+        .db-new:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,94,91,0.3); background: #ff7572 !important; }
         @media (max-width: 768px) {
           .db-main { padding: 20px 16px 60px !important; }
           .db-middle { grid-template-columns: 1fr !important; }
@@ -205,7 +204,7 @@ export default function DashboardPage() {
 
         {/* Header */}
         <div className="db-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, animationDelay: '0s' }}>
-          <div style={{ fontFamily: 'var(--font-heading)', fontSize: 22, letterSpacing: '0.04em', background: 'linear-gradient(135deg, #a08848 0%, #c8b87a 40%, #ede0a8 60%, #c8b87a 80%, #a08848 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',  }}>
+          <div style={{ fontFamily: 'var(--font-heading)', fontSize: 22, letterSpacing: '0.04em', color: 'var(--khaki)' }}>
             Organizer Dashboard
           </div>
           <Link href="/events/new" className="db-new" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: 'var(--khaki)', color: '#0e0e0e', border: 'none', borderRadius: 3, fontSize: 11, fontFamily: 'var(--font-body)', letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none', fontWeight: 'bold', transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s' }}>
@@ -213,14 +212,32 @@ export default function DashboardPage() {
           </Link>
         </div>
 
+        {/* KPI tiles */}
+        {!loading && (
+          <div className="db-section" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 10, animationDelay: '0.03s' }}>
+            {([
+              { l: 'In progress', v: grouped.in_progress.length, c: 'var(--teal)' },
+              { l: 'Published',   v: grouped.published.length,   c: 'var(--khaki)' },
+              { l: 'Unpublished', v: grouped.unpublished.length, c: 'var(--text-dim)' },
+              { l: 'Completed',   v: grouped.completed.length,   c: 'var(--acc2, var(--text-dim))' },
+            ]).map(t => (
+              <div key={t.l} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: t.c }} />
+                <div style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 7 }}>{t.l}</div>
+                <div style={{ fontFamily: 'var(--font-heading)', fontSize: 24, lineHeight: 1, color: t.c }}>{t.v}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Loading events…</div>
         ) : (<>
 
           {/* IN PROGRESS — full width, hidden when empty */}
           {grouped.in_progress.length > 0 && (
-            <div className="db-section" style={{ ...panel, background: 'linear-gradient(180deg,rgba(67,206,162,0.1) 0%,rgba(24,90,157,0.07) 100%)', borderColor: 'rgba(67,206,162,0.18)', marginBottom: 6, animationDelay: '0.05s' }}>
-              <PanelHeader title="● In Progress" color="#43cea2" count={grouped.in_progress.length} />
+            <div className="db-section" style={{ ...panel, background: 'var(--surface)', borderColor: 'rgba(29,233,182,0.2)', marginBottom: 6, animationDelay: '0.05s' }}>
+              <PanelHeader title="● In Progress" color="var(--teal)" count={grouped.in_progress.length} />
               <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8 }}>
                 {grouped.in_progress.map(e => <EventCard key={e.id} event={e} section="in_progress" />)}
               </div>
@@ -230,7 +247,7 @@ export default function DashboardPage() {
           {/* MIDDLE ROW — Unpublished + Published */}
           <div className="db-middle" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
 
-            <div className="db-section" style={{ ...panel, background: 'linear-gradient(180deg,rgba(126,184,212,0.08) 0%,rgba(24,90,157,0.1) 100%)', borderColor: 'rgba(126,184,212,0.14)', animationDelay: '0.10s' }}>
+            <div className="db-section" style={{ ...panel, background: 'var(--surface)', borderColor: 'rgba(126,184,212,0.14)', animationDelay: '0.10s' }}>
               <PanelHeader title="— Unpublished" color="var(--text-muted)" count={grouped.unpublished.length} />
               <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {grouped.unpublished.length === 0
@@ -240,7 +257,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="db-section" style={{ ...panel, background: 'linear-gradient(180deg,rgba(200,184,122,0.1) 0%,rgba(24,90,157,0.07) 100%)', borderColor: 'rgba(200,184,122,0.18)', animationDelay: '0.10s' }}>
+            <div className="db-section" style={{ ...panel, background: 'var(--surface)', borderColor: 'rgba(255,94,91,0.18)', animationDelay: '0.10s' }}>
               <PanelHeader title="○ Published" color="var(--khaki)" count={grouped.published.length} />
               <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {grouped.published.length === 0
@@ -253,7 +270,7 @@ export default function DashboardPage() {
           </div>
 
           {/* COMPLETED — full width */}
-          <div className="db-section" style={{ ...panel, background: 'linear-gradient(180deg,rgba(106,76,147,0.1) 0%,rgba(24,90,157,0.07) 100%)', borderColor: 'rgba(106,76,147,0.18)', animationDelay: '0.15s' }}>
+          <div className="db-section" style={{ ...panel, background: 'var(--surface)', borderColor: 'rgba(126,184,212,0.14)', animationDelay: '0.15s' }}>
             <PanelHeader title="✓ Completed" color="var(--text-dim)" count={grouped.completed.length} />
             <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
               {grouped.completed.length === 0
@@ -306,6 +323,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }
