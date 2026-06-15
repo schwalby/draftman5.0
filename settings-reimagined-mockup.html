@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DRAFTMAN5.0 — Settings (reimagined)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0c11; --panel:#11151e; --panel-2:#161b27; --panel-3:#1f2636;
+  --line:rgba(150,170,210,.11); --line-2:rgba(150,170,210,.22);
+  --ink:#e7edf6; --dim:#9aa7be; --mute:#6f8698;
+  --acc:#23e3c0; --acc2:#8b7bff; --acc-soft:rgba(35,227,192,.12); --acc-line:rgba(35,227,192,.42);
+  --grad:linear-gradient(135deg,#23e3c0 0%,#8b7bff 100%);
+  --green:#36d399; --amber:#f4b740; --red:#ff5d6c;
+  --head:"Space Grotesk", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{font-family:var(--mono);color:var(--ink);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(1100px 480px at 80% -8%, rgba(139,123,255,.10), transparent 60%),
+             radial-gradient(900px 420px at 8% 4%, rgba(35,227,192,.07), transparent 55%), var(--bg);}
+h1,h2{font-family:var(--head);font-weight:600;letter-spacing:-.01em}
+a{color:inherit;text-decoration:none}.tnum{font-variant-numeric:tabular-nums}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:4px}
+
+.app{display:grid;grid-template-columns:66px 1fr;min-height:100vh}
+.rail{position:sticky;top:0;height:100vh;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:6px}
+.mk{width:38px;height:38px;border-radius:10px;background:var(--grad);color:#06120f;font-family:var(--head);font-weight:700;font-size:19px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;box-shadow:0 6px 20px rgba(35,227,192,.3)}
+.rnav{position:relative;width:46px;height:46px;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--mute);cursor:pointer}
+.rnav svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7}.rnav .l{font-size:7.5px;letter-spacing:.06em;text-transform:uppercase}
+.rnav:hover{color:var(--dim);background:var(--panel-2)}
+.rnav.on{color:var(--acc);background:var(--acc-soft)}.rnav.on::before{content:"";position:absolute;left:-12px;top:11px;bottom:11px;width:3px;border-radius:2px;background:var(--grad)}
+.rail .sp{flex:1}.rail .you{width:38px;height:38px;border-radius:50%;background:conic-gradient(from 180deg,var(--acc),var(--acc2),var(--acc));padding:1.6px}
+.rail .you i{display:flex;width:100%;height:100%;border-radius:50%;background:var(--panel);align-items:center;justify-content:center;color:var(--ink);font-weight:700;font-size:12px;font-style:normal}
+.main{min-width:0;display:flex;flex-direction:column}
+.ribbon{position:sticky;top:0;z-index:15;display:flex;align-items:center;gap:16px;height:48px;padding:0 22px;background:rgba(17,21,30,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.wm{font-family:var(--head);font-weight:700;font-size:16px}.wm b{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.crumb{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}.crumb b{color:var(--acc)}
+.ribbon .right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.out{background:none;border:none;color:var(--mute);font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:var(--mono)}
+
+.canvas{max-width:1240px;width:100%;margin:0 auto;padding:22px 24px 80px}
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.pagehead h1{font-size:26px}
+.search{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:7px 12px;min-width:220px}
+.search input{flex:1;background:none;border:none;color:var(--ink);font-family:var(--mono);font-size:12px;outline:none}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.tile{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px;overflow:hidden}
+.tile::after{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--acc)}
+.tile.v::after{background:var(--acc2)}.tile.a::after{background:var(--amber)}.tile.d::after{background:var(--mute)}
+.tile .l{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--mute);margin-bottom:8px}
+.tile .n{font-family:var(--head);font-size:25px;line-height:1}
+
+.g2{display:grid;grid-template-columns:1fr 300px;gap:16px}@media(max-width:980px){.g2{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-bottom:16px}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 15px;border-bottom:1px solid var(--line)}
+.ch .t{font-family:var(--head);font-weight:600;font-size:13px}.ch .code{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.cb{padding:14px 15px}
+.tabs{display:flex;gap:3px;flex-wrap:wrap}
+.tb{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);padding:5px 11px;border:1px solid var(--line);border-radius:7px;cursor:pointer}
+.tb.on{color:var(--acc);border-color:var(--acc-line);background:var(--acc-soft)}
+
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--mute);text-align:left;font-weight:400;padding:9px 15px;border-bottom:1px solid var(--line)}
+tbody td{padding:10px 15px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}tbody tr:hover{background:var(--panel-2)}
+.user{display:flex;align-items:center;gap:10px}
+.av{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;background:var(--panel-3);color:var(--dim)}
+.user .nm{color:var(--ink)}.user .sub{color:var(--mute);font-size:10px}
+.meta{color:var(--mute);font-size:11px}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:5px;border:1px solid var(--line-2);color:var(--dim)}
+.badge.su{color:var(--acc2);border-color:rgba(139,123,255,.4);background:rgba(139,123,255,.12)}
+.badge.org{color:var(--acc);border-color:var(--acc-line);background:var(--acc-soft)}
+.badge.cap{color:var(--amber);border-color:rgba(244,183,64,.4);background:rgba(244,183,64,.12)}
+.badge.pl{color:var(--mute)}
+.sig{width:8px;height:8px;border-radius:50%;display:inline-block}.sig.g{background:var(--green);box-shadow:0 0 7px var(--green)}.sig.m{background:var(--mute)}
+.btn{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--dim);cursor:pointer;border-radius:6px;white-space:nowrap}
+.btn:hover{border-color:var(--acc-line);color:var(--acc);background:var(--acc-soft)}
+.btn.primary{background:var(--grad);color:#06120f;border:none;font-weight:700}
+.btn.danger{color:var(--red);border-color:rgba(255,93,108,.4)}.btn.danger:hover{background:rgba(255,93,108,.12)}
+.kebab{cursor:pointer;color:var(--mute);padding:2px 7px;border-radius:5px;font-size:15px}.kebab:hover{color:var(--acc);background:var(--acc-soft)}
+.divrow td{background:var(--bg);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);padding:7px 15px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:11px}
+.field label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.field input{background:var(--bg);border:1px solid var(--line);border-radius:7px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:7px 10px}
+.note{font-size:10px;color:var(--mute);line-height:1.5}
+.legend{display:flex;flex-direction:column;gap:9px;font-size:11px}
+.legend .row{display:flex;align-items:center;gap:8px}.legend .row .meta{margin-left:auto}
+.foot{padding:11px 24px;font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute);border-top:1px solid var(--line)}
+.toggle{width:34px;height:18px;border-radius:10px;background:var(--panel-3);border:1px solid var(--line-2);position:relative;cursor:pointer;flex-shrink:0}
+.toggle.on{background:var(--acc-soft);border-color:var(--acc-line)}
+.toggle i{position:absolute;top:1.5px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--mute);transition:all .15s}
+.toggle.on i{left:17px;background:var(--acc)}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail">
+    <div class="mk">D</div>
+    <button class="rnav"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="l">Home</span></button>
+    <button class="rnav"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span class="l">Events</span></button>
+    <button class="rnav"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span class="l">Portal</span></button>
+    <button class="rnav"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2zM8 7h8M8 11h8"/></svg><span class="l">Rules</span></button>
+    <button class="rnav on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.6h-4l-.3 2.6a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.6h4l.3-2.6a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg><span class="l">Settings</span></button>
+    <div class="sp"></div>
+    <div class="you"><i>S</i></div>
+  </nav>
+
+  <div class="main">
+    <div class="ribbon">
+      <div class="wm">DRAFTMAN<b>5.0</b></div>
+      <div class="crumb">Workspace · <b>Settings</b></div>
+      <div class="right"><button class="out">Sign Out</button></div>
+    </div>
+
+    <div class="canvas">
+      <div class="pagehead">
+        <div><div class="crumb" style="margin-bottom:6px">SuperUser · Access control</div><h1>Settings</h1></div>
+        <div class="search"><span class="meta">⌕</span><input placeholder="Search members…"></div>
+      </div>
+
+      <div class="tiles">
+        <div class="tile"><div class="l">Total members</div><div class="n">85</div></div>
+        <div class="tile"><div class="l">Organizers</div><div class="n" style="color:var(--acc)">3</div></div>
+        <div class="tile v"><div class="l">SuperUsers</div><div class="n" style="color:var(--acc2)">2</div></div>
+        <div class="tile a"><div class="l">Steam verified</div><div class="n" style="color:var(--amber)">71</div></div>
+      </div>
+
+      <div class="g2">
+        <div>
+          <div class="card">
+            <div class="ch"><span class="t">Members</span><div class="tabs"><span class="tb on">All</span><span class="tb">Admins</span><span class="tb">Captains</span><span class="tb">Players</span><span class="tb">Test</span></div></div>
+            <table>
+              <thead><tr><th>Member</th><th>Roles</th><th>Steam</th><th>Joined</th><th style="text-align:right">Access</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><div class="user"><div class="av" style="background:rgba(139,123,255,.16);color:#a99cff">S</div><div><div class="nm">schwalby</div><div class="sub">you</div></div></div></td>
+                  <td><span class="badge su">SuperUser</span> <span class="badge org">Organizer</span></td>
+                  <td><span class="sig g"></span></td><td class="meta tnum">Apr 13</td>
+                  <td style="text-align:right"><span class="meta" style="font-size:10px">self — locked</span></td>
+                </tr>
+                <tr>
+                  <td><div class="user"><div class="av">G</div><div><div class="nm">gorillabc</div><div class="sub">GorillaBC</div></div></div></td>
+                  <td><span class="badge su">SuperUser</span> <span class="badge org">Organizer</span></td>
+                  <td><span class="sig g"></span></td><td class="meta tnum">Apr 24</td>
+                  <td style="text-align:right"><button class="btn">Revoke SU</button> <span class="kebab">⋮</span></td>
+                </tr>
+                <tr>
+                  <td><div class="user"><div class="av">T</div><div><div class="nm">tomfoolery1767</div><div class="sub">Tom</div></div></div></td>
+                  <td><span class="badge org">Organizer</span></td>
+                  <td><span class="sig g"></span></td><td class="meta tnum">Apr 26</td>
+                  <td style="text-align:right"><button class="btn">Make SU</button> <button class="btn danger">Revoke</button> <span class="kebab">⋮</span></td>
+                </tr>
+                <tr>
+                  <td><div class="user"><div class="av">R</div><div><div class="nm">reaper</div><div class="sub">Reaper</div></div></div></td>
+                  <td><span class="badge cap">Captain</span> <span class="badge pl">Player</span></td>
+                  <td><span class="sig g"></span></td><td class="meta tnum">May 02</td>
+                  <td style="text-align:right"><button class="btn primary">Make organizer</button> <span class="kebab">⋮</span></td>
+                </tr>
+                <tr>
+                  <td><div class="user"><div class="av">V</div><div><div class="nm">vandal</div><div class="sub">Vandal</div></div></div></td>
+                  <td><span class="badge pl">Player</span></td>
+                  <td><span class="sig g"></span></td><td class="meta tnum">May 09</td>
+                  <td style="text-align:right"><button class="btn">Make organizer</button> <span class="kebab">⋮</span></td>
+                </tr>
+                <tr>
+                  <td><div class="user"><div class="av">P</div><div><div class="nm">pip</div><div class="sub">no ingame name</div></div></div></td>
+                  <td><span class="badge pl">Player</span></td>
+                  <td><span class="meta" style="font-size:10px">— unverified</span></td><td class="meta tnum">May 21</td>
+                  <td style="text-align:right"><button class="btn">Make organizer</button> <span class="kebab">⋮</span></td>
+                </tr>
+                <tr class="divrow"><td colspan="5">▸ Test accounts · 4 hidden</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- right rail -->
+        <div>
+          <div class="card">
+            <div class="ch"><span class="t">Role guide</span></div>
+            <div class="cb legend">
+              <div class="row"><span class="badge su">SuperUser</span><span class="meta">full access · manages roles</span></div>
+              <div class="row"><span class="badge org">Organizer</span><span class="meta">runs events &amp; drafts</span></div>
+              <div class="row"><span class="badge cap">Captain</span><span class="meta">per-event · drafts a team</span></div>
+              <div class="row"><span class="badge pl">Player</span><span class="meta">signs up &amp; checks in</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="ch"><span class="t">Preferences</span></div>
+            <div class="cb">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="flex:1"><div style="font-size:11px">Show test accounts</div><div class="note">Reveal seeded/dev users in the list</div></div><div class="toggle"><i></i></div></div>
+              <div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:11px">Require Steam to sign up</div><div class="note">Block event signup until verified</div></div><div class="toggle on"><i></i></div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="ch"><span class="t">Admin tools</span><span class="code">dev</span></div>
+            <div class="cb">
+              <div class="note" style="margin-bottom:11px">Simulate a KTP score report for testing the confirmation queue.</div>
+              <div class="field"><label>Tournament ID</label><input placeholder="uuid…"></div>
+              <div class="field"><label>Match ID</label><input placeholder="uuid…"></div>
+              <button class="btn primary" style="width:100%;justify-content:center;padding:8px">Submit test report</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">DRAFTMAN5.0 · Settings · reimagined concept mockup · teal→violet</div>
+  </div>
+</div>
+</body>
+</html>
