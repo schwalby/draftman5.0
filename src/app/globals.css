@@ -28,20 +28,36 @@
 }
 
 /* --- CSS Variables --- */
+/* ── UI v2 reskin — "cool + functional", teal → violet ──────────────────
+   Tokens are remapped onto the EXISTING names so every page adopts the new
+   look with no per-component edits. Classic (warm-gold) theme lives on
+   `main`; this is branch feat/ui-reskin-v2 — `git checkout main` to revert.
+   Class colors are intentionally left unchanged so var() and the hardcoded
+   component CLASS_COLORS stay in agreement. */
 :root {
-  --khaki: #c8b87a;       /* warm gold — logo, headings, primary buttons, avatar ring */
-  --blue: #7eb8d4;        /* steel blue — borders, dim text, progress bars */
+  --khaki: #23e3c0;       /* repurposed → primary accent (teal): headings, buttons, accents */
+  --teal:  #23e3c0;       /* actions / CTAs / ready states */
+  --blue:  #7eb8d4;       /* steel — kept for borders / dim accents */
   --cream: #c8dce8;
-  --bg: #0d0f12;
-  --surface: #111318;
-  --surface2: #171c22;
-  --border: rgba(126,184,212,0.18);
-  --border-strong: rgba(126,184,212,0.38);
-  --text: #c8dce8;
-  --text-dim: #6a8ca4;
-  --text-muted: #3c5268;
-  --green-light: #5a9c5a;
-  --rust: #c0392b;
+  --bg: #0a0c11;
+  --surface: #11151e;
+  --surface2: #161b27;
+  --border: rgba(150,170,210,0.12);
+  --border-strong: rgba(150,170,210,0.26);
+  --text: #e7edf6;
+  --text-dim: #9aa7be;
+  --text-muted: #66738c;  /* was #3c5268 (~2.4:1, failed WCAG AA) — raised to ~5:1 */
+  --green-light: #36d399;
+  --rust: #ff5d6c;
+
+  /* previously-UNDEFINED tokens used by the check-in dots/badge (render bug) */
+  --green: #36d399;
+  --dim:   #66738c;
+
+  /* new accents available to components going forward */
+  --acc:  #23e3c0;
+  --acc2: #8b7bff;        /* violet secondary */
+  --grad: linear-gradient(135deg, #23e3c0 0%, #8b7bff 100%);
 
   --rifle: #c8a050;
   --light: #4a9c6a;
@@ -72,7 +88,14 @@
 }
 
 html {
-  background: var(--bg);
+  background-color: var(--bg);
+  /* ambient teal + violet glow gives the app-wide "cool" feel, over a faint grid */
+  background-image:
+    radial-gradient(1100px 480px at 80% -10%, rgba(139,123,255,0.10), transparent 60%),
+    radial-gradient(900px 420px at 5% 0%, rgba(35,227,192,0.08), transparent 55%),
+    radial-gradient(circle, rgba(150,170,210,0.05) 1px, transparent 1px);
+  background-size: auto, auto, 30px 30px;
+  background-attachment: fixed, fixed, fixed;
 }
 
 /* ── Glass card utility ── */
