@@ -1,0 +1,84 @@
+/* ============================================================
+   Reimagined design system — ported from reimagined-mockup.html.
+   Scoped under .as-main so it only styles AppShell pages and can't
+   leak into public/standalone pages. Uses the live theme tokens.
+   ============================================================ */
+
+.as-main { --r-amber:#f4b740; --r-red:#ff5d6c; }
+
+.as-main .canvas { max-width: 1240px; width: 100%; margin: 0 auto; padding: 22px 24px 80px; }
+
+/* page heading */
+.as-main .pagehead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.as-main .pagehead h1 { font-family: var(--font-heading); font-size: 26px; letter-spacing: 0.02em; color: var(--text); }
+.as-main .crumb { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+.as-main .crumb b { color: var(--khaki); }
+
+/* stat tiles */
+.as-main .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.as-main .tile { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; overflow: hidden; }
+.as-main .tile::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--khaki); }
+.as-main .tile.violet::after { background: var(--acc2, #8b7bff); }
+.as-main .tile.dim::after { background: var(--text-muted); }
+.as-main .tile.amber::after { background: var(--r-amber); }
+.as-main .tile .l { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+.as-main .tile .v { font-family: var(--font-heading); font-size: 25px; line-height: 1; color: var(--text); }
+.as-main .tile .v small { font-size: 12px; color: var(--text-dim); }
+
+/* cards */
+.as-main .card { background: var(--surface); border: 1px solid var(--border); border-radius: 13px; overflow: hidden; margin-bottom: 16px; }
+.as-main .ch { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 15px; border-bottom: 1px solid var(--border); }
+.as-main .ch .t { font-family: var(--font-heading); font-size: 13px; letter-spacing: 0.02em; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.as-main .ch .code { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); }
+.as-main .cb { padding: 14px 15px; }
+
+/* layout grids */
+.as-main .g2 { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+@media (max-width: 900px) { .as-main .g2 { grid-template-columns: 1fr; } }
+
+/* tables */
+.as-main table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.as-main thead th { font-size: 9px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--text-muted); text-align: left; font-weight: 400; padding: 9px 15px; border-bottom: 1px solid var(--border); }
+.as-main tbody td { padding: 10px 15px; border-bottom: 1px solid var(--border); }
+.as-main tbody tr:last-child td { border-bottom: none; }
+.as-main tbody tr:hover { background: var(--surface2); }
+.as-main td .name { color: var(--text); }
+.as-main td .meta, .as-main .meta { color: var(--text-muted); font-size: 11px; }
+
+/* pills / tags */
+.as-main .tag { display: inline-flex; align-items: center; gap: 5px; font-size: 9px; letter-spacing: 0.09em; text-transform: uppercase; padding: 3px 9px; border: 1px solid var(--border-strong); border-radius: 20px; color: var(--text-dim); white-space: nowrap; }
+.as-main .tag.teal { color: var(--khaki); border-color: rgba(35,227,192,0.4); background: rgba(35,227,192,0.12); }
+.as-main .tag.violet { color: var(--acc2, #8b7bff); border-color: rgba(139,123,255,0.4); background: rgba(139,123,255,0.12); }
+.as-main .tag.amber { color: var(--r-amber); border-color: rgba(244,183,64,0.4); background: rgba(244,183,64,0.12); }
+.as-main .tag.dim { color: var(--text-muted); }
+
+/* buttons */
+.as-main .rbtn { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-body); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; padding: 6px 12px; border: 1px solid var(--border-strong); background: var(--surface2); color: var(--text-dim); cursor: pointer; border-radius: 7px; white-space: nowrap; text-decoration: none; }
+.as-main .rbtn:hover { border-color: rgba(35,227,192,0.4); color: var(--khaki); background: rgba(35,227,192,0.1); }
+.as-main .rbtn.primary { background: var(--grad, var(--khaki)); color: #06120f; border: none; font-weight: 700; }
+.as-main .rbtn.primary:hover { filter: brightness(1.07); }
+.as-main .rbtn.danger { color: var(--rust); border-color: rgba(255,93,108,0.4); }
+.as-main .rbtn.danger:hover { background: rgba(255,93,108,0.12); }
+.as-main .rbtn.sm { padding: 4px 9px; font-size: 9px; border-radius: 6px; }
+
+/* progress bar */
+.as-main .bar { height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; min-width: 80px; }
+.as-main .bar > i { display: block; height: 100%; background: var(--grad, var(--khaki)); border-radius: 3px; }
+
+/* signal dots */
+.as-main .sig { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.as-main .sig.teal { background: var(--khaki); box-shadow: 0 0 8px var(--khaki); }
+.as-main .sig.violet { background: var(--acc2, #8b7bff); }
+.as-main .sig.dim { background: var(--text-muted); }
+@keyframes r-glow { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+.as-main .sig.live { animation: r-glow 2.2s ease-in-out infinite; }
+
+/* live hero strip */
+.as-main .hero { border-radius: 13px; border: 1px solid rgba(35,227,192,0.4); overflow: hidden; margin-bottom: 16px; background: linear-gradient(120deg, rgba(35,227,192,0.10), rgba(139,123,255,0.08)); }
+.as-main .hero .inner { padding: 16px 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+/* feed */
+.as-main .feeditem { display: flex; gap: 9px; padding: 9px 15px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text-dim); }
+.as-main .feeditem:last-child { border: none; }
+.as-main .feeditem b { color: var(--text); }
+.as-main .feeditem .ts { color: var(--text-muted); margin-left: auto; font-size: 10px; }

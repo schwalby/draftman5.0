@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import './reimagined.css'
 import { Providers } from '@/components/Providers'
 import { ReactiveCanvas } from '@/components/ReactiveCanvas'
 

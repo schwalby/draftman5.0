@@ -100,84 +100,39 @@ export default function DashboardPage() {
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // ── Shared styles ──
-  const panel: React.CSSProperties = {
-    borderRadius: 8,
-    border: '1px solid rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-    boxShadow: '0 2px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05)',
-  };
+  // derived
+  const activeList = [...grouped.in_progress, ...grouped.published, ...grouped.unpublished];
+  const totalSignups = activeList.reduce((sum, e) => sum + (e.signup_count ?? 0), 0);
+  const hero = grouped.in_progress[0] ?? null;
 
-  const modalBtn: React.CSSProperties = {
-    padding: '5px 12px', fontSize: 11, letterSpacing: '0.07em',
-    textTransform: 'uppercase', border: '1px solid rgba(255,255,255,0.09)',
-    borderRadius: 3, background: 'none', color: 'var(--text-muted)',
-    cursor: 'pointer', fontFamily: 'var(--font-body)',
-  };
-
-  function PanelHeader({ title, color, count }: { title: string; color: string; count: number }) {
-    return (
-      <div style={{ padding: '10px 16px 9px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontFamily: 'var(--font-heading)', fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color }}>{title}</span>
-        <span style={{ fontSize: 9, color: 'var(--text-dim)', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '1px 6px' }}>{count}</span>
-      </div>
-    );
+  function sectionOf(e: EventRow): Exclude<Section, 'completed'> {
+    const s = getEventSection(e);
+    return (s === 'completed' ? 'published' : s);
   }
 
-  function ActionBtn({ children, onClick, variant = 'default', href }: { children: React.ReactNode; onClick?: () => void; variant?: 'default' | 'primary' | 'danger' | 'teal'; href?: string }) {
-    const base: React.CSSProperties = { padding: '3px 8px', fontSize: 9, letterSpacing: '0.07em', textTransform: 'uppercase', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2, background: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' };
-    const variants: Record<string, React.CSSProperties> = {
-      default: {},
-      primary: { borderColor: 'rgba(200,184,122,0.4)', color: 'var(--khaki)' },
-      danger:  { color: 'var(--danger, #c0392b)', borderColor: 'transparent' },
-      teal:    { borderColor: 'rgba(29,233,182,0.45)', color: 'var(--teal)' },
-    };
-    const style = { ...base, ...variants[variant] };
-    if (href) return <Link href={href} style={style} className="db-btn">{children}</Link>;
-    return <button style={style} className="db-btn" onClick={onClick}>{children}</button>;
+  function StatusTag({ e }: { e: EventRow }) {
+    const s = sectionOf(e);
+    if (s === 'in_progress') return <span className="tag teal"><span className="sig teal live" /> Live</span>;
+    if (s === 'published') return <span className="tag">Published</span>;
+    return <span className="tag dim">Draft</span>;
   }
 
-  function EventCard({ event, section }: { event: EventRow; section: Section }) {
-    const signupPct = event.capacity ? Math.min(100, Math.round(((event.signup_count ?? 0) / event.capacity) * 100)) : 0;
-    const barColor = section === 'in_progress' ? 'var(--teal)' : 'var(--khaki)';
-    const leftAccent = section === 'in_progress'
-      ? '2px solid var(--teal)'
-      : section === 'published'
-      ? '2px solid rgba(200,184,122,0.5)'
-      : '2px solid rgba(255,255,255,0.06)';
-
+  function RowActions({ e }: { e: EventRow }) {
+    const s = sectionOf(e);
     return (
-      <div className="db-card" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.09)', borderLeft: leftAccent, borderRadius: 6, padding: '10px 12px', ...(section === 'unpublished' ? { opacity: 0.55 } : {}) }}>
-        <div style={{ fontSize: 13, fontFamily: 'var(--font-heading)', color: 'var(--text)', letterSpacing: '0.02em', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.name}</div>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-          {event.format && <span>{event.format.toUpperCase()}</span>}
-          {event.format && event.starts_at && <span style={{ width: 2, height: 2, borderRadius: '50%', background: 'var(--text-dim)', flexShrink: 0, display: 'inline-block' }} />}
-          {event.starts_at && <span>{formatDate(event.starts_at)}</span>}
-        </div>
-        {section !== 'completed' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <div style={{ flex: 1, height: 2, background: 'rgba(255,255,255,0.05)', borderRadius: 1, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${signupPct}%`, background: barColor, borderRadius: 1 }} />
-            </div>
-            <span style={{ fontSize: 9, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
-              {event.signup_count ?? 0}/{event.capacity}
-              {(event.ringer_count ?? 0) > 0 && ` · ${event.ringer_count}r`}
-            </span>
-          </div>
+      <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        <Link href={getNavHref(e)} className={`rbtn sm ${s === 'in_progress' ? 'primary' : ''}`}>
+          {s === 'in_progress' ? 'Resume' : 'View'}
+        </Link>
+        <Link href={`/events/${e.id}/edit`} className="rbtn sm">Edit</Link>
+        {(s === 'published' || s === 'unpublished') && (
+          <button className="rbtn sm" onClick={() => handlePublish(e.id, e.status)}>
+            {s === 'published' ? 'Unpublish' : 'Publish'}
+          </button>
         )}
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <ActionBtn href={getNavHref(event)} variant={section === 'in_progress' ? 'teal' : 'default'}>
-            {section === 'in_progress' ? 'Resume →' : 'View'}
-          </ActionBtn>
-          {section !== 'completed' && <ActionBtn href={`/events/${event.id}/edit`}>Edit</ActionBtn>}
-          {(section === 'published' || section === 'unpublished') && (
-            <ActionBtn variant={section === 'unpublished' ? 'primary' : 'default'} onClick={() => handlePublish(event.id, event.status)}>
-              {section === 'published' ? 'Unpublish' : 'Publish'}
-            </ActionBtn>
-          )}
-          {section === 'in_progress' && <ActionBtn variant="danger" onClick={() => setResetModal(event.id)}>Reset</ActionBtn>}
-          {section !== 'in_progress' && <ActionBtn variant="danger" onClick={() => setDeleteModal(event.id)}>Delete</ActionBtn>}
-        </div>
+        {s === 'in_progress'
+          ? <button className="rbtn sm danger" onClick={() => setResetModal(e.id)}>Reset</button>
+          : <button className="rbtn sm danger" onClick={() => setDeleteModal(e.id)}>Delete</button>}
       </div>
     );
   }
@@ -185,111 +140,115 @@ export default function DashboardPage() {
   if (status === 'loading') return null;
 
   return (
-    <AppShell>
-      <style>{`
-        @keyframes db-up { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
-        .db-section { opacity:0; animation: db-up 0.45s ease forwards; }
-        .db-card { transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s; }
-        .db-card:hover { border-color: rgba(255,255,255,0.22) !important; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-        .db-btn { transition: border-color 0.12s, color 0.12s; }
-        .db-btn:hover { border-color: rgba(255,255,255,0.2) !important; color: var(--text) !important; }
-        .db-new:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,94,91,0.3); background: #ff7572 !important; }
-        @media (max-width: 768px) {
-          .db-main { padding: 20px 16px 60px !important; }
-          .db-middle { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+    <AppShell crumbs={[{ label: 'Home' }]}>
+      <main className="canvas">
 
-      <main style={{ maxWidth: 1060, margin: '0 auto', padding: '36px 24px 64px' }} className="db-main">
-
-        {/* Header */}
-        <div className="db-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, animationDelay: '0s' }}>
-          <div style={{ fontFamily: 'var(--font-heading)', fontSize: 22, letterSpacing: '0.04em', color: 'var(--khaki)' }}>
-            Organizer Dashboard
+        {/* heading */}
+        <div className="pagehead">
+          <div>
+            <div className="crumb">Workspace · <b>Home</b></div>
+            <h1>Dashboard</h1>
           </div>
-          <Link href="/events/new" className="db-new" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: 'var(--khaki)', color: '#0e0e0e', border: 'none', borderRadius: 3, fontSize: 11, fontFamily: 'var(--font-body)', letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none', fontWeight: 'bold', transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s' }}>
-            + New Event
-          </Link>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {isSuperUser && <Link href="/admin/audit" className="rbtn">Audit log</Link>}
+            <Link href="/events/new" className="rbtn primary">+ New Event</Link>
+          </div>
         </div>
-
-        {/* KPI tiles */}
-        {!loading && (
-          <div className="db-section" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 10, animationDelay: '0.03s' }}>
-            {([
-              { l: 'In progress', v: grouped.in_progress.length, c: 'var(--teal)' },
-              { l: 'Published',   v: grouped.published.length,   c: 'var(--khaki)' },
-              { l: 'Unpublished', v: grouped.unpublished.length, c: 'var(--text-dim)' },
-              { l: 'Completed',   v: grouped.completed.length,   c: 'var(--acc2, var(--text-dim))' },
-            ]).map(t => (
-              <div key={t.l} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: t.c }} />
-                <div style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 7 }}>{t.l}</div>
-                <div style={{ fontFamily: 'var(--font-heading)', fontSize: 24, lineHeight: 1, color: t.c }}>{t.v}</div>
-              </div>
-            ))}
-          </div>
-        )}
 
         {loading ? (
           <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Loading events…</div>
         ) : (<>
 
-          {/* IN PROGRESS — full width, hidden when empty */}
-          {grouped.in_progress.length > 0 && (
-            <div className="db-section" style={{ ...panel, background: 'var(--surface)', borderColor: 'rgba(29,233,182,0.2)', marginBottom: 6, animationDelay: '0.05s' }}>
-              <PanelHeader title="● In Progress" color="var(--teal)" count={grouped.in_progress.length} />
-              <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8 }}>
-                {grouped.in_progress.map(e => <EventCard key={e.id} event={e} section="in_progress" />)}
-              </div>
-            </div>
-          )}
-
-          {/* MIDDLE ROW — Unpublished + Published */}
-          <div className="db-middle" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
-
-            <div className="db-section" style={{ ...panel, background: 'var(--surface)', borderColor: 'rgba(126,184,212,0.14)', animationDelay: '0.10s' }}>
-              <PanelHeader title="— Unpublished" color="var(--text-muted)" count={grouped.unpublished.length} />
-              <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {grouped.unpublished.length === 0
-                  ? <div style={{ fontSize: 10, color: 'var(--text-dim)', padding: '4px 0' }}>No events</div>
-                  : grouped.unpublished.map(e => <EventCard key={e.id} event={e} section="unpublished" />)
-                }
-              </div>
-            </div>
-
-            <div className="db-section" style={{ ...panel, background: 'var(--surface)', borderColor: 'rgba(255,94,91,0.18)', animationDelay: '0.10s' }}>
-              <PanelHeader title="○ Published" color="var(--khaki)" count={grouped.published.length} />
-              <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {grouped.published.length === 0
-                  ? <div style={{ fontSize: 10, color: 'var(--text-dim)', padding: '4px 0' }}>No published events</div>
-                  : grouped.published.map(e => <EventCard key={e.id} event={e} section="published" />)
-                }
-              </div>
-            </div>
-
+          {/* KPI tiles */}
+          <div className="tiles">
+            <div className="tile"><div className="l">Active events</div><div className="v" style={{ color: 'var(--khaki)' }}>{activeList.length}</div></div>
+            <div className="tile"><div className="l">Signups (active)</div><div className="v">{totalSignups}</div></div>
+            <div className="tile dim"><div className="l">In progress</div><div className="v">{grouped.in_progress.length}</div></div>
+            <div className="tile violet"><div className="l">Completed</div><div className="v">{grouped.completed.length}</div></div>
           </div>
 
-          {/* COMPLETED — full width */}
-          <div className="db-section" style={{ ...panel, background: 'var(--surface)', borderColor: 'rgba(126,184,212,0.14)', animationDelay: '0.15s' }}>
-            <PanelHeader title="✓ Completed" color="var(--text-dim)" count={grouped.completed.length} />
-            <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {grouped.completed.length === 0
-                ? <div style={{ fontSize: 10, color: 'var(--text-dim)', padding: '4px 0' }}>No completed events yet.</div>
-                : grouped.completed.map(event => (
-                  <div key={event.id} className="db-card" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '8px 14px', opacity: 0.65, display: 'flex', alignItems: 'center', gap: 12, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)' }}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: event.champion_color || 'var(--text-dim)' }} />
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                      <div style={{ fontSize: 12, fontFamily: 'var(--font-heading)', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.name}</div>
-                      <div style={{ fontSize: 9, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{formatDate(event.starts_at)} · {event.format}</div>
-                      {event.champion_name && <div style={{ fontSize: 9, color: 'var(--khaki)', whiteSpace: 'nowrap' }}>🏆 {event.champion_name}</div>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <ActionBtn href={getNavHref(event)}>View</ActionBtn>
-                      <ActionBtn variant="danger" onClick={() => setDeleteModal(event.id)}>Del</ActionBtn>
-                    </div>
+          {/* live hero */}
+          {hero && (() => {
+            const pct = hero.capacity ? Math.min(100, Math.round(((hero.signup_count ?? 0) / hero.capacity) * 100)) : 0;
+            return (
+              <div className="hero"><div className="inner">
+                <span className="tag teal"><span className="sig teal live" /> Live</span>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontFamily: 'var(--font-heading)', fontSize: 18, color: 'var(--text)' }}>{hero.name}</div>
+                  <div className="meta">{hero.format ? hero.format.toUpperCase() : ''}{hero.starts_at ? ` · ${formatDate(hero.starts_at)}` : ''} · {hero.signup_count ?? 0}/{hero.capacity} signed up</div>
+                  <div className="bar" style={{ marginTop: 8, maxWidth: 360 }}><i style={{ width: `${pct}%` }} /></div>
+                </div>
+                <Link href={getNavHref(hero)} className="rbtn primary">▶ Resume</Link>
+              </div></div>
+            );
+          })()}
+
+          <div className="g2">
+            {/* events table */}
+            <div>
+              <div className="card">
+                <div className="ch"><span className="t">Events</span><span className="code">{activeList.length} active</span></div>
+                {activeList.length === 0 ? (
+                  <div className="cb meta">No open events. Create one to get started.</div>
+                ) : (
+                  <table>
+                    <thead><tr><th>Event</th><th>Date</th><th>Format</th><th style={{ width: 150 }}>Signups</th><th>Status</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
+                    <tbody>
+                      {activeList.map(e => {
+                        const pct = e.capacity ? Math.min(100, Math.round(((e.signup_count ?? 0) / e.capacity) * 100)) : 0;
+                        return (
+                          <tr key={e.id}>
+                            <td><div className="name">{e.name}</div></td>
+                            <td className="meta" style={{ whiteSpace: 'nowrap' }}>{formatDate(e.starts_at)}</td>
+                            <td className="meta">{e.format ? e.format.toUpperCase() : '—'}</td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div className="bar"><i style={{ width: `${pct}%` }} /></div>
+                                <span className="meta" style={{ whiteSpace: 'nowrap' }}>{e.signup_count ?? 0}/{e.capacity}{(e.ringer_count ?? 0) > 0 ? ` · ${e.ringer_count}r` : ''}</span>
+                              </div>
+                            </td>
+                            <td><StatusTag e={e} /></td>
+                            <td style={{ textAlign: 'right' }}><RowActions e={e} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            {/* right rail */}
+            <div>
+              <div className="card">
+                <div className="ch"><span className="t">Completed</span><span className="code">{grouped.completed.length}</span></div>
+                {grouped.completed.length === 0 ? (
+                  <div className="cb meta">No completed events yet.</div>
+                ) : (
+                  <div>
+                    {grouped.completed.map(e => (
+                      <div key={e.id} className="feeditem">
+                        <span className="sig" style={{ background: e.champion_color || 'var(--text-muted)' }} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div className="name" style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</div>
+                          <div className="meta" style={{ fontSize: 10 }}>{formatDate(e.starts_at)}{e.champion_name ? ` · 🏆 ${e.champion_name}` : ''}</div>
+                        </div>
+                        <Link href={getNavHref(e)} className="rbtn sm">View</Link>
+                      </div>
+                    ))}
                   </div>
-                ))
-              }
+                )}
+              </div>
+
+              <div className="card">
+                <div className="ch"><span className="t">Snapshot</span></div>
+                <div className="cb" style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 11 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="meta">In progress</span><span style={{ color: 'var(--khaki)' }}>{grouped.in_progress.length}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="meta">Published</span><span>{grouped.published.length}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="meta">Unpublished</span><span>{grouped.unpublished.length}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span className="meta">Total active signups</span><span>{totalSignups}</span></div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -299,12 +258,12 @@ export default function DashboardPage() {
       {/* Delete modal */}
       {deleteModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setDeleteModal(null)}>
-          <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 28, maxWidth: 380, width: '100%' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 28, maxWidth: 380, width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16, color: 'var(--text)', marginBottom: 10 }}>Delete Event</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>This will permanently delete the event and all associated signups, teams, and picks. This cannot be undone.</div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button style={modalBtn} onClick={() => setDeleteModal(null)}>Cancel</button>
-              <button style={{ ...modalBtn, color: 'var(--danger, #c0392b)', borderColor: 'currentColor' }} onClick={() => handleDelete(deleteModal)}>Delete</button>
+              <button className="rbtn" onClick={() => setDeleteModal(null)}>Cancel</button>
+              <button className="rbtn danger" onClick={() => handleDelete(deleteModal)}>Delete</button>
             </div>
           </div>
         </div>
@@ -313,12 +272,12 @@ export default function DashboardPage() {
       {/* Reset draft modal */}
       {resetModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setResetModal(null)}>
-          <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 28, maxWidth: 380, width: '100%' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 28, maxWidth: 380, width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16, color: 'var(--text)', marginBottom: 10 }}>Reset Picks</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>This will clear all picks and ready states for this event. Teams and captains will be preserved. Captains will need to re-ready in the lobby before picking can restart. This cannot be undone.</div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button style={modalBtn} onClick={() => setResetModal(null)}>Cancel</button>
-              <button style={{ ...modalBtn, color: 'var(--danger, #c0392b)', borderColor: 'currentColor' }} onClick={() => handleResetDraft(resetModal)}>Reset</button>
+              <button className="rbtn" onClick={() => setResetModal(null)}>Cancel</button>
+              <button className="rbtn danger" onClick={() => handleResetDraft(resetModal)}>Reset</button>
             </div>
           </div>
         </div>
