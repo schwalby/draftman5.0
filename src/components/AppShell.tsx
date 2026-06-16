@@ -58,7 +58,7 @@ export function AppShell({ children, crumbs }: Props) {
 
   return (
     <div className="as-root">
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .as-root { display: grid; grid-template-columns: 64px 1fr; min-height: 100vh; }
         .as-rail { position: sticky; top: 0; height: 100vh; background: var(--surface); border-right: 1px solid var(--border);
           display: flex; flex-direction: column; align-items: center; padding: 11px 0; gap: 5px; z-index: 40; }
@@ -94,7 +94,7 @@ export function AppShell({ children, crumbs }: Props) {
           .as-nav .l { display: none; }
           .as-ribbon { padding: 0 12px; gap: 10px; }
         }
-      `}</style>
+      ` }} />
 
       {/* icon rail */}
       <nav className="as-rail">

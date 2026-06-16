@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Topbar } from '@/components/Topbar'
+import { AppShell } from '@/components/AppShell'
 import { Spinner } from '@/components/Spinner'
 
 interface User {
@@ -19,12 +19,6 @@ interface User {
 
 type FilterType = 'all' | 'admin' | 'superuser'
 
-function roleBadge(u: User) {
-  if (u.is_superuser) return { label: '★ SuperUser', color: 'var(--khaki)', bg: 'rgba(126,184,212,0.08)', border: 'rgba(126,184,212,0.35)' }
-  if (u.is_organizer) return { label: '⚙ Draft Admin', color: 'var(--light)', bg: 'rgba(74,156,106,0.08)', border: 'rgba(74,156,106,0.35)' }
-  return { label: 'Player', color: 'var(--text-dim)', bg: 'transparent', border: 'var(--border)' }
-}
-
 function avatarUrl(u: User) {
   if (u.discord_id && u.discord_avatar) {
     return `https://cdn.discordapp.com/avatars/${u.discord_id}/${u.discord_avatar}.png`
@@ -34,6 +28,12 @@ function avatarUrl(u: User) {
 
 function joinedDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+
+function RoleTag({ u }: { u: User }) {
+  if (u.is_superuser) return <span className="tag violet">SuperUser</span>
+  if (u.is_organizer) return <span className="tag teal">Organizer</span>
+  return <span className="tag dim">Player</span>
 }
 
 export default function SettingsPage() {
@@ -69,93 +69,58 @@ export default function SettingsPage() {
   const [botSubmitting, setBotSubmitting] = useState(false)
   const [botMsg, setBotMsg] = useState<{ text: string; err?: boolean } | null>(null)
 
-  // ── Auth gate ──────────────────────────────────────────────────
-  // We check is_superuser from the DB directly on load — not from session
-  // since isSuperUser isn't in the session token yet
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.replace('/')
-    }
+    if (status === 'unauthenticated') router.replace('/')
   }, [status, router])
 
-  // ── Fetch users ────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     const res = await fetch('/api/users')
-    if (res.status === 403) {
-      // Not a SuperUser — send them away
-      router.replace('/dashboard')
-      return
-    }
-    if (res.ok) {
-      const data = await res.json()
-      setUsers(data)
-    }
+    if (res.status === 403) { router.replace('/dashboard'); return }
+    if (res.ok) { const data = await res.json(); setUsers(data) }
     setLoading(false)
   }, [router])
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      fetchUsers()
-    }
+    if (status === 'authenticated') fetchUsers()
   }, [status, fetchUsers])
 
-  // ── Toast helper ───────────────────────────────────────────────
   function showToast(msg: string, error = false) {
     setToast({ msg, error })
     setTimeout(() => setToast(null), 2800)
   }
 
-  // ── Toggle handler — opens modal ───────────────────────────────
-  function requestToggle(
-    userId: string,
-    field: 'is_organizer' | 'is_superuser',
-    newVal: boolean,
-    userName: string
-  ) {
+  function requestToggle(userId: string, field: 'is_organizer' | 'is_superuser', newVal: boolean, userName: string) {
     setModal({ userId, field, newVal, userName })
   }
 
-  // ── Confirm modal ──────────────────────────────────────────────
   async function confirmToggle() {
     if (!modal) return
     setSaving(true)
-
     const res = await fetch(`/api/users/${modal.userId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [modal.field]: modal.newVal }),
     })
-
     const data = await res.json()
     setSaving(false)
-
     if (!res.ok) {
       showToast(data.error || 'Something went wrong', true)
       setModal(null)
       return
     }
-
-    // Update local state
-    setUsers(prev =>
-      prev.map(u => {
-        if (u.id !== modal.userId) return u
-        const updated = { ...u, [modal.field]: modal.newVal }
-        // SuperUser promotion auto-grants Draft Admin
-        if (modal.field === 'is_superuser' && modal.newVal) {
-          updated.is_organizer = true
-        }
-        return updated
-      })
-    )
-
+    setUsers(prev => prev.map(u => {
+      if (u.id !== modal.userId) return u
+      const updated = { ...u, [modal.field]: modal.newVal }
+      if (modal.field === 'is_superuser' && modal.newVal) updated.is_organizer = true
+      return updated
+    }))
     const fieldLabel = modal.field === 'is_organizer' ? 'Draft Admin' : 'SuperUser'
     const action = modal.newVal ? 'granted' : 'revoked'
     showToast(`${modal.userName} — ${fieldLabel} ${action}`)
     setModal(null)
   }
 
-  // ── Filtered users ─────────────────────────────────────────────
   const visible = users.filter(u => {
     const q = search.toLowerCase()
     const matchSearch =
@@ -171,7 +136,10 @@ export default function SettingsPage() {
   const realUsers = visible.filter(u => !u.discord_id?.startsWith('1000000000000000'))
   const fakeUsers = visible.filter(u => u.discord_id?.startsWith('1000000000000000'))
 
-  // ── Modal content ──────────────────────────────────────────────
+  const organizerCount = users.filter(u => u.is_organizer).length
+  const superCount = users.filter(u => u.is_superuser).length
+  const playerCount = users.filter(u => !u.is_organizer && !u.is_superuser).length
+
   const modalFieldLabel = modal?.field === 'is_organizer' ? 'Draft Admin' : 'SuperUser'
   const modalAction = modal?.newVal ? 'Grant' : 'Revoke'
   const modalDesc = modal
@@ -184,7 +152,7 @@ export default function SettingsPage() {
         : 'their SuperUser access.'
     : ''
 
-  // ── DEV: Seed event + signups only (no teams, no picks) ────────
+  // ── DEV: Seed event + signups only ──
   async function seedSignupsOnly() {
     setSeedingSignups(true)
     setSeedSignupsLog([])
@@ -205,12 +173,11 @@ export default function SettingsPage() {
     }
   }
 
-  // ── DEV: Seed a test draft ─────────────────────────────────────
+  // ── DEV: Seed a test draft ──
   async function seedTestDraft() {
     setSeeding(true)
     setSeedLog([])
     const log = (msg: string) => setSeedLog(prev => [...prev, msg])
-
     try {
       log('Generating test draft...')
       const res = await fetch('/api/admin/seed', { method: 'POST' })
@@ -228,7 +195,7 @@ export default function SettingsPage() {
     }
   }
 
-  // ── DEV: Fake bot result ───────────────────────────────────────
+  // ── DEV: Fake bot result ──
   async function loadBotEvents() {
     const res = await fetch('/api/events')
     if (!res.ok) return
@@ -267,18 +234,12 @@ export default function SettingsPage() {
     const res = await fetch(`/api/tournaments/${botTournamentId}/matches/${botMatchId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'report',
-        score_team1: parseInt(botScore1),
-        score_team2: parseInt(botScore2),
-      }),
+      body: JSON.stringify({ action: 'report', score_team1: parseInt(botScore1), score_team2: parseInt(botScore2) }),
     })
     setBotSubmitting(false)
     if (res.ok) {
       setBotMsg({ text: '✓ Result submitted — check Confirm Queue on the draft page' })
-      setBotScore1('')
-      setBotScore2('')
-      setBotMatchId('')
+      setBotScore1(''); setBotScore2(''); setBotMatchId('')
     } else {
       const d = await res.json()
       setBotMsg({ text: `❌ ${d.error ?? 'Failed'}`, err: true })
@@ -287,489 +248,209 @@ export default function SettingsPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spinner />
-      </div>
+      <AppShell crumbs={[{ label: 'Settings' }]}>
+        <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner /></div>
+      </AppShell>
     )
   }
 
+  function UserRow({ u, dim }: { u: User; dim?: boolean }) {
+    const isSelf = u.id === session?.user?.userId
+    const pfp = avatarUrl(u)
+    const displayName = u.ingame_name || u.discord_username
+    const initial = displayName[0].toUpperCase()
+    return (
+      <tr style={dim ? { opacity: 0.6 } : undefined}>
+        <td>
+          <div className="user">
+            <div className="av">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {pfp ? <img src={pfp} alt={displayName} /> : initial}
+            </div>
+            <div><div className="nm">{displayName}</div><div className="sub">{u.discord_username}</div></div>
+          </div>
+        </td>
+        <td className="meta" style={{ whiteSpace: 'nowrap' }}>{joinedDate(u.created_at)}</td>
+        <td><RoleTag u={u} /></td>
+        <td style={{ textAlign: 'center' }}>
+          <Toggle checked={u.is_organizer} color="green" onChange={val => requestToggle(u.id, 'is_organizer', val, displayName)} />
+        </td>
+        <td style={{ textAlign: 'center' }}>
+          {isSelf
+            ? <span title="You can't remove your own SuperUser access"><Toggle checked disabled /></span>
+            : <Toggle checked={u.is_superuser} onChange={val => requestToggle(u.id, 'is_superuser', val, displayName)} />}
+        </td>
+      </tr>
+    )
+  }
+
+  const devCardStyle: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: '3px solid var(--rust)', borderRadius: 12, padding: '18px 20px', marginBottom: 12 }
+  const devBtnStyle = (busy: boolean): React.CSSProperties => ({
+    fontFamily: 'var(--font-body)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase',
+    padding: '8px 16px', borderRadius: 7, border: '1px solid rgba(255,93,108,0.4)',
+    color: busy ? 'var(--text-dim)' : 'var(--rust)', background: busy ? 'transparent' : 'rgba(255,93,108,0.1)',
+    cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1,
+  })
+  const devInput: React.CSSProperties = { background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7, padding: '7px 10px', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12 }
+
   return (
-    <>
-      <Topbar />
+    <AppShell crumbs={[{ label: 'Settings' }]}>
+      <main className="canvas">
 
-      <style>{`
-        .st-filter-btn { transition: color 0.15s, border-color 0.15s, background 0.15s; }
-        .st-filter-btn:not(.st-active):hover { color: var(--text-dim) !important; border-color: rgba(126,184,212,0.38) !important; }
-        .st-user-row { transition: background 0.15s; }
-        .st-user-row:hover { background: rgba(126,184,212,0.03); }
-        .st-search:focus { border-color: rgba(126,184,212,0.38) !important; outline: none; }
-      `}</style>
-
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '36px 24px' }}>
-
-        {/* Page header */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, gap: 16 }}>
+        {/* heading */}
+        <div className="pagehead">
           <div>
-            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 28, fontWeight: 600, letterSpacing: '0.06em', color: 'var(--text)', lineHeight: 1 }}>
-              USER ROLES
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>
-              Manage Draft Admin and SuperUser access for all registered players.
-            </div>
+            <div className="crumb">SuperUser · <b>Access control</b></div>
+            <h1>Settings</h1>
           </div>
-          <div style={{
-            fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.1em',
-            color: 'var(--text-dim)', background: 'var(--surface)',
-            border: '1px solid var(--border)', padding: '5px 12px', borderRadius: 3, flexShrink: 0
-          }}>
-            <strong style={{ color: 'var(--khaki)' }}>{users.length}</strong> REGISTERED USERS
-          </div>
+          <input className="rinput" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search members…" style={{ minWidth: 220 }} />
         </div>
 
-        {/* Toolbar */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
-            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', fontSize: 12, pointerEvents: 'none' }}>⌕</span>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name or Discord…"
-              className="st-search"
-              style={{
-                width: '100%', background: 'var(--surface)', border: '1px solid var(--border)',
-                color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12,
-                padding: '8px 12px 8px 30px', borderRadius: 3, outline: 'none'
-              }}
-            />
-          </div>
-          {(['all', 'admin', 'superuser'] as FilterType[]).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`st-filter-btn${filter === f ? ' st-active' : ''}`}
-              style={{
-                fontFamily: 'var(--font-heading)', fontSize: 10, letterSpacing: '0.1em',
-                padding: '7px 14px', borderRadius: 3, cursor: 'pointer', textTransform: 'uppercase',
-                border: filter === f ? '1px solid var(--khaki)' : '1px solid var(--border)',
-                background: filter === f ? 'rgba(200,184,122,0.07)' : 'transparent',
-                color: filter === f ? 'var(--khaki)' : 'var(--text-dim)',
-              }}
-            >
-              {f === 'all' ? 'All' : f === 'admin' ? 'Draft Admins' : 'SuperUsers'}
-            </button>
-          ))}
+        {/* tiles */}
+        <div className="tiles">
+          <div className="tile"><div className="l">Total members</div><div className="v">{users.length}</div></div>
+          <div className="tile"><div className="l">Organizers</div><div className="v" style={{ color: 'var(--khaki)' }}>{organizerCount}</div></div>
+          <div className="tile violet"><div className="l">SuperUsers</div><div className="v" style={{ color: 'var(--acc2)' }}>{superCount}</div></div>
+          <div className="tile dim"><div className="l">Players</div><div className="v">{playerCount}</div></div>
         </div>
 
-        {/* Table */}
-        <div className="glass" style={{ overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        {/* members */}
+        <div className="card">
+          <div className="ch">
+            <span className="t">Members</span>
+            <div className="tabs">
+              {(['all', 'admin', 'superuser'] as FilterType[]).map(f => (
+                <button key={f} className={`tb ${filter === f ? 'on' : ''}`} onClick={() => setFilter(f)}>
+                  {f === 'all' ? 'All' : f === 'admin' ? 'Organizers' : 'SuperUsers'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <table>
             <thead>
-              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                {['PLAYER', 'JOINED', 'CURRENT ROLE', 'DRAFT ADMIN', 'SUPERUSER'].map((h, i) => (
-                  <th key={h} style={{
-                    fontFamily: 'var(--font-heading)', fontSize: 9, letterSpacing: '0.18em',
-                    color: 'var(--text-dim)', padding: '10px 16px', textAlign: i >= 3 ? 'center' : 'left',
-                    fontWeight: 500, textTransform: 'uppercase'
-                  }}>{h}</th>
-                ))}
+              <tr>
+                <th>Member</th><th>Joined</th><th>Role</th>
+                <th style={{ textAlign: 'center' }}>Organizer</th><th style={{ textAlign: 'center' }}>SuperUser</th>
               </tr>
             </thead>
             <tbody>
               {realUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-dim)', padding: 28, fontSize: 12 }}>
-                    No users match this filter.
-                  </td>
-                </tr>
-              ) : realUsers.map((u, idx) => {
-                const isSelf = u.id === session?.user?.userId
-                const badge = roleBadge(u)
-                const pfp = avatarUrl(u)
-                const displayName = u.ingame_name || u.discord_username
-                const initial = displayName[0].toUpperCase()
+                <tr><td colSpan={5} className="meta" style={{ textAlign: 'center', padding: 24 }}>No users match this filter.</td></tr>
+              ) : realUsers.map(u => <UserRow key={u.id} u={u} />)}
 
-                return (
-                  <tr key={u.id} className="st-user-row" style={{ borderBottom: idx < realUsers.length - 1 ? '1px solid var(--border)' : 'none' }}>
-
-                    {/* Player cell */}
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: '50%',
-                          background: 'var(--surface2)', border: '1px solid var(--border)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontFamily: 'var(--font-heading)', fontSize: 13, color: 'var(--khaki)',
-                          flexShrink: 0, overflow: 'hidden'
-                        }}>
-                          {pfp
-                            ? <img src={pfp} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            : initial
-                          }
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 13, color: 'var(--text)' }}>{displayName}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{u.discord_username}</div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Joined */}
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{joinedDate(u.created_at)}</span>
-                    </td>
-
-                    {/* Role badge */}
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{
-                        fontFamily: 'var(--font-heading)', fontSize: 9, letterSpacing: '0.12em',
-                        textTransform: 'uppercase', padding: '3px 8px', borderRadius: 2,
-                        color: badge.color, background: badge.bg, border: `1px solid ${badge.border}`,
-                        display: 'inline-block'
-                      }}>{badge.label}</span>
-                    </td>
-
-                    {/* Draft Admin toggle */}
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      <Toggle
-                        checked={u.is_organizer}
-                        color="green"
-                        onChange={val => requestToggle(u.id, 'is_organizer', val, displayName)}
-                      />
-                    </td>
-
-                    {/* SuperUser toggle */}
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      {isSelf ? (
-                        <div style={{ position: 'relative', display: 'inline-flex' }} title="You can't remove your own SuperUser access">
-                          <Toggle checked={true} disabled />
-                        </div>
-                      ) : (
-                        <Toggle
-                          checked={u.is_superuser}
-                          onChange={val => requestToggle(u.id, 'is_superuser', val, displayName)}
-                        />
-                      )}
-                    </td>
-
-                  </tr>
-                )
-              })}
-
-              {/* Test accounts toggle row */}
               {fakeUsers.length > 0 && (
                 <tr>
                   <td colSpan={5} style={{ padding: 0 }}>
-                    <button
-                      onClick={() => setShowTestAccounts(p => !p)}
-                      style={{
-                        width: '100%', padding: '10px 16px', background: 'var(--surface2)',
-                        border: 'none', borderTop: '1px solid var(--border)',
-                        color: 'var(--text-dim)', fontFamily: 'var(--font-body)', fontSize: 11,
-                        cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8,
-                      }}
-                    >
+                    <button onClick={() => setShowTestAccounts(p => !p)}
+                      style={{ width: '100%', padding: '10px 15px', background: 'var(--surface2)', border: 'none', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', fontSize: 11, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 10 }}>{showTestAccounts ? '▾' : '▸'}</span>
                       {showTestAccounts ? 'Hide' : 'Show'} test accounts ({fakeUsers.length})
                     </button>
                   </td>
                 </tr>
               )}
-
-              {/* Fake users — collapsed by default */}
-              {showTestAccounts && fakeUsers.map((u, idx) => {
-                const isSelf = u.id === session?.user?.userId
-                const badge = roleBadge(u)
-                const pfp = avatarUrl(u)
-                const displayName = u.ingame_name || u.discord_username
-                const initial = displayName[0].toUpperCase()
-
-                return (
-                  <tr key={u.id} style={{ borderBottom: idx < fakeUsers.length - 1 ? '1px solid var(--border)' : 'none', opacity: 0.6 }}>
-                    <td style={{ padding: '10px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                          width: 28, height: 28, borderRadius: '50%',
-                          background: 'var(--surface2)', border: '1px solid var(--border)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontFamily: 'var(--font-heading)', fontSize: 11, color: 'var(--text-dim)',
-                          flexShrink: 0,
-                        }}>
-                          {pfp ? <img src={pfp} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initial}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{displayName}</div>
-                          <div style={{ fontSize: 10, color: 'var(--text-dim)', opacity: 0.6 }}>{u.discord_username}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ padding: '10px 16px' }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{joinedDate(u.created_at)}</span>
-                    </td>
-                    <td style={{ padding: '10px 16px' }}>
-                      <span style={{ fontFamily: 'var(--font-heading)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '2px 6px', borderRadius: 2, color: 'var(--text-dim)', background: 'transparent', border: '1px solid var(--border)', display: 'inline-block' }}>test</span>
-                    </td>
-                    <td style={{ padding: '10px 16px', textAlign: 'center' }}>
-                      <Toggle checked={u.is_organizer} color="green" onChange={val => requestToggle(u.id, 'is_organizer', val, displayName)} />
-                    </td>
-                    <td style={{ padding: '10px 16px', textAlign: 'center' }}>
-                      {isSelf
-                        ? <div style={{ position: 'relative', display: 'inline-flex' }}><Toggle checked={true} disabled /></div>
-                        : <Toggle checked={u.is_superuser} onChange={val => requestToggle(u.id, 'is_superuser', val, displayName)} />
-                      }
-                    </td>
-                  </tr>
-                )
-              })}
+              {showTestAccounts && fakeUsers.map(u => <UserRow key={u.id} u={u} dim />)}
             </tbody>
           </table>
         </div>
-      </div>
 
-        {/* ── DEV TOOLS ── remove before going live ───────────────── */}
-        <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 24px 48px' }}>
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 32 }}>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontFamily: 'var(--font-heading)', fontSize: 18, fontWeight: 600, letterSpacing: '0.06em', color: 'var(--rust)' }}>
-                ⚠ DEV TOOLS
+        {/* ── DEV TOOLS ── */}
+        <div style={{ marginTop: 24 }}>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16, color: 'var(--rust)', letterSpacing: '0.04em' }}>⚠ Dev Tools</div>
+            <div className="meta">Remove this section before going live.</div>
+          </div>
+
+          <div style={devCardStyle}>
+            <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Seed Test Draft</div>
+            <div className="meta" style={{ marginBottom: 14, lineHeight: 1.6 }}>Creates a 6v6 event, signs up all fake users, creates 8 teams, runs a full snake draft, then drops you at tournament setup.</div>
+            <button onClick={seedTestDraft} disabled={seeding} style={devBtnStyle(seeding)}>{seeding ? '⏳ Seeding...' : '⚡ Generate Test Draft'}</button>
+            {seedLog.length > 0 && (
+              <div style={{ marginTop: 14, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7, padding: '10px 14px' }}>
+                {seedLog.map((line, i) => <div key={i} style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: line.startsWith('❌') ? 'var(--rust)' : line.startsWith('✓') ? 'var(--green-light)' : 'var(--text-dim)', lineHeight: 1.8 }}>{line}</div>)}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                Remove this section before going live.
+            )}
+          </div>
+
+          <div style={devCardStyle}>
+            <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Seed Signups Only</div>
+            <div className="meta" style={{ marginBottom: 14, lineHeight: 1.6 }}>Creates a 6v6 event and signs up all fake users — no teams, no picks. Use this to test the full draft flow from scratch.</div>
+            <button onClick={seedSignupsOnly} disabled={seedingSignups} style={devBtnStyle(seedingSignups)}>{seedingSignups ? '⏳ Seeding...' : '⚡ Generate Signups Only'}</button>
+            {seedSignupsLog.length > 0 && (
+              <div style={{ marginTop: 14, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 7, padding: '10px 14px' }}>
+                {seedSignupsLog.map((line, i) => <div key={i} style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: line.startsWith('❌') ? 'var(--rust)' : line.startsWith('✓') ? 'var(--green-light)' : 'var(--text-dim)', lineHeight: 1.8 }}>{line}</div>)}
               </div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.13)', borderLeft: '3px solid var(--rust)', borderRadius: 8, boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.13)', padding: '20px 24px' }}>
-              <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Seed Test Draft</div>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
-                Creates a 6v6 event, signs up all fake users, creates 8 teams, runs a full snake draft, then drops you at tournament setup. Uses existing fake users (discord_id starting with 1000000000000000).
+            )}
+          </div>
+
+          <div style={devCardStyle}>
+            <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Fake Bot Result</div>
+            <div className="meta" style={{ marginBottom: 14, lineHeight: 1.6 }}>Submit a match score as if the KTP Score Bot reported it. Result goes to Awaiting Confirmation — then confirm it on the draft page.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select value={botEventId} onChange={e => { setBotEventId(e.target.value); if (e.target.value) loadBotMatches(e.target.value) }} onClick={() => { if (botEvents.length === 0) loadBotEvents() }} style={{ ...devInput, flex: 1, cursor: 'pointer', color: botEventId ? 'var(--text)' : 'var(--text-dim)' }}>
+                  <option value=''>Select event…</option>
+                  {botEvents.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+                <button onClick={loadBotEvents} style={{ ...devInput, cursor: 'pointer', color: 'var(--text-dim)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>↺ Refresh</button>
               </div>
-              <button
-                onClick={seedTestDraft}
-                disabled={seeding}
-                style={{
-                  fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', padding: '8px 20px', borderRadius: 3,
-                  border: '1px solid var(--rust)', color: seeding ? 'var(--text-dim)' : 'var(--rust)',
-                  background: seeding ? 'transparent' : 'rgba(192,57,43,0.08)',
-                  cursor: seeding ? 'not-allowed' : 'pointer', opacity: seeding ? 0.6 : 1,
-                }}
-              >
-                {seeding ? '⏳ Seeding...' : '⚡ Generate Test Draft'}
-              </button>
-              {seedLog.length > 0 && (
-                <div style={{ marginTop: 16, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '10px 14px' }}>
-                  {seedLog.map((line, i) => (
-                    <div key={i} style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: line.startsWith('❌') ? 'var(--rust)' : line.startsWith('✓') ? 'var(--green-light)' : 'var(--text-dim)', lineHeight: 1.8 }}>
-                      {line}
-                    </div>
-                  ))}
+              {botEventId && (
+                <select value={botMatchId} onChange={e => setBotMatchId(e.target.value)} style={{ ...devInput, cursor: 'pointer', color: botMatchId ? 'var(--text)' : 'var(--text-dim)' }}>
+                  <option value=''>Select match…</option>
+                  {botMatches.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+              )}
+              {botMatchId && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input type='number' min={0} placeholder='Score Team 1' value={botScore1} onChange={e => setBotScore1(e.target.value)} style={{ ...devInput, width: 130 }} />
+                  <span className="meta">vs</span>
+                  <input type='number' min={0} placeholder='Score Team 2' value={botScore2} onChange={e => setBotScore2(e.target.value)} style={{ ...devInput, width: 130 }} />
+                  <button onClick={submitFakeResult} disabled={botSubmitting || botScore1 === '' || botScore2 === ''} style={devBtnStyle(botSubmitting || botScore1 === '' || botScore2 === '')}>{botSubmitting ? '⏳ Submitting...' : '⚡ Submit Result'}</button>
                 </div>
               )}
+              {botMsg && <div style={{ fontSize: 11, color: botMsg.err ? 'var(--rust)' : 'var(--green-light)', fontFamily: 'var(--font-body)' }}>{botMsg.text}</div>}
             </div>
-
-            {/* Seed Signups Only */}
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.13)', borderLeft: '3px solid var(--rust)', borderRadius: 8, boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.13)', padding: '20px 24px', marginTop: 12 }}>
-              <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Seed Signups Only</div>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
-                Creates a 6v6 event and signs up all fake users — no teams, no picks. Use this to test the full draft flow from scratch.
-              </div>
-              <button
-                onClick={seedSignupsOnly}
-                disabled={seedingSignups}
-                style={{
-                  fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', padding: '8px 20px', borderRadius: 3,
-                  border: '1px solid var(--rust)', color: seedingSignups ? 'var(--text-dim)' : 'var(--rust)',
-                  background: seedingSignups ? 'transparent' : 'rgba(192,57,43,0.08)',
-                  cursor: seedingSignups ? 'not-allowed' : 'pointer', opacity: seedingSignups ? 0.6 : 1,
-                }}
-              >
-                {seedingSignups ? '⏳ Seeding...' : '⚡ Generate Signups Only'}
-              </button>
-              {seedSignupsLog.length > 0 && (
-                <div style={{ marginTop: 16, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '10px 14px' }}>
-                  {seedSignupsLog.map((line, i) => (
-                    <div key={i} style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: line.startsWith('❌') ? 'var(--rust)' : line.startsWith('✓') ? 'var(--green-light)' : 'var(--text-dim)', lineHeight: 1.8 }}>
-                      {line}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Fake Bot Result */}
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.13)', borderLeft: '3px solid var(--rust)', borderRadius: 8, boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.13)', padding: '20px 24px', marginTop: 12 }}>
-              <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 4, fontWeight: 500 }}>Fake Bot Result</div>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
-                Submit a match score as if the KTP Score Bot reported it. Result goes to Awaiting Confirmation — then confirm it on the draft page.
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <select
-                    value={botEventId}
-                    onChange={e => { setBotEventId(e.target.value); if (e.target.value) loadBotMatches(e.target.value) }}
-                    onClick={() => { if (botEvents.length === 0) loadBotEvents() }}
-                    style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '7px 10px', color: botEventId ? 'var(--text)' : 'var(--text-dim)', fontFamily: 'var(--font-body)', fontSize: 12, cursor: 'pointer' }}
-                  >
-                    <option value=''>Select event…</option>
-                    {botEvents.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                  </select>
-                  <button onClick={loadBotEvents} style={{ fontFamily: 'var(--font-heading)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '7px 12px', borderRadius: 3, border: '1px solid var(--border)', color: 'var(--text-dim)', background: 'transparent', cursor: 'pointer' }}>↺ Refresh</button>
-                </div>
-                {botEventId && (
-                  <select
-                    value={botMatchId}
-                    onChange={e => setBotMatchId(e.target.value)}
-                    style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '7px 10px', color: botMatchId ? 'var(--text)' : 'var(--text-dim)', fontFamily: 'var(--font-body)', fontSize: 12, cursor: 'pointer' }}
-                  >
-                    <option value=''>Select match…</option>
-                    {botMatches.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                  </select>
-                )}
-                {botMatchId && (
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input
-                      type='number' min={0} placeholder='Score Team 1'
-                      value={botScore1} onChange={e => setBotScore1(e.target.value)}
-                      style={{ width: 120, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '7px 10px', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12 }}
-                    />
-                    <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>vs</span>
-                    <input
-                      type='number' min={0} placeholder='Score Team 2'
-                      value={botScore2} onChange={e => setBotScore2(e.target.value)}
-                      style={{ width: 120, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 3, padding: '7px 10px', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12 }}
-                    />
-                    <button
-                      onClick={submitFakeResult}
-                      disabled={botSubmitting || botScore1 === '' || botScore2 === ''}
-                      style={{
-                        fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.12em',
-                        textTransform: 'uppercase', padding: '8px 20px', borderRadius: 3,
-                        border: '1px solid var(--rust)', color: botSubmitting ? 'var(--text-dim)' : 'var(--rust)',
-                        background: botSubmitting ? 'transparent' : 'rgba(192,57,43,0.08)',
-                        cursor: botSubmitting ? 'not-allowed' : 'pointer', opacity: botSubmitting ? 0.6 : 1,
-                      }}
-                    >{botSubmitting ? '⏳ Submitting...' : '⚡ Submit Result'}</button>
-                  </div>
-                )}
-                {botMsg && (
-                  <div style={{ fontSize: 11, color: botMsg.err ? 'var(--rust)' : 'var(--green-light)', fontFamily: 'var(--font-body)' }}>
-                    {botMsg.text}
-                  </div>
-                )}
-              </div>
-            </div>
-
           </div>
         </div>
-        {/* ── END DEV TOOLS ─────────────────────────────────────── */}
+      </main>
 
-      {/* ── Confirm modal ───────────────────────────────────────── */}
+      {/* ── Confirm modal ── */}
       {modal && (
-        <div
-          onClick={e => { if (e.target === e.currentTarget) setModal(null) }}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200
-          }}
-        >
-          <div style={{
-            background: 'var(--surface)', border: '1px solid var(--border-strong)',
-            borderTop: '2px solid var(--khaki)', borderRadius: 4, padding: '24px 28px', width: 360
-          }}>
-            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16, fontWeight: 600, letterSpacing: '0.06em', color: 'var(--text)', marginBottom: 10 }}>
-              {modalAction} {modalFieldLabel} access
-            </div>
+        <div onClick={e => { if (e.target === e.currentTarget) setModal(null) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderTop: '2px solid var(--khaki)', borderRadius: 12, padding: '24px 28px', width: 360 }}>
+            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16, color: 'var(--text)', marginBottom: 10 }}>{modalAction} {modalFieldLabel} access</div>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.6, marginBottom: 20 }}>
-              This will {modal.newVal ? 'give' : 'remove'} <strong style={{ color: 'var(--text)' }}>{modal.userName}</strong> {modalDesc}
-              <br /><br />Are you sure?
+              This will {modal.newVal ? 'give' : 'remove'} <strong style={{ color: 'var(--text)' }}>{modal.userName}</strong> {modalDesc}<br /><br />Are you sure?
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setModal(null)}
-                style={{
-                  fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', padding: '8px 18px', borderRadius: 3,
-                  border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer'
-                }}
-              >Cancel</button>
-              <button
-                onClick={confirmToggle}
-                disabled={saving}
-                style={{
-                  fontFamily: 'var(--font-heading)', fontSize: 11, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', padding: '8px 18px', borderRadius: 3, cursor: 'pointer',
-                  border: modal.newVal ? '1px solid var(--khaki)' : '1px solid var(--rust)',
-                  background: modal.newVal ? 'rgba(126,184,212,0.12)' : 'rgba(192,57,43,0.12)',
-                  color: modal.newVal ? 'var(--khaki)' : 'var(--rust)',
-                  opacity: saving ? 0.6 : 1
-                }}
-              >{saving ? 'Saving…' : modalAction}</button>
+              <button className="rbtn" onClick={() => setModal(null)}>Cancel</button>
+              <button className={`rbtn ${modal.newVal ? 'primary' : 'danger'}`} onClick={confirmToggle} disabled={saving}>{saving ? 'Saving…' : modalAction}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Toast ───────────────────────────────────────────────── */}
+      {/* ── Toast ── */}
       {toast && (
-        <div style={{
-          position: 'fixed', bottom: 24, right: 24,
-          background: 'var(--surface)', border: '1px solid var(--border-strong)',
-          borderLeft: `3px solid ${toast.error ? 'var(--rust)' : 'var(--green-light)'}`,
-          color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12,
-          padding: '10px 16px', borderRadius: 3, zIndex: 999,
-          animation: 'slideUp 0.2s ease'
-        }}>
+        <div style={{ position: 'fixed', bottom: 24, right: 24, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderLeft: `3px solid ${toast.error ? 'var(--rust)' : 'var(--green-light)'}`, color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: 12, padding: '10px 16px', borderRadius: 7, zIndex: 999 }}>
           {toast.msg}
         </div>
       )}
-
-      <style>{`
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-    </>
+    </AppShell>
   )
 }
 
-// ── Toggle component ─────────────────────────────────────────────
-function Toggle({
-  checked,
-  onChange,
-  color = 'khaki',
-  disabled = false,
-}: {
-  checked: boolean
-  onChange?: (val: boolean) => void
-  color?: 'khaki' | 'green'
-  disabled?: boolean
+// ── Toggle component ──
+function Toggle({ checked, onChange, color = 'khaki', disabled = false }: {
+  checked: boolean; onChange?: (val: boolean) => void; color?: 'khaki' | 'green'; disabled?: boolean
 }) {
-  const activeColor = color === 'green' ? '#4a9c6a' : 'var(--khaki)'
-  const activeBg = color === 'green' ? 'rgba(74,156,106,0.2)' : 'rgba(126,184,212,0.2)'
-
+  const activeColor = color === 'green' ? 'var(--green, #36d399)' : 'var(--khaki)'
+  const activeBg = color === 'green' ? 'rgba(54,211,153,0.2)' : 'rgba(35,227,192,0.2)'
   return (
     <label style={{ position: 'relative', width: 36, height: 20, display: 'inline-block', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.35 : 1 }}>
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={e => onChange?.(e.target.checked)}
-        style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
-      />
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: checked ? activeBg : 'var(--surface2)',
-        border: `1px solid ${checked ? activeColor : 'var(--border)'}`,
-        borderRadius: 20,
-        transition: 'background 0.2s, border-color 0.2s'
-      }}>
-        <div style={{
-          position: 'absolute', top: 2,
-          left: checked ? 18 : 2,
-          width: 14, height: 14, borderRadius: '50%',
-          background: checked ? activeColor : 'var(--text-dim)',
-          transition: 'left 0.2s, background 0.2s'
-        }} />
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={e => onChange?.(e.target.checked)} style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
+      <div style={{ position: 'absolute', inset: 0, background: checked ? activeBg : 'var(--surface2)', border: `1px solid ${checked ? activeColor : 'var(--border)'}`, borderRadius: 20, transition: 'background 0.2s, border-color 0.2s' }}>
+        <div style={{ position: 'absolute', top: 2, left: checked ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: checked ? activeColor : 'var(--text-dim)', transition: 'left 0.2s, background 0.2s' }} />
       </div>
     </label>
   )

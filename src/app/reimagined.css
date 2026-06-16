@@ -77,6 +77,19 @@
 .as-main .hero { border-radius: 13px; border: 1px solid rgba(35,227,192,0.4); overflow: hidden; margin-bottom: 16px; background: linear-gradient(120deg, rgba(35,227,192,0.10), rgba(139,123,255,0.08)); }
 .as-main .hero .inner { padding: 16px 18px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 
+/* tabs / inputs / user cell — shared across rebuilt pages */
+.as-main .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.as-main .tb { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); padding: 5px 11px; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; background: none; font-family: var(--font-body); }
+.as-main .tb:hover { color: var(--text-dim); }
+.as-main .tb.on { color: var(--khaki); border-color: rgba(35,227,192,0.42); background: rgba(35,227,192,0.12); }
+.as-main .rinput { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--font-body); font-size: 12px; padding: 7px 11px; outline: none; }
+.as-main .rinput:focus { border-color: rgba(35,227,192,0.42); }
+.as-main .user { display: flex; align-items: center; gap: 10px; }
+.as-main .av { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; background: var(--surface2); color: var(--khaki); overflow: hidden; }
+.as-main .av img { width: 100%; height: 100%; object-fit: cover; }
+.as-main .user .nm { color: var(--text); font-size: 13px; }
+.as-main .user .sub { color: var(--text-muted); font-size: 10px; }
+
 /* feed */
 .as-main .feeditem { display: flex; gap: 9px; padding: 9px 15px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text-dim); }
 .as-main .feeditem:last-child { border: none; }
