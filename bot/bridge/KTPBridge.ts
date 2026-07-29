@@ -8,6 +8,9 @@ import { supabase } from '../core/supabase'
 // side's players (name + Steam ID). So the drafted teams playing a given match are
 // resolved by mapping each side's Steam IDs -> users -> draft_picks -> team_id, and
 // taking whichever team_id has a majority of that side's players.
+//
+// Every parsed embed (12man or draft) is also logged to ktp_debug_log so parsing can
+// be verified against real match traffic even when no draft tournament is live.
 
 interface ParsedKTP {
   alliesSteamIds: string[]
@@ -88,15 +91,76 @@ function majorityTeam(picks: { user_id: string; team_id: string }[], sideUserIds
   return sorted.length ? sorted[0][0] : null
 }
 
+interface DebugLogRow {
+  is_12man: boolean
+  winning_side: string | null
+  score_allies: number
+  score_axis: number
+  half1_allies: number | null
+  half1_axis: number | null
+  half2_allies: number | null
+  half2_axis: number | null
+  map: string | null
+  ktp_match_id: string | null
+  allies_steam_ids: string[]
+  axis_steam_ids: string[]
+  resolved_team_allies: string | null
+  resolved_team_axis: string | null
+  matched_tournament_match_id: string | null
+  report_status: string
+  report_detail: string | null
+}
+
+async function logDebug(row: DebugLogRow) {
+  try {
+    const { error } = await supabase.from('ktp_debug_log').insert(row)
+    if (error) console.error('[KTPBridge] debug log insert failed:', error)
+  } catch (err) {
+    console.error('[KTPBridge] debug log insert errored:', err)
+  }
+}
+
 export async function handleKTPMessage(message: Message) {
   if (message.embeds.length === 0) return
 
   for (const embed of message.embeds) {
     const parsed = parseKTP(embed)
-    if (!parsed || parsed.is12Man || !parsed.winningSide) continue
+    if (!parsed) continue // not a MATCH COMPLETE embed at all
+
+    const base: DebugLogRow = {
+      is_12man: parsed.is12Man,
+      winning_side: parsed.winningSide,
+      score_allies: parsed.scoreAllies,
+      score_axis: parsed.scoreAxis,
+      half1_allies: parsed.half1Allies,
+      half1_axis: parsed.half1Axis,
+      half2_allies: parsed.half2Allies,
+      half2_axis: parsed.half2Axis,
+      map: parsed.map,
+      ktp_match_id: parsed.ktpMatchId,
+      allies_steam_ids: parsed.alliesSteamIds,
+      axis_steam_ids: parsed.axisSteamIds,
+      resolved_team_allies: null,
+      resolved_team_axis: null,
+      matched_tournament_match_id: null,
+      report_status: 'unknown',
+      report_detail: null,
+    }
+
+    if (parsed.is12Man) {
+      await logDebug({ ...base, report_status: '12man_skipped' })
+      continue
+    }
+    if (!parsed.winningSide) {
+      await logDebug({ ...base, report_status: 'no_winner_parsed' })
+      continue
+    }
 
     const allSteamIds = [...parsed.alliesSteamIds, ...parsed.axisSteamIds]
-    if (!allSteamIds.length) continue
+    if (!allSteamIds.length) {
+      await logDebug({ ...base, report_status: 'no_steam_ids_found' })
+      continue
+    }
 
     // Fetch pending matches first so draft_picks can be scoped to teams that are
     // actually in a live match — otherwise a player's picks from unrelated past
@@ -105,18 +169,33 @@ export async function handleKTPMessage(message: Message) {
       .from('tournament_matches')
       .select('id, tournament_id, team1_id, team2_id')
       .eq('status', 'pending')
-    if (matchErr) { console.error('[KTPBridge] match lookup failed:', matchErr); continue }
-    if (!matches?.length) continue
+    if (matchErr) {
+      await logDebug({ ...base, report_status: 'error', report_detail: `match lookup: ${matchErr.message}` })
+      continue
+    }
+    if (!matches?.length) {
+      await logDebug({ ...base, report_status: 'no_pending_matches' })
+      continue
+    }
 
     const candidateTeamIds = [...new Set(matches.flatMap(m => [m.team1_id, m.team2_id]).filter(Boolean))]
-    if (!candidateTeamIds.length) continue
+    if (!candidateTeamIds.length) {
+      await logDebug({ ...base, report_status: 'no_candidate_teams' })
+      continue
+    }
 
     const { data: users, error: usersErr } = await supabase
       .from('users')
       .select('id, steam_id_64')
       .in('steam_id_64', allSteamIds)
-    if (usersErr) { console.error('[KTPBridge] users lookup failed:', usersErr); continue }
-    if (!users?.length) continue
+    if (usersErr) {
+      await logDebug({ ...base, report_status: 'error', report_detail: `users lookup: ${usersErr.message}` })
+      continue
+    }
+    if (!users?.length) {
+      await logDebug({ ...base, report_status: 'no_users_matched' })
+      continue
+    }
 
     const steamToUser = new Map(users.map((u: any) => [u.steam_id_64, u.id as string]))
     const alliesUserIds = new Set(
@@ -125,25 +204,54 @@ export async function handleKTPMessage(message: Message) {
     const axisUserIds = new Set(
       parsed.axisSteamIds.map(id => steamToUser.get(id)).filter((id): id is string => !!id)
     )
-    if (!alliesUserIds.size || !axisUserIds.size) continue
+    if (!alliesUserIds.size || !axisUserIds.size) {
+      await logDebug({
+        ...base,
+        report_status: 'incomplete_side_users',
+        report_detail: `allies=${alliesUserIds.size} axis=${axisUserIds.size}`,
+      })
+      continue
+    }
 
     const { data: picks, error: picksErr } = await supabase
       .from('draft_picks')
       .select('user_id, team_id')
       .in('user_id', [...alliesUserIds, ...axisUserIds])
       .in('team_id', candidateTeamIds)
-    if (picksErr) { console.error('[KTPBridge] draft_picks lookup failed:', picksErr); continue }
-    if (!picks?.length) continue
+    if (picksErr) {
+      await logDebug({ ...base, report_status: 'error', report_detail: `draft_picks lookup: ${picksErr.message}` })
+      continue
+    }
+    if (!picks?.length) {
+      await logDebug({ ...base, report_status: 'no_draft_picks_found' })
+      continue
+    }
 
     const teamAllies = majorityTeam(picks, alliesUserIds)
     const teamAxis = majorityTeam(picks, axisUserIds)
-    if (!teamAllies || !teamAxis || teamAllies === teamAxis) continue
+    if (!teamAllies || !teamAxis || teamAllies === teamAxis) {
+      await logDebug({
+        ...base,
+        resolved_team_allies: teamAllies,
+        resolved_team_axis: teamAxis,
+        report_status: 'team_resolution_failed',
+      })
+      continue
+    }
 
     const match = matches.find(m =>
       (m.team1_id === teamAllies && m.team2_id === teamAxis) ||
       (m.team1_id === teamAxis && m.team2_id === teamAllies)
     )
-    if (!match) continue
+    if (!match) {
+      await logDebug({
+        ...base,
+        resolved_team_allies: teamAllies,
+        resolved_team_axis: teamAxis,
+        report_status: 'no_matching_pending_match',
+      })
+      continue
+    }
 
     const team1IsAllies = match.team1_id === teamAllies
     const winnerId = parsed.winningSide === 'allies' ? teamAllies : teamAxis
@@ -171,11 +279,35 @@ export async function handleKTPMessage(message: Message) {
 
       if (res.ok) {
         console.log(`[KTPBridge] Reported result for match ${match.id}: ${parsed.scoreAllies}-${parsed.scoreAxis}`)
+        await logDebug({
+          ...base,
+          resolved_team_allies: teamAllies,
+          resolved_team_axis: teamAxis,
+          matched_tournament_match_id: match.id,
+          report_status: 'reported',
+        })
       } else {
-        console.error(`[KTPBridge] Report failed for match ${match.id}: ${res.status} ${await res.text().catch(() => '')}`)
+        const text = await res.text().catch(() => '')
+        console.error(`[KTPBridge] Report failed for match ${match.id}: ${res.status} ${text}`)
+        await logDebug({
+          ...base,
+          resolved_team_allies: teamAllies,
+          resolved_team_axis: teamAxis,
+          matched_tournament_match_id: match.id,
+          report_status: 'report_failed',
+          report_detail: `${res.status} ${text}`,
+        })
       }
     } catch (err) {
       console.error(`[KTPBridge] Report request errored for match ${match.id}:`, err)
+      await logDebug({
+        ...base,
+        resolved_team_allies: teamAllies,
+        resolved_team_axis: teamAxis,
+        matched_tournament_match_id: match.id,
+        report_status: 'report_error',
+        report_detail: String(err),
+      })
     }
   }
 }
