@@ -144,6 +144,22 @@ export async function handleKTPMessage(message: Message) {
     const parsed = parseKTP(embed)
     if (!parsed) continue // not a MATCH COMPLETE embed at all
 
+    // The reconciliation sweep in index.ts re-scans recent channel history on a timer,
+    // which would otherwise re-process (and re-log) the same already-handled match every
+    // pass. Skip entirely once a ktp_match_id has already been logged.
+    if (parsed.ktpMatchId) {
+      const { data: existing, error: existingErr } = await supabase
+        .from('ktp_debug_log')
+        .select('id')
+        .eq('ktp_match_id', parsed.ktpMatchId)
+        .limit(1)
+      if (existingErr) {
+        console.error('[KTPBridge] dedup lookup failed:', existingErr)
+      } else if (existing?.length) {
+        continue
+      }
+    }
+
     const base: DebugLogRow = {
       message_created_at: message.createdAt.toISOString(),
       is_12man: parsed.is12Man,
