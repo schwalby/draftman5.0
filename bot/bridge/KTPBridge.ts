@@ -12,9 +12,14 @@ import { supabase } from '../core/supabase'
 // Every parsed embed (12man or draft) is also logged to ktp_debug_log so parsing can
 // be verified against real match traffic even when no draft tournament is live.
 
+interface SteamPlayer {
+  raw: string    // as printed in the embed, e.g. "STEAM_0:1:2034456" -- for display
+  steam64: string // converted form -- matches users.steam_id_64 for lookups
+}
+
 interface ParsedKTP {
-  alliesSteamIds: string[]
-  axisSteamIds: string[]
+  alliesPlayers: SteamPlayer[]
+  axisPlayers: SteamPlayer[]
   scoreAllies: number
   scoreAxis: number
   half1Allies: number | null
@@ -37,15 +42,15 @@ function toSteam64(input: string): string | null {
   return null
 }
 
-function extractSteamIds(text: string): string[] {
-  const ids: string[] = []
+function extractSteamIds(text: string): SteamPlayer[] {
+  const players: SteamPlayer[] = []
   const re = /STEAM_0:[01]:\d+/gi
   let m
   while ((m = re.exec(text)) !== null) {
-    const id = toSteam64(m[0])
-    if (id) ids.push(id)
+    const steam64 = toSteam64(m[0])
+    if (steam64) players.push({ raw: m[0], steam64 })
   }
-  return ids
+  return players
 }
 
 function parseKTP(embed: Embed): ParsedKTP | null {
@@ -65,8 +70,8 @@ function parseKTP(embed: Embed): ParsedKTP | null {
   const half2Match = scoresF.match(/2nd Half:\s*(\d+)\s*-\s*(\d+)/i)
 
   return {
-    alliesSteamIds: alliesF ? extractSteamIds(alliesF.value) : [],
-    axisSteamIds:   axisF   ? extractSteamIds(axisF.value)   : [],
+    alliesPlayers:  alliesF ? extractSteamIds(alliesF.value) : [],
+    axisPlayers:    axisF   ? extractSteamIds(axisF.value)   : [],
     scoreAllies:    scoreMatch ? parseInt(scoreMatch[1]) : 0,
     scoreAxis:      scoreMatch ? parseInt(scoreMatch[2]) : 0,
     half1Allies:    half1Match ? parseInt(half1Match[1]) : null,
@@ -138,8 +143,8 @@ export async function handleKTPMessage(message: Message) {
       half2_axis: parsed.half2Axis,
       map: parsed.map,
       ktp_match_id: parsed.ktpMatchId,
-      allies_steam_ids: parsed.alliesSteamIds,
-      axis_steam_ids: parsed.axisSteamIds,
+      allies_steam_ids: parsed.alliesPlayers.map(p => p.raw),
+      axis_steam_ids: parsed.axisPlayers.map(p => p.raw),
       resolved_team_allies: null,
       resolved_team_axis: null,
       matched_tournament_match_id: null,
@@ -156,7 +161,7 @@ export async function handleKTPMessage(message: Message) {
       continue
     }
 
-    const allSteamIds = [...parsed.alliesSteamIds, ...parsed.axisSteamIds]
+    const allSteamIds = [...parsed.alliesPlayers, ...parsed.axisPlayers].map(p => p.steam64)
     if (!allSteamIds.length) {
       await logDebug({ ...base, report_status: 'no_steam_ids_found' })
       continue
@@ -199,10 +204,10 @@ export async function handleKTPMessage(message: Message) {
 
     const steamToUser = new Map(users.map((u: any) => [u.steam_id_64, u.id as string]))
     const alliesUserIds = new Set(
-      parsed.alliesSteamIds.map(id => steamToUser.get(id)).filter((id): id is string => !!id)
+      parsed.alliesPlayers.map(p => steamToUser.get(p.steam64)).filter((id): id is string => !!id)
     )
     const axisUserIds = new Set(
-      parsed.axisSteamIds.map(id => steamToUser.get(id)).filter((id): id is string => !!id)
+      parsed.axisPlayers.map(p => steamToUser.get(p.steam64)).filter((id): id is string => !!id)
     )
     if (!alliesUserIds.size || !axisUserIds.size) {
       await logDebug({

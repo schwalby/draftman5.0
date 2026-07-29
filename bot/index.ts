@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { Events, Interaction, ButtonInteraction } from 'discord.js'
+import { Events, Interaction, ButtonInteraction, Message, PartialMessage } from 'discord.js'
 import { client } from './core/client'
 import { classEmojis, resolveEmojis } from './core/emojis'
 import {
@@ -86,10 +86,22 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   }
 })
 
-client.on(Events.MessageCreate, async message => {
-  if (message.channelId !== RESULTS_CHANNEL_ID) return
-  if (!message.author.bot) return
-  await handleKTPMessage(message)
-})
+async function processResultsMessage(message: Message | PartialMessage) {
+  try {
+    const full = message.partial ? await message.fetch() : message
+    if (full.channelId !== RESULTS_CHANNEL_ID) return
+    if (!full.author?.bot) return
+    await handleKTPMessage(full)
+  } catch (err) {
+    console.error('[results channel] Failed to process message:', err)
+  }
+}
+
+client.on(Events.MessageCreate, message => { void processResultsMessage(message) })
+
+// KTP Score Bot edits its scoreboard message in place as the match progresses and only
+// reaches "MATCH COMPLETE" via an edit, not a new message -- without this listener the
+// bridge would only ever see the message's pre-completion state.
+client.on(Events.MessageUpdate, (_oldMessage, newMessage) => { void processResultsMessage(newMessage) })
 
 client.login(process.env.DISCORD_BOT_TOKEN)
