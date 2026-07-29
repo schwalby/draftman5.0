@@ -14,7 +14,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('ktp_debug_log')
     .select('*')
-    .order('created_at', { ascending: false })
+    .order('message_created_at', { ascending: false, nullsFirst: false })
     .limit(200)
 
   if (error) {

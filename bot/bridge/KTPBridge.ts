@@ -13,6 +13,7 @@ import { supabase } from '../core/supabase'
 // be verified against real match traffic even when no draft tournament is live.
 
 interface SteamPlayer {
+  name: string    // display name as posted in the embed, e.g. "jRich![sk]"
   raw: string    // as printed in the embed, e.g. "STEAM_0:1:2034456" -- for display
   steam64: string // converted form -- matches users.steam_id_64 for lookups
 }
@@ -28,6 +29,7 @@ interface ParsedKTP {
   half2Axis: number | null
   winningSide: 'allies' | 'axis' | null
   map: string | null
+  server: string | null
   ktpMatchId: string | null
   is12Man: boolean
 }
@@ -42,13 +44,17 @@ function toSteam64(input: string): string | null {
   return null
 }
 
-function extractSteamIds(text: string): SteamPlayer[] {
+// Matches "<name> (STEAM_0:X:Y)" per player line -- name is whatever precedes the
+// parenthesized Steam ID, up to the previous comma/newline, with any bullet stripped.
+function extractPlayers(text: string): SteamPlayer[] {
   const players: SteamPlayer[] = []
-  const re = /STEAM_0:[01]:\d+/gi
+  const re = /([^\n,]+?)\s*\((STEAM_0:[01]:\d+)\)/gi
   let m
   while ((m = re.exec(text)) !== null) {
-    const steam64 = toSteam64(m[0])
-    if (steam64) players.push({ raw: m[0], steam64 })
+    const steam64 = toSteam64(m[2])
+    if (!steam64) continue
+    const name = m[1].replace(/^[-•*]\s*/, '').trim()
+    players.push({ name, raw: m[2], steam64 })
   }
   return players
 }
@@ -63,6 +69,7 @@ function parseKTP(embed: Embed): ParsedKTP | null {
   const footer      = embed.footer?.text ?? ''
   const mapMatch   = footer.match(/Map:\s*([^\s|]+)/i)
   const ktpMatch   = footer.match(/Match:\s*([^\s|]+)/i)
+  const serverMatch = footer.match(/Server:\s*(.+)$/i)
   const alliesF    = fields.find(f => /allies/i.test(f.name))
   const axisF      = fields.find(f => /axis/i.test(f.name))
   const scoresF    = fields.find(f => f.name.toLowerCase() === 'scores')?.value ?? ''
@@ -70,8 +77,8 @@ function parseKTP(embed: Embed): ParsedKTP | null {
   const half2Match = scoresF.match(/2nd Half:\s*(\d+)\s*-\s*(\d+)/i)
 
   return {
-    alliesPlayers:  alliesF ? extractSteamIds(alliesF.value) : [],
-    axisPlayers:    axisF   ? extractSteamIds(axisF.value)   : [],
+    alliesPlayers:  alliesF ? extractPlayers(alliesF.value) : [],
+    axisPlayers:    axisF   ? extractPlayers(axisF.value)   : [],
     scoreAllies:    scoreMatch ? parseInt(scoreMatch[1]) : 0,
     scoreAxis:      scoreMatch ? parseInt(scoreMatch[2]) : 0,
     half1Allies:    half1Match ? parseInt(half1Match[1]) : null,
@@ -80,6 +87,7 @@ function parseKTP(embed: Embed): ParsedKTP | null {
     half2Axis:      half2Match ? parseInt(half2Match[2]) : null,
     winningSide:    winMatch ? (winMatch[1].toLowerCase() as 'allies' | 'axis') : null,
     map:            mapMatch ? mapMatch[1] : null,
+    server:         serverMatch ? serverMatch[1].trim() : null,
     ktpMatchId:     ktpMatch ? ktpMatch[1] : null,
     is12Man:        footer.includes('12MAN'),
   }
@@ -97,6 +105,7 @@ function majorityTeam(picks: { user_id: string; team_id: string }[], sideUserIds
 }
 
 interface DebugLogRow {
+  message_created_at: string
   is_12man: boolean
   winning_side: string | null
   score_allies: number
@@ -106,9 +115,12 @@ interface DebugLogRow {
   half2_allies: number | null
   half2_axis: number | null
   map: string | null
+  server: string | null
   ktp_match_id: string | null
   allies_steam_ids: string[]
   axis_steam_ids: string[]
+  allies_names: string[]
+  axis_names: string[]
   resolved_team_allies: string | null
   resolved_team_axis: string | null
   matched_tournament_match_id: string | null
@@ -133,6 +145,7 @@ export async function handleKTPMessage(message: Message) {
     if (!parsed) continue // not a MATCH COMPLETE embed at all
 
     const base: DebugLogRow = {
+      message_created_at: message.createdAt.toISOString(),
       is_12man: parsed.is12Man,
       winning_side: parsed.winningSide,
       score_allies: parsed.scoreAllies,
@@ -142,9 +155,12 @@ export async function handleKTPMessage(message: Message) {
       half2_allies: parsed.half2Allies,
       half2_axis: parsed.half2Axis,
       map: parsed.map,
+      server: parsed.server,
       ktp_match_id: parsed.ktpMatchId,
       allies_steam_ids: parsed.alliesPlayers.map(p => p.raw),
       axis_steam_ids: parsed.axisPlayers.map(p => p.raw),
+      allies_names: parsed.alliesPlayers.map(p => p.name),
+      axis_names: parsed.axisPlayers.map(p => p.name),
       resolved_team_allies: null,
       resolved_team_axis: null,
       matched_tournament_match_id: null,

@@ -8,6 +8,7 @@ import { Topbar } from '@/components/Topbar'
 interface DebugRow {
   id: string
   created_at: string
+  message_created_at: string | null
   is_12man: boolean
   winning_side: string | null
   score_allies: number
@@ -17,9 +18,12 @@ interface DebugRow {
   half2_allies: number | null
   half2_axis: number | null
   map: string | null
+  server: string | null
   ktp_match_id: string | null
   allies_steam_ids: string[]
   axis_steam_ids: string[]
+  allies_names: string[]
+  axis_names: string[]
   resolved_team_allies: string | null
   resolved_team_axis: string | null
   matched_tournament_match_id: string | null
@@ -56,6 +60,11 @@ function formatTime(iso: string): string {
 function shortId(id: string | null): string {
   if (!id) return '—'
   return id.slice(0, 8)
+}
+
+function formatPlayers(names: string[], steamIds: string[]): string {
+  if (!steamIds.length) return '—'
+  return steamIds.map((id, i) => `${names[i] ?? '?'} (${id})`).join(', ')
 }
 
 export default function KTPDebugPage() {
@@ -200,20 +209,25 @@ export default function KTPDebugPage() {
                           {row.ktp_match_id}
                         </span>
                       )}
+                      {row.server && (
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--text-muted)' }}>
+                          {row.server}
+                        </span>
+                      )}
                     </div>
                     <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
-                      {formatTime(row.created_at)}
+                      {formatTime(row.message_created_at ?? row.created_at)}
                     </span>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--text-dim)' }}>
                     <div>
                       <span style={{ color: 'var(--text-muted)' }}>Allies ({row.allies_steam_ids.length}): </span>
-                      {row.allies_steam_ids.length ? row.allies_steam_ids.join(', ') : '—'}
+                      {formatPlayers(row.allies_names, row.allies_steam_ids)}
                     </div>
                     <div>
                       <span style={{ color: 'var(--text-muted)' }}>Axis ({row.axis_steam_ids.length}): </span>
-                      {row.axis_steam_ids.length ? row.axis_steam_ids.join(', ') : '—'}
+                      {formatPlayers(row.axis_names, row.axis_steam_ids)}
                     </div>
                   </div>
 
