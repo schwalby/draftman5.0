@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { Events, Interaction, ButtonInteraction, Message, PartialMessage } from 'discord.js'
+import { Events, Interaction, ButtonInteraction, Message, PartialMessage, TextChannel } from 'discord.js'
 import { client } from './core/client'
 import { classEmojis, resolveEmojis } from './core/emojis'
 import {
@@ -18,6 +18,34 @@ import { handleKTPMessage } from './bridge/KTPBridge'
 const RESULTS_CHANNEL_ID = process.env.RESULTS_CHANNEL_ID!
 const GUILD_ID = process.env.GUILD_ID!
 
+// Safety net for the MessageCreate/MessageUpdate listeners below: the gateway connection
+// can drop for a few seconds (restart, reconnect, resume gap) and miss an edit event
+// during that window. Re-scanning recent history is safe to repeat -- once a match is
+// reported its tournament_matches row leaves 'pending', so handleKTPMessage just finds
+// no candidate match on a re-scan instead of double-reporting.
+const RECONCILE_INTERVAL_MS = 15 * 60 * 1000
+const RECONCILE_MESSAGE_LIMIT = 50
+
+async function reconcileResultsChannel() {
+  try {
+    const channel = await client.channels.fetch(RESULTS_CHANNEL_ID)
+    if (!channel || !(channel instanceof TextChannel)) {
+      console.warn('[reconcile] Results channel is not a text channel or could not be fetched')
+      return
+    }
+    const batch = await channel.messages.fetch({ limit: RECONCILE_MESSAGE_LIMIT })
+    let scanned = 0
+    for (const message of batch.values()) {
+      if (!message.author.bot) continue
+      scanned++
+      await handleKTPMessage(message)
+    }
+    console.log(`[reconcile] Re-scanned ${scanned} bot messages in results channel`)
+  } catch (err) {
+    console.error('[reconcile] Failed to re-scan results channel:', err)
+  }
+}
+
 client.once(Events.ClientReady, async () => {
   console.log(`[DRAFTMAN5.0] Online as ${client.user?.tag}`)
   try {
@@ -35,6 +63,9 @@ client.once(Events.ClientReady, async () => {
   } catch (err) {
     console.warn('[emojis] Failed to fetch guild emojis:', err)
   }
+
+  void reconcileResultsChannel()
+  setInterval(() => { void reconcileResultsChannel() }, RECONCILE_INTERVAL_MS)
 })
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
